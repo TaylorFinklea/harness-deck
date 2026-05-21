@@ -1,0 +1,98 @@
+{{define "page" -}}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>harness-deck · {{.Report.Title}}</title>
+<meta name="viewport" content="width=1280" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>{{.CSS}}</style>
+</head>
+<body>
+
+<header class="term-chrome">
+  <div class="titlebar">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <div class="title"><b>harness-deck</b> · {{.Report.Project}} · agent {{with .Report.Agent}}{{.}}{{else}}{{$.Report.Harness}}{{end}}</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+  <div class="tabbar">
+    <div class="tab active"><span class="num">1</span> {{.Report.Title}}</div>
+  </div>
+  <div class="keyhints vim-no-search">
+    <span><kbd>j</kbd><kbd>k</kbd> scroll</span>
+    <span><kbd>]</kbd><kbd>[</kbd> section</span>
+    <span><kbd>}</kbd><kbd>{</kbd> heading</span>
+    <span><kbd>gg</kbd>/<kbd>G</kbd> top/end</span>
+    <span><kbd>/</kbd> search</span>
+    <span><kbd>:</kbd> command</span>
+    <span><kbd>?</kbd> help</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar vim-no-search">
+    <div class="sidebar-section">
+      <div class="sidebar-title">contents</div>
+      <ol class="toc">
+        {{range .TOC}}<li onclick="location.hash='{{.Anchor}}'"><span class="n">{{.Num}}</span><span class="dots">{{.Title}} ·······································</span><span class="pg">§</span></li>
+        {{end}}
+      </ol>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">run</div>
+      <div style="font-size:11px; line-height:1.7; color: var(--tn-fg-dark);">
+        {{range .Run}}<div><span style="color:var(--tn-comment)">{{.Key}}</span> <span style="color:var(--tn-cyan)">{{.Value}}</span></div>
+        {{end}}
+      </div>
+    </div>
+  </aside>
+
+  <main class="content">
+    <div class="report-banner" data-vim-section data-vim-heading id="sec-banner">
+      <div>
+        {{with .Banner.Kicker}}<div class="kicker">{{.}}</div>{{end}}
+        <h1>{{with .Banner.Scope}}<span class="scope">{{.}}</span> {{end}}{{.Banner.Title}}</h1>
+      </div>
+      <div class="meta">
+        {{range .Banner.Meta}}<div><b>{{.Key}}</b> {{.Value}}</div>
+        {{end}}
+      </div>
+    </div>
+
+    {{range .Blocks}}{{.}}
+    {{end}}
+  </main>
+</div>
+
+<div class="statusline" id="status" data-vim-mode="NORMAL">
+  <span class="seg mode" id="mode">▌ NORMAL</span>
+  <span class="seg file">{{.Report.ID}}</span>
+  <span class="seg info">{{.Report.Status}}</span>
+  <span class="spacer"></span>
+  <span class="seg info"><span id="pct">0%</span></span>
+  <span class="seg pos">ln <span id="ln">1</span>:<span id="col">1</span></span>
+</div>
+
+<script>{{.JS}}</script>
+<script>
+  setInterval(() => {
+    const d = new Date(), p = (n) => String(n).padStart(2, '0');
+    document.getElementById('clock').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }, 1000);
+  const ln = document.getElementById('ln'), pct = document.getElementById('pct'), modeEl = document.getElementById('mode');
+  const updatePos = () => {
+    const s = document.scrollingElement;
+    const p = s.scrollHeight > s.clientHeight ? Math.round(s.scrollTop / (s.scrollHeight - s.clientHeight) * 100) : 0;
+    pct.textContent = p + '%';
+    ln.textContent = String(Math.round(s.scrollTop / 22) + 1);
+  };
+  document.addEventListener('scroll', updatePos, { passive: true });
+  updatePos();
+  VimNav.init({ statusEl: '#status', onMode: (m) => { modeEl.textContent = '▌ ' + m; } });
+</script>
+</body>
+</html>
+{{- end}}

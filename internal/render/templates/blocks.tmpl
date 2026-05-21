@@ -1,0 +1,155 @@
+{{/* Block panel templates. Each receives a render.blockView:
+     .Num .ID .Title .Pills .Body  — .Body is the concrete *manifest.XxxBlock. */}}
+
+{{define "panel-head" -}}
+<div class="panel-head"><span class="sigil">§</span><span class="num">{{.Num}}</span> <span class="title-text">{{.Title}}</span>
+{{- if .Pills}}<div class="right">{{range .Pills}}<span class="pill {{.Level}}">{{.Text}}</span> {{end}}</div>{{end -}}
+</div>
+{{- end}}
+
+{{define "pills" -}}
+{{range .}}<span class="pill {{.Level}}">{{.Text}}</span> {{end}}
+{{- end}}
+
+{{define "bars" -}}
+<div class="barchart">
+{{range .}}<div class="row"><span class="lbl">{{.Label}}</span><div class="bar"><i style="width: {{pct .Pct}}%{{if .Color}}; background: var(--tn-{{.Color}}){{end}}"></i></div><span class="val">{{pct .Pct}}%</span></div>
+{{end}}</div>
+{{- end}}
+
+{{define "callout-inner" -}}
+<div class="callout {{if ne .Level "warn"}}{{.Level}}{{end}}"><span class="tag">[{{if .Tag}}{{.Tag}}{{else}}{{upper .Level}}{{end}}]</span> {{mdInline .Markdown}}</div>
+{{- end}}
+
+{{define "block-prose" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body prose">{{md .Body.Markdown}}</div>
+</section>
+{{- end}}
+
+{{define "block-metrics" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="metric-grid">
+{{range .Body.Metrics}}<div class="metric">
+<div class="label">{{.Label}}</div>
+<div class="value"{{if .Color}} style="color: var(--tn-{{.Color}})"{{end}}>{{.Value}}{{if .Unit}} <span class="unit">{{.Unit}}</span>{{end}}</div>
+{{if .Delta}}<div class="delta {{.Trend}}">{{.Delta}}</div>{{end}}
+{{if .Spark}}<svg class="spark" viewBox="0 0 80 16" preserveAspectRatio="none"><path d="{{sparkPath .Spark}}" stroke="var(--tn-{{if .Color}}{{.Color}}{{else if eq .Trend "pos"}}green{{else if eq .Trend "neg"}}red{{else}}blue{{end}})"/></svg>{{end}}
+</div>
+{{end}}</div>
+{{if .Body.Bars}}<div class="panel-body tight" style="border-top:1px solid var(--tn-bg-highlight)">{{template "bars" .Body.Bars}}</div>{{end}}
+</section>
+{{- end}}
+
+{{define "block-risks" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+<div class="panel-head"><span class="sigil">§</span><span class="num">{{.Num}}</span> <span class="title-text">{{.Title}}</span>
+<div class="right">
+{{- $rs := .Body.Risks -}}
+{{if riskCount $rs "crit"}}<span class="pill err">{{riskCount $rs "crit"}} crit</span> {{end}}
+{{- if riskCount $rs "high"}}<span class="pill warn">{{riskCount $rs "high"}} high</span> {{end}}
+{{- $lo := add (riskCount $rs "med") (riskCount $rs "low")}}{{if $lo}}<span class="pill">{{$lo}} low/med</span> {{end}}
+{{- template "pills" .Pills}}</div>
+</div>
+<div class="panel-body">
+{{range .Body.Risks}}<div class="pbar">
+<div class="lbl"><span class="sev {{.Severity}}">{{upper .Severity}}</span>{{.Label}}</div>
+<div class="ascii">{{$ab := asciiBar .Pct}}<span class="{{if eq .Severity "crit"}}crit{{else if eq .Severity "high"}}filled{{else if eq .Severity "med"}}med{{else}}low{{end}}">{{$ab.Filled}}</span><span style="opacity:.4">{{$ab.Empty}}</span></div>
+<div class="pct">{{pct .Pct}}%</div>
+</div>
+{{end}}
+{{range .Body.Callouts}}{{template "callout-inner" .}}
+{{end}}
+</div>
+</section>
+{{- end}}
+
+{{define "block-diff" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+<div class="panel-head"><span class="sigil">§</span><span class="num">{{.Num}}</span> <span class="title-text">{{.Title}}</span>
+{{- $d := diffStat .Body}}<div class="right"><span class="pill ok">+ {{$d.Added}}</span> <span class="pill err">− {{$d.Removed}}</span> <span class="pill">{{$d.Files}} files</span> {{template "pills" .Pills}}</div>
+</div>
+<div class="panel-body" style="padding-top:0">
+{{range .Body.Files}}<div class="diff" style="margin-top: 12px">
+<div class="file">{{.Path}}{{if .Lang}} <span class="lang">[{{.Lang}}]</span>{{end}}</div>
+<pre>{{range .Lines}}<span class="line {{.Kind}}"><span class="ln">{{if eq .Kind "add"}}{{.New}}{{else if eq .Kind "del"}}{{.Old}}{{else if eq .Kind "ctx"}}{{or .New .Old}}{{end}}</span><span class="sig">{{if eq .Kind "add"}}+{{else if eq .Kind "del"}}-{{else if eq .Kind "hunk"}}@@{{else}} {{end}}</span><span class="body">{{.Text}}</span></span>{{end}}</pre>
+</div>
+{{end}}
+</div>
+</section>
+{{- end}}
+
+{{define "block-timeline" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body">
+<div class="timeline">
+{{range $i, $e := .Body.Events}}<div class="row"><span class="t">{{$e.Time}}</span><span class="b {{$e.Kind}}">{{glyph $i (len $.Body.Events) $e.Kind}}</span><span class="msg">{{mdInline $e.Markdown}}</span></div>
+{{end}}</div>
+</div>
+</section>
+{{- end}}
+
+{{define "block-compare" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="compare">
+<div class="a"><h4><span class="tag">{{.Body.A.Tag}}</span> {{.Body.A.Title}}</h4><ul>{{range .Body.A.Items}}<li class="{{.Kind}}">{{.Text}}</li>{{end}}</ul></div>
+<div class="b"><h4><span class="tag">{{.Body.B.Tag}}</span> {{.Body.B.Title}}</h4><ul>{{range .Body.B.Items}}<li class="{{.Kind}}">{{.Text}}</li>{{end}}</ul></div>
+</div>
+</section>
+{{- end}}
+
+{{define "block-recommendations" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body recs">
+{{range $i, $r := .Body.Items}}<div class="rec"><span class="id">{{if $r.ID}}{{$r.ID}}{{else}}#{{add $i 1}}{{end}}</span>{{if $r.Owner}}<span class="own {{$r.Owner}}">{{$r.Owner}}</span>{{else}}<span></span>{{end}}<div>{{mdInline $r.Markdown}}</div></div>
+{{end}}</div>
+</section>
+{{- end}}
+
+{{define "block-callout" -}}
+<div class="callout {{if ne .Body.Level "warn"}}{{.Body.Level}}{{end}}" data-vim-section id="{{.ID}}" style="margin-bottom:16px"><span class="tag">[{{if .Body.Tag}}{{.Body.Tag}}{{else}}{{upper .Body.Level}}{{end}}]</span> {{mdInline .Body.Markdown}}</div>
+{{- end}}
+
+{{define "block-barchart" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body">{{template "bars" .Body.Bars}}</div>
+</section>
+{{- end}}
+
+{{define "block-table" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body" style="padding:0">
+<table class="dtable">
+<thead><tr>{{range .Body.Columns}}<th>{{.}}</th>{{end}}</tr></thead>
+<tbody>{{range .Body.Rows}}<tr>{{range .}}<td>{{mdInline .}}</td>{{end}}</tr>
+{{end}}</tbody>
+</table>
+</div>
+</section>
+{{- end}}
+
+{{define "block-html" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body">{{safeHTML .Body.HTML}}</div>
+</section>
+{{- end}}
+
+{{define "block-fallback" -}}
+<section class="panel block-fallback" data-vim-section id="{{.ID}}">
+<div class="panel-head"><span class="sigil" style="color:var(--tn-red)">!</span><span class="num">{{.Num}}</span> <span class="title-text">unrenderable block</span>
+<div class="right"><span class="pill err">{{if .Body.Type}}{{.Body.Type}}{{else}}no type{{end}}</span></div>
+</div>
+<div class="panel-body">
+<div class="callout err"><span class="tag">[BLOCK]</span> {{.Body.Reason}}</div>
+<pre class="fallback-raw">{{.Body.Raw}}</pre>
+</div>
+</section>
+{{- end}}
