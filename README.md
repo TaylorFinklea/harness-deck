@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="harness-deck.png" alt="harness-deck" width="128" />
+</p>
+
 # harness-deck
 
 A unified dashboard for AI coding work across multiple harnesses (Claude Code,

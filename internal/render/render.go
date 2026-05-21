@@ -54,9 +54,10 @@ type pageView struct {
 	Banner bannerView
 	TOC    []tocItem
 	Run    []manifest.KV   // sidebar "run" metadata section
-	Blocks []template.HTML // pre-rendered block panels
-	CSS    template.CSS
-	JS     template.JS
+	Blocks  []template.HTML // pre-rendered block panels
+	CSS     template.CSS
+	JS      template.JS
+	Favicon template.URL
 }
 
 type bannerView struct {
@@ -92,8 +93,9 @@ func (r *Renderer) buildPage(rep *manifest.Report, responses map[string]respond.
 			Meta:    bannerMeta(rep),
 		},
 		Run: runMeta(rep),
-		CSS: template.CSS(assets.ReportCSS),
-		JS:  template.JS(assets.ReportJS),
+		CSS:     template.CSS(assets.ReportCSS),
+		JS:      template.JS(assets.ReportJS),
+		Favicon: template.URL(assets.FaviconDataURI),
 	}
 	for i, b := range rep.Blocks {
 		title := blockTitle(b)

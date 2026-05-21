@@ -5,6 +5,7 @@ package assets
 
 import (
 	_ "embed"
+	"encoding/base64"
 	"strings"
 )
 
@@ -28,6 +29,14 @@ var AggregatorJS string
 
 //go:embed respond.js
 var RespondJS string
+
+//go:embed hd.svg
+var FaviconSVG string
+
+// FaviconDataURI is the hd monogram as a data: URI, for an inline
+// <link rel="icon"> — so rendered report pages stay self-contained.
+var FaviconDataURI = "data:image/svg+xml;base64," +
+	base64.StdEncoding.EncodeToString([]byte(FaviconSVG))
 
 // ReportCSS is the full stylesheet bundle for a rendered report page.
 var ReportCSS = TokyoNightCSS + "\n" + V1CSS + "\n" + DeckCSS

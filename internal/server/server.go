@@ -75,10 +75,12 @@ func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 	err := s.shell.ExecuteTemplate(w, "shell", struct {
 		CSS          template.CSS
 		VimJS, AppJS template.JS
+		Favicon      template.URL
 	}{
-		CSS:   template.CSS(assets.DeckUICSS),
-		VimJS: template.JS(assets.VimNavJSInline),
-		AppJS: template.JS(assets.AggregatorJS),
+		CSS:     template.CSS(assets.DeckUICSS),
+		VimJS:   template.JS(assets.VimNavJSInline),
+		AppJS:   template.JS(assets.AggregatorJS),
+		Favicon: template.URL(assets.FaviconDataURI),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
