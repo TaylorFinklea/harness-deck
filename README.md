@@ -21,15 +21,25 @@ breadcrumb.
 
 ## How it works
 
-```
-harness  --writes-->  report.json   (~/.harness/reports/… or a project's .harness/…)
-                            |
-                    harness-deck serve   (local Go server)
-                            |
-                       browser  <-->  live TUI dashboard + report pages
-                            |
-              you approve / answer  -->  responses.json beside the report
-                                     -->  notification fires
+```mermaid
+flowchart TD
+  H["AI harness<br/>Claude Code · Pi Mono · OpenCode · Codex"]
+  H -->|"1 · publish a report"| R[("report.json<br/>in a run directory")]
+
+  subgraph DECK["harness-deck serve — local Go server"]
+    direction TB
+    ST["store<br/>scans + watches every 2s"]
+    RN["render<br/>manifest → themed HTML"]
+    SR["HTTP + SSE"]
+    ST --> SR
+    RN --> SR
+  end
+
+  R -->|"2 · discovered"| ST
+  SR -->|"3 · live dashboard + report pages"| B["Browser<br/>TUI dashboard"]
+  B -->|"4 · approve / answer / decide"| SR
+  SR -->|"5 · record answer + fire notify"| RESP[("responses.json<br/>beside the report")]
+  RESP -.->|"6 · picked up next session"| H
 ```
 
 - **Authoring contract:** a JSON block manifest (`report.json`) — an ordered list
