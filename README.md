@@ -48,4 +48,4 @@ go build ./...
 
 ## License
 
-TBD.
+MIT — see [LICENSE](LICENSE).
