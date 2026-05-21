@@ -1,0 +1,15 @@
+# compiled binary
+/harness-deck
+/dist/
+
+# go
+*.test
+*.out
+
+# rendered scratch output
+/tmp/
+*.tmp.html
+
+# os / editor
+.DS_Store
+*.swp

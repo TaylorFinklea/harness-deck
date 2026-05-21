@@ -1,0 +1,41 @@
+/* harness-deck additions — styling for block types and panels not covered by
+   the original v1 design (tables, the fallback panel). Uses the Tokyo Night
+   palette tokens from tokyo-night.css. */
+
+.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.dtable th {
+  text-align: left;
+  padding: 6px 14px;
+  background: var(--tn-bg-dark);
+  color: var(--tn-comment);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--tn-bg-highlight);
+}
+.dtable td {
+  padding: 5px 14px;
+  color: var(--tn-fg-dark);
+  border-bottom: 1px dotted var(--tn-bg-highlight);
+}
+.dtable tr:last-child td { border-bottom: none; }
+.dtable tbody tr:hover { background: var(--tn-bg-highlight); }
+
+.block-fallback { border-color: var(--tn-red); }
+.fallback-raw {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: var(--tn-bg-darker);
+  border: 1px solid var(--tn-bg-highlight);
+  color: var(--tn-comment);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

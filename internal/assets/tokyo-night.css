@@ -1,0 +1,80 @@
+/* Tokyo Night (storm/night dark) — shared palette tokens
+   Used by all 5 harness variations. */
+:root {
+  /* Base surfaces */
+  --tn-bg:           #1a1b26;
+  --tn-bg-dark:      #16161e;
+  --tn-bg-darker:    #13141c;
+  --tn-bg-highlight: #292e42;
+  --tn-bg-visual:    #283457;
+  --tn-bg-search:    #3d59a1;
+
+  /* Foreground */
+  --tn-fg:           #c0caf5;
+  --tn-fg-dark:      #a9b1d6;
+  --tn-fg-gutter:    #3b4261;
+  --tn-comment:      #565f89;
+  --tn-line:         #1f2335;
+
+  /* Accents */
+  --tn-blue:    #7aa2f7;
+  --tn-cyan:    #7dcfff;
+  --tn-blue1:   #2ac3de;
+  --tn-blue7:   #394b70;
+  --tn-purple:  #bb9af7;
+  --tn-magenta: #ff007c;
+  --tn-pink:    #f7768e;
+  --tn-red:     #f7768e;
+  --tn-red1:    #db4b4b;
+  --tn-orange:  #ff9e64;
+  --tn-yellow:  #e0af68;
+  --tn-green:   #9ece6a;
+  --tn-green1:  #73daca;
+  --tn-teal:    #1abc9c;
+
+  /* Semantic */
+  --tn-ok:    var(--tn-green);
+  --tn-warn:  var(--tn-yellow);
+  --tn-err:   var(--tn-red);
+  --tn-info:  var(--tn-blue);
+
+  --tn-grid:  rgba(122, 162, 247, 0.06);
+  --tn-rule:  rgba(122, 162, 247, 0.18);
+
+  color-scheme: dark;
+}
+
+html, body {
+  background: var(--tn-bg);
+  color: var(--tn-fg);
+  margin: 0;
+  padding: 0;
+}
+
+/* Selection */
+::selection {
+  background: var(--tn-bg-search);
+  color: var(--tn-fg);
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tn-bg-highlight) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--tn-bg-highlight); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--tn-fg-gutter); }
+
+/* Cursor blink — used across designs */
+@keyframes tn-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+.tn-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  background: var(--tn-fg);
+  vertical-align: text-bottom;
+  animation: tn-blink 1s steps(1) infinite;
+  margin-left: 2px;
+}
