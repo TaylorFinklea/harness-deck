@@ -52,6 +52,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleShell)
 	mux.HandleFunc("GET /api/reports", s.handleReports)
+	mux.HandleFunc("GET /api/roadmap", s.handleRoadmap)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /r/{project}/{run}", s.handleReport)
 	mux.HandleFunc("POST /r/{project}/{run}/respond", s.handleRespond)

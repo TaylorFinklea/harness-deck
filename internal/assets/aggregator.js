@@ -34,6 +34,14 @@
     return n;
   }
 
+  /* htmlToNodes parses a server-rendered HTML string into detached nodes.
+     A DOMParser document never executes scripts, and the only HTML passed
+     here is roadmap markdown rendered (and escaped) server-side. */
+  function htmlToNodes(htmlString) {
+    var doc = new DOMParser().parseFromString(htmlString || '', 'text/html');
+    return Array.prototype.slice.call(doc.body.childNodes);
+  }
+
   function reportURL(r) {
     return '/r/' + encodeURIComponent(r.project) + '/' + encodeURIComponent(r.run);
   }
@@ -184,11 +192,26 @@
   }
 
   function viewRoadmap() {
-    return [panel('roadmap', pill('phase 5'), [emptyState([
-      'the roadmap view arrives in ', el('b', { text: 'Phase 5' }),
-      ' — it will render each project’s ',
-      el('code', { text: '.docs/ai/roadmap.md' }), '.'
-    ])])];
+    var roadmap = data.roadmap || [];
+    if (!roadmap.length) {
+      return [panel('roadmap', null, [emptyState([
+        'no roadmaps yet — register a project that has a ',
+        el('code', { text: '.docs/ai/roadmap.md' }), ' file.'
+      ])])];
+    }
+    return roadmap.map(function (rp) {
+      var body = [];
+      if (rp.has_file) {
+        body.push(el('div', { class: 'roadmap-md' }, htmlToNodes(rp.html)));
+      } else {
+        body.push(emptyState(['no ', el('code', { text: '.docs/ai/roadmap.md' }),
+          ' for this project']));
+      }
+      (rp.reports || []).forEach(function (r) { body.push(itemRow(r)); });
+      var n = (rp.reports || []).length;
+      var right = n ? pill(n + ' roadmap report' + (n === 1 ? '' : 's')) : null;
+      return panel(rp.project, right, body);
+    });
   }
 
   var BUILDERS = { inbox: viewInbox, overview: viewOverview, latest: viewLatest, roadmap: viewRoadmap };
@@ -240,20 +263,27 @@
     if (v) { showView(v.id); e.preventDefault(); }
   });
 
-  function load() {
-    fetch('/api/reports')
-      .then(function (resp) {
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        return resp.json();
-      })
-      .then(function (d) {
-        data = { reports: d.reports || [], errors: d.errors || [] };
-        render();
-      })
-      .catch(function (err) {
-        document.getElementById('content').replaceChildren(
-          emptyState(['failed to load reports: ' + String(err)]));
-      });
+  /* refresh fetches both the report index and the roadmap, then re-renders. */
+  function refresh() {
+    Promise.all([
+      fetch('/api/reports').then(function (r) {
+        if (!r.ok) throw new Error('reports HTTP ' + r.status);
+        return r.json();
+      }),
+      fetch('/api/roadmap').then(function (r) {
+        return r.ok ? r.json() : { projects: [] };
+      }).catch(function () { return { projects: [] }; })
+    ]).then(function (res) {
+      data = {
+        reports: res[0].reports || [],
+        errors: res[0].errors || [],
+        roadmap: res[1].projects || []
+      };
+      render();
+    }).catch(function (err) {
+      document.getElementById('content').replaceChildren(
+        emptyState(['failed to load: ' + String(err)]));
+    });
   }
 
   /* live updates — the server pushes a 'change' event when the report index
@@ -261,10 +291,10 @@
   function connectEvents() {
     if (typeof EventSource === 'undefined') return;
     var es = new EventSource('/events');
-    es.addEventListener('change', function () { load(); });
+    es.addEventListener('change', function () { refresh(); });
   }
 
-  window.HarnessDeck = { reload: load };
-  load();
+  window.HarnessDeck = { reload: refresh };
+  refresh();
   connectEvents();
 })();

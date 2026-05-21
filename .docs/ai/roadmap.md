@@ -22,7 +22,10 @@ responses back to the harness.
 - **Phase 4 — response round-trip.** Interactive block controls, `/respond`,
   `responses.json`, notification command. _(done)_
 - **Phase 5 — roadmap view.** Render each project's `.docs/ai/roadmap.md` plus
-  reports of kind `roadmap`.
+  reports of kind `roadmap`. _(done)_
+
+All planned phases (0–5) are complete. The next step is Phase 6 — harness-side
+integration — which lives in `chezmoi-config`, not this repo.
 
 ## Later / out of scope
 

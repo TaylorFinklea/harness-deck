@@ -99,6 +99,20 @@ func TestInteractiveBlockShowsControlsThenAnswer(t *testing.T) {
 	}
 }
 
+func TestMarkdownRendersHeadingsListsAndInline(t *testing.T) {
+	out := string(Markdown("# Title\n\n## Section\n\nBody **bold** and `code`.\n\n- one\n- two"))
+	for _, want := range []string{
+		"<h1>Title</h1>",
+		"<h2>Section</h2>",
+		"<p>Body <b>bold</b> and <code>code</code>.</p>",
+		"<ul><li>one</li><li>two</li></ul>",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
 func TestUnknownBlockRendersFallback(t *testing.T) {
 	html := renderJSON(t, `{
 	  "schema": "harness-deck/report@1",

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -128,6 +129,47 @@ func TestRespondRecordsAndShowsAnswer(t *testing.T) {
 	code, page := get(t, h, "/r/acme/0x1")
 	if code != http.StatusOK || !strings.Contains(page, "ask-answered") {
 		t.Error("report page should render the recorded answer after responding")
+	}
+}
+
+func TestRoadmapRendersProjectFile(t *testing.T) {
+	central := t.TempDir()
+	proj := t.TempDir()
+	aiDir := filepath.Join(proj, ".docs", "ai")
+	if err := os.MkdirAll(aiDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(aiDir, "roadmap.md"),
+		[]byte("# Plan\n\n- ship dark mode"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(config.Config{CentralDir: central, Projects: []string{proj}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	code, body := get(t, s.Handler(), "/api/roadmap")
+	if code != http.StatusOK {
+		t.Fatalf("GET /api/roadmap = %d, want 200", code)
+	}
+	var got struct {
+		Projects []struct {
+			HTML    string `json:"html"`
+			HasFile bool   `json:"has_file"`
+		} `json:"projects"`
+	}
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode roadmap response: %v", err)
+	}
+	if len(got.Projects) != 1 {
+		t.Fatalf("got %d roadmap projects, want 1", len(got.Projects))
+	}
+	p := got.Projects[0]
+	if !p.HasFile {
+		t.Error("project should report has_file=true")
+	}
+	if !strings.Contains(p.HTML, "<h1>Plan</h1>") || !strings.Contains(p.HTML, "ship dark mode") {
+		t.Errorf("rendered roadmap HTML missing content: %q", p.HTML)
 	}
 }
 
