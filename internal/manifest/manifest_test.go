@@ -53,16 +53,17 @@ func TestValidateCleanReport(t *testing.T) {
 }
 
 func TestUnknownBlockTypeIsLenient(t *testing.T) {
-	// "ask" is not registered until Phase 4; parsing must not fail.
+	// A block type the renderer does not know must still parse — a stale
+	// dashboard should degrade, not crash, on a manifest from a newer harness.
 	src := `{"schema":"harness-deck/report@1","id":"x","project":"p","harness":"h",
 	         "title":"t","status":"draft","created":"2026-05-18T18:39:50Z",
-	         "blocks":[{"type":"ask","prompt":"go?"}]}`
+	         "blocks":[{"type":"future-widget","prompt":"go?"}]}`
 	r, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse should not fail on unknown block type: %v", err)
 	}
-	if r.Blocks[0].Type != "ask" || r.Blocks[0].Body != nil {
-		t.Errorf("unknown block: Type=%q Body=%v, want Type=ask Body=nil",
+	if r.Blocks[0].Type != "future-widget" || r.Blocks[0].Body != nil {
+		t.Errorf("unknown block: Type=%q Body=%v, want Type=future-widget Body=nil",
 			r.Blocks[0].Type, r.Blocks[0].Body)
 	}
 	// Validate, however, must flag it.

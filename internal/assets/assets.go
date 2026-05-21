@@ -26,6 +26,9 @@ var VimNavJS string
 //go:embed aggregator.js
 var AggregatorJS string
 
+//go:embed respond.js
+var RespondJS string
+
 // ReportCSS is the full stylesheet bundle for a rendered report page.
 var ReportCSS = TokyoNightCSS + "\n" + V1CSS + "\n" + DeckCSS
 
@@ -37,3 +40,7 @@ var DeckUICSS = ReportCSS + "\n" + AggregatorCSS
 // of JavaScript context, and vim-nav.js mentions it in a header comment; the
 // backslash is inert inside JS strings and comments.
 var VimNavJSInline = strings.ReplaceAll(VimNavJS, "</script", `<\/script`)
+
+// ReportJS is the script bundle inlined into a rendered report page: vim
+// navigation plus the interactive-block response handler.
+var ReportJS = VimNavJSInline + "\n" + RespondJS

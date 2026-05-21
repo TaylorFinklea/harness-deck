@@ -55,8 +55,18 @@ func (r *Report) Validate() []Problem {
 	if len(r.Blocks) == 0 {
 		add("blocks", "report has no blocks")
 	}
+	seenIDs := map[string]int{}
 	for i, b := range r.Blocks {
 		ps = append(ps, validateBlock(fmt.Sprintf("blocks[%d]", i), b)...)
+		// Interactive block ids must be unique — they key responses.json.
+		if id := InteractiveID(b); id != "" {
+			if first, dup := seenIDs[id]; dup {
+				add(fmt.Sprintf("blocks[%d]", i),
+					fmt.Sprintf("interactive id %q already used by blocks[%d]", id, first))
+			} else {
+				seenIDs[id] = i
+			}
+		}
 	}
 	return ps
 }
@@ -175,6 +185,34 @@ func validateBlock(path string, b Block) []Problem {
 	case *HTMLBlock:
 		if body.HTML == "" {
 			add("html: empty html")
+		}
+	case *AskBlock:
+		if body.ID == "" {
+			add("ask: missing id")
+		}
+		if body.Prompt == "" {
+			add("ask: empty prompt")
+		}
+		ps = append(ps, checkEnum(path+".mode", body.Mode, "", "choice", "yesno", "text")...)
+		if body.ResolvedMode() == "choice" && len(body.Options) == 0 {
+			add("ask: choice mode needs options")
+		}
+	case *DecisionBlock:
+		if body.ID == "" {
+			add("decision: missing id")
+		}
+		for tag, side := range map[string]CompareSide{"a": body.A, "b": body.B} {
+			if len(side.Items) == 0 {
+				add("decision: side " + tag + " has no items")
+			}
+			for i, it := range side.Items {
+				ps = append(ps, checkEnum(fmt.Sprintf("%s %s.items[%d].kind", path, tag, i),
+					it.Kind, "pro", "con", "neu")...)
+			}
+		}
+	case *ApprovalBlock:
+		if body.ID == "" {
+			add("approval: missing id")
 		}
 	}
 	return ps

@@ -15,6 +15,7 @@ import (
 
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
+	"github.com/TaylorFinklea/harness-deck/internal/respond"
 )
 
 //go:embed templates/*.tmpl
@@ -35,10 +36,12 @@ func New() (*Renderer, error) {
 	return &Renderer{tmpl: t}, nil
 }
 
-// Report renders a full standalone HTML report page.
-func (r *Renderer) Report(rep *manifest.Report) ([]byte, error) {
+// Report renders a full HTML report page. responses holds answers already
+// recorded for the report's interactive blocks (keyed by block id); pass nil
+// when there are none.
+func (r *Renderer) Report(rep *manifest.Report, responses map[string]respond.Response) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := r.tmpl.ExecuteTemplate(&buf, "page", r.buildPage(rep)); err != nil {
+	if err := r.tmpl.ExecuteTemplate(&buf, "page", r.buildPage(rep, responses)); err != nil {
 		return nil, fmt.Errorf("render report: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -67,7 +70,8 @@ type tocItem struct{ Num, Title, Anchor string }
 type blockView struct {
 	Num, ID, Title string
 	Pills          []manifest.Pill
-	Body           any // the concrete *manifest.XxxBlock, or fallbackView
+	Body           any               // the concrete *manifest.XxxBlock, or fallbackView
+	Answer         *respond.Response // recorded answer, for interactive blocks
 }
 
 // fallbackView backs block-fallback for unknown or unrenderable blocks.
@@ -77,7 +81,7 @@ type fallbackView struct {
 
 // --- page assembly ---------------------------------------------------------
 
-func (r *Renderer) buildPage(rep *manifest.Report) pageView {
+func (r *Renderer) buildPage(rep *manifest.Report, responses map[string]respond.Response) pageView {
 	pv := pageView{
 		Report: rep,
 		Banner: bannerView{
@@ -89,7 +93,7 @@ func (r *Renderer) buildPage(rep *manifest.Report) pageView {
 		},
 		Run: runMeta(rep),
 		CSS: template.CSS(assets.ReportCSS),
-		JS:  template.JS(assets.VimNavJSInline),
+		JS:  template.JS(assets.ReportJS),
 	}
 	for i, b := range rep.Blocks {
 		title := blockTitle(b)
@@ -98,7 +102,7 @@ func (r *Renderer) buildPage(rep *manifest.Report) pageView {
 			Title:  title,
 			Anchor: fmt.Sprintf("sec-%d", i+1),
 		})
-		pv.Blocks = append(pv.Blocks, r.renderBlock(i, b, title))
+		pv.Blocks = append(pv.Blocks, r.renderBlock(i, b, title, responses))
 	}
 	return pv
 }
@@ -106,7 +110,7 @@ func (r *Renderer) buildPage(rep *manifest.Report) pageView {
 // renderBlock renders one block panel. Unknown block types and blocks whose
 // template fails are routed to renderFallback so a single bad block degrades
 // gracefully instead of blanking the whole report.
-func (r *Renderer) renderBlock(idx int, b manifest.Block, title string) template.HTML {
+func (r *Renderer) renderBlock(idx int, b manifest.Block, title string, responses map[string]respond.Response) template.HTML {
 	bv := blockView{
 		Num:   fmt.Sprintf("%02d", idx+1),
 		ID:    fmt.Sprintf("sec-%d", idx+1),
@@ -115,6 +119,12 @@ func (r *Renderer) renderBlock(idx int, b manifest.Block, title string) template
 	}
 	if b.Body != nil {
 		bv.Pills = b.Body.PanelPills()
+	}
+	if id := manifest.InteractiveID(b); id != "" {
+		if got, ok := responses[id]; ok {
+			answer := got
+			bv.Answer = &answer
+		}
 	}
 	if b.Body == nil {
 		return r.renderFallback(bv, b, "unknown block type "+strconv.Quote(b.Type))

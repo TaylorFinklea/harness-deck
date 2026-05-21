@@ -4,7 +4,20 @@ _Last-session breadcrumb. Not a journal — keep it short._
 
 ## Where things are
 
-Phases 0–3 complete. `go build ./... && go test ./...` green.
+Phases 0–4 complete. `go build ./... && go test ./...` green.
+
+Phase 4 additions:
+- `internal/manifest`: registered interactive block types `ask`, `decision`,
+  `approval`; `InteractiveID` / `InteractiveTypes` helpers; unique-id validation.
+- `internal/respond`: `responses.json` read/merge/write (`Load`, `Record`).
+- `internal/notify`: runs the configured notify command with HD_* env vars.
+- `internal/render`: interactive block templates; `Report` now takes a
+  `map[string]respond.Response` so answered blocks render their recorded answer.
+- `internal/server`: `POST /r/{project}/{run}/respond` records the answer, fires
+  notify, rescans, and broadcasts. `internal/assets/respond.js` posts answers.
+- `internal/store`: `OpenAsks` now subtracts answered blocks.
+Verified: clicking a control writes responses.json, fires notify, and the
+report reloads showing the answer.
 
 Phase 3 additions:
 - `internal/store`: each Entry carries the report's ModTime; `Signature()` is a
@@ -52,14 +65,12 @@ drift). See decisions.md.
 
 ## Next
 
-Phase 4 — response round-trip:
+Phase 5 — roadmap view:
 
-1. Register interactive block types in `internal/manifest`: `ask`, `decision`,
-   `approval` (currently they hit the fallback panel).
-2. Render them as interactive controls in `internal/render`.
-3. `POST /r/{project}/{run}/respond` → write `responses.json` into the run dir.
-4. `internal/notify`: run the configured `notify_command`.
-5. Report-page JS to POST responses.
+1. `internal/render`: extend the Markdown renderer with `#` headings; export it.
+2. `internal/server`: `GET /api/roadmap` — render each registered project's
+   `.docs/ai/roadmap.md`, plus reports of kind `roadmap`.
+3. `aggregator.js`: fill in the roadmap view (currently a Phase-5 stub).
 
 Also outstanding: write `CONTRACT.md` (agent-facing manifest spec).
 

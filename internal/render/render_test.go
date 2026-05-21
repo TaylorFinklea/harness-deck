@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
+	"github.com/TaylorFinklea/harness-deck/internal/respond"
 )
 
 func renderJSON(t *testing.T, src string) string {
@@ -17,7 +18,7 @@ func renderJSON(t *testing.T, src string) string {
 	if err != nil {
 		t.Fatalf("renderer: %v", err)
 	}
-	out, err := r.Report(rep)
+	out, err := r.Report(rep, nil)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -56,6 +57,45 @@ func TestReportRendersBlocks(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered output missing %q", want)
 		}
+	}
+}
+
+func TestInteractiveBlockShowsControlsThenAnswer(t *testing.T) {
+	src := `{
+	  "schema": "harness-deck/report@1",
+	  "id": "0x1", "project": "p", "harness": "h", "title": "t",
+	  "status": "awaiting-review", "created": "2026-05-18T18:39:50Z",
+	  "blocks": [{"type": "ask", "id": "q1", "prompt": "Ship it?", "mode": "yesno"}]
+	}`
+	rep, err := manifest.Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	r, err := New()
+	if err != nil {
+		t.Fatalf("renderer: %v", err)
+	}
+
+	unanswered, err := r.Report(rep, nil)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !strings.Contains(string(unanswered), `data-block="q1"`) {
+		t.Error("unanswered ask block should render response controls")
+	}
+
+	answered, err := r.Report(rep, map[string]respond.Response{
+		"q1": {Block: "q1", Value: "yes", At: "2026-05-20T10:00:00Z"},
+	})
+	if err != nil {
+		t.Fatalf("render answered: %v", err)
+	}
+	s := string(answered)
+	if !strings.Contains(s, "ask-answered") || !strings.Contains(s, "<b>yes</b>") {
+		t.Error("answered ask block should show the recorded answer")
+	}
+	if strings.Contains(s, `data-block="q1"`) {
+		t.Error("response controls should be gone once the block is answered")
 	}
 }
 

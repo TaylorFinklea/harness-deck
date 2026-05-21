@@ -16,11 +16,8 @@ import (
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
+	"github.com/TaylorFinklea/harness-deck/internal/respond"
 )
-
-// interactiveTypes are block types that pose a question to the user. Counting
-// them gives a cheap "needs you" signal even before Phase 4 wires up responses.
-var interactiveTypes = map[string]bool{"ask": true, "decision": true, "approval": true}
 
 // Entry is the indexed summary of one report. The full manifest is loaded
 // on demand via Get.
@@ -176,10 +173,19 @@ func loadEntry(path, source string) (Entry, error) {
 	if fi, statErr := os.Stat(path); statErr == nil {
 		e.ModTime = fi.ModTime()
 	}
+	// OpenAsks is the count of interactive blocks not yet answered in
+	// responses.json — the "needs you" signal for the inbox.
+	answers, _ := respond.Load(e.Dir)
 	for _, b := range rep.Blocks {
-		if interactiveTypes[b.Type] {
-			e.OpenAsks++
+		if !manifest.InteractiveTypes[b.Type] {
+			continue
 		}
+		if id := manifest.InteractiveID(b); id != "" {
+			if _, answered := answers.Responses[id]; answered {
+				continue
+			}
+		}
+		e.OpenAsks++
 	}
 	if e.Project == "" {
 		e.Project = "(unknown)"

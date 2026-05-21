@@ -97,7 +97,7 @@ func cmdRender(args []string) {
 	if err != nil {
 		fatal("renderer", err)
 	}
-	html, err := r.Report(rep)
+	html, err := r.Report(rep, nil)
 	if err != nil {
 		fatal("render", err)
 	}

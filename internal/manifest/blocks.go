@@ -13,7 +13,17 @@ const (
 	TypeBarchart        = "barchart"
 	TypeTable           = "table"
 	TypeHTML            = "html"
+	// Interactive blocks — these pose a question the user answers in the
+	// dashboard; the answer is written to responses.json.
+	TypeAsk      = "ask"
+	TypeDecision = "decision"
+	TypeApproval = "approval"
 )
+
+// InteractiveTypes is the set of block types that record a user response.
+var InteractiveTypes = map[string]bool{
+	TypeAsk: true, TypeDecision: true, TypeApproval: true,
+}
 
 // blockHead holds fields common to every block. It is embedded in each body
 // struct so a strict JSON decode accepts the shared "type" and "pills" keys.
@@ -196,3 +206,46 @@ type HTMLBlock struct {
 }
 
 func (HTMLBlock) kind() string { return TypeHTML }
+
+// AskBlock poses a question to the user. ID keys the response in responses.json.
+type AskBlock struct {
+	blockHead
+	ID      string   `json:"id"`
+	Prompt  string   `json:"prompt"`            // the question, Markdown
+	Mode    string   `json:"mode,omitempty"`    // choice | yesno | text (default: choice if options, else text)
+	Options []string `json:"options,omitempty"` // for mode=choice
+}
+
+func (AskBlock) kind() string { return TypeAsk }
+
+// ResolvedMode returns the effective input mode, applying the default.
+func (a AskBlock) ResolvedMode() string {
+	if a.Mode != "" {
+		return a.Mode
+	}
+	if len(a.Options) > 0 {
+		return "choice"
+	}
+	return "text"
+}
+
+// DecisionBlock asks the user to pick between two paths. It reuses the A/B
+// comparison layout and records the chosen tag.
+type DecisionBlock struct {
+	blockHead
+	ID     string      `json:"id"`
+	Prompt string      `json:"prompt,omitempty"`
+	A      CompareSide `json:"a"`
+	B      CompareSide `json:"b"`
+}
+
+func (DecisionBlock) kind() string { return TypeDecision }
+
+// ApprovalBlock asks the user to sign off on something.
+type ApprovalBlock struct {
+	blockHead
+	ID     string `json:"id"`
+	Prompt string `json:"prompt,omitempty"`
+}
+
+func (ApprovalBlock) kind() string { return TypeApproval }

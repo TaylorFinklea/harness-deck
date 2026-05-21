@@ -76,12 +76,29 @@ var registry = map[string]func() BlockBody{
 	TypeBarchart:        func() BlockBody { return &BarchartBlock{} },
 	TypeTable:           func() BlockBody { return &TableBlock{} },
 	TypeHTML:            func() BlockBody { return &HTMLBlock{} },
+	TypeAsk:             func() BlockBody { return &AskBlock{} },
+	TypeDecision:        func() BlockBody { return &DecisionBlock{} },
+	TypeApproval:        func() BlockBody { return &ApprovalBlock{} },
 }
 
 // KnownType reports whether t is a registered block type.
 func KnownType(t string) bool {
 	_, ok := registry[t]
 	return ok
+}
+
+// InteractiveID returns an interactive block's response id, or "" if the block
+// is not interactive (or has no id).
+func InteractiveID(b Block) string {
+	switch body := b.Body.(type) {
+	case *AskBlock:
+		return body.ID
+	case *DecisionBlock:
+		return body.ID
+	case *ApprovalBlock:
+		return body.ID
+	}
+	return ""
 }
 
 // UnmarshalJSON decodes a block, dispatching on its "type" field. Decoding is

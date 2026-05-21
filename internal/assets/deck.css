@@ -26,6 +26,43 @@
 .dtable tr:last-child td { border-bottom: none; }
 .dtable tbody tr:hover { background: var(--tn-bg-highlight); }
 
+/* interactive blocks — ask / decision / approval */
+.ask-prompt { color: var(--tn-fg-dark); font-size: 13px; margin-bottom: 12px; }
+.ask-prompt p { margin: 0 0 6px; }
+.ask-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.hd-btn {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 14px;
+  background: var(--tn-bg-highlight);
+  color: var(--tn-fg);
+  border: 1px solid var(--tn-bg-highlight);
+  cursor: pointer;
+}
+.hd-btn:hover:not(:disabled) { border-color: var(--tn-blue); color: var(--tn-cyan); }
+.hd-btn:disabled { opacity: 0.5; cursor: default; }
+.hd-btn.ok:hover:not(:disabled) { border-color: var(--tn-green); color: var(--tn-green); }
+.hd-btn.err:hover:not(:disabled) { border-color: var(--tn-red); color: var(--tn-red); }
+.hd-input {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  background: var(--tn-bg-darker);
+  color: var(--tn-fg);
+  border: 1px solid var(--tn-bg-highlight);
+  flex: 1;
+  min-width: 220px;
+}
+.hd-input:focus { outline: none; border-color: var(--tn-blue); }
+.ask-answered {
+  font-size: 12px;
+  color: var(--tn-green);
+  background: rgba(158, 206, 106, 0.07);
+  border-left: 2px solid var(--tn-green);
+  padding: 8px 12px;
+}
+.ask-answered b { color: var(--tn-fg); }
+
 .block-fallback { border-color: var(--tn-red); }
 .fallback-raw {
   margin: 10px 0 0;

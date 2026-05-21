@@ -20,9 +20,9 @@ responses back to the harness.
 - **Phase 3 — live updates.** Change detection → SSE → live tree/view updates.
   _(done)_
 - **Phase 4 — response round-trip.** Interactive block controls, `/respond`,
-  `responses.json`, notification command.
+  `responses.json`, notification command. _(done)_
 - **Phase 5 — roadmap view.** Render each project's `.docs/ai/roadmap.md` plus
-  agent-appended roadmap items.
+  reports of kind `roadmap`.
 
 ## Later / out of scope
 

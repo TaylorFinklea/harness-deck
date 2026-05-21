@@ -142,6 +142,63 @@
 </section>
 {{- end}}
 
+{{define "block-ask" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body">
+<div class="ask-prompt">{{md .Body.Prompt}}</div>
+{{if .Answer -}}
+<div class="ask-answered">▸ answered <b>{{.Answer.Value}}</b>{{with .Answer.At}} · {{.}}{{end}}</div>
+{{- else -}}
+{{$id := .Body.ID}}{{$mode := .Body.ResolvedMode}}
+<div class="ask-controls">
+{{if eq $mode "choice"}}{{range .Body.Options}}<button class="hd-btn hd-respond" data-block="{{$id}}" data-value="{{.}}">{{.}}</button>{{end}}
+{{else if eq $mode "yesno"}}<button class="hd-btn hd-respond ok" data-block="{{$id}}" data-value="yes">yes</button><button class="hd-btn hd-respond err" data-block="{{$id}}" data-value="no">no</button>
+{{else}}<input class="hd-input" id="ask-input-{{$id}}" type="text" placeholder="type your answer…" /><button class="hd-btn hd-respond" data-block="{{$id}}" data-input="ask-input-{{$id}}">submit</button>{{end}}
+</div>
+{{- end}}
+</div>
+</section>
+{{- end}}
+
+{{define "block-decision" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+{{with .Body.Prompt}}<div class="panel-body" style="padding-bottom:0"><div class="ask-prompt">{{md .}}</div></div>{{end}}
+<div class="compare">
+<div class="a"><h4><span class="tag">{{.Body.A.Tag}}</span> {{.Body.A.Title}}</h4><ul>{{range .Body.A.Items}}<li class="{{.Kind}}">{{.Text}}</li>{{end}}</ul></div>
+<div class="b"><h4><span class="tag">{{.Body.B.Tag}}</span> {{.Body.B.Title}}</h4><ul>{{range .Body.B.Items}}<li class="{{.Kind}}">{{.Text}}</li>{{end}}</ul></div>
+</div>
+<div class="panel-body">
+{{if .Answer -}}
+<div class="ask-answered">▸ decided <b>{{.Answer.Value}}</b>{{with .Answer.At}} · {{.}}{{end}}</div>
+{{- else -}}
+<div class="ask-controls">
+<button class="hd-btn hd-respond" data-block="{{.Body.ID}}" data-value="{{.Body.A.Tag}}">choose {{.Body.A.Tag}} · {{.Body.A.Title}}</button>
+<button class="hd-btn hd-respond" data-block="{{.Body.ID}}" data-value="{{.Body.B.Tag}}">choose {{.Body.B.Tag}} · {{.Body.B.Title}}</button>
+</div>
+{{- end}}
+</div>
+</section>
+{{- end}}
+
+{{define "block-approval" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body">
+{{with .Body.Prompt}}<div class="ask-prompt">{{md .}}</div>{{end}}
+{{if .Answer -}}
+<div class="ask-answered">▸ <b>{{.Answer.Value}}</b>{{with .Answer.At}} · {{.}}{{end}}</div>
+{{- else -}}
+<div class="ask-controls">
+<button class="hd-btn hd-respond ok" data-block="{{.Body.ID}}" data-value="approved">approve</button>
+<button class="hd-btn hd-respond err" data-block="{{.Body.ID}}" data-value="changes-requested">request changes</button>
+</div>
+{{- end}}
+</div>
+</section>
+{{- end}}
+
 {{define "block-fallback" -}}
 <section class="panel block-fallback" data-vim-section id="{{.ID}}">
 <div class="panel-head"><span class="sigil" style="color:var(--tn-red)">!</span><span class="num">{{.Num}}</span> <span class="title-text">unrenderable block</span>

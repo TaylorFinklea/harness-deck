@@ -85,6 +85,52 @@ func TestReportPageRendered(t *testing.T) {
 	}
 }
 
+const askReport = `{
+  "schema": "harness-deck/report@1",
+  "id": "0x1", "project": "acme", "harness": "claude-code",
+  "title": "dark mode", "status": "awaiting-review",
+  "created": "2026-05-20T14:30:00Z",
+  "blocks": [{"type": "ask", "id": "q1", "prompt": "Which set?",
+             "mode": "choice", "options": ["semantic", "raw"]}]
+}`
+
+func TestRespondRecordsAndShowsAnswer(t *testing.T) {
+	central := t.TempDir()
+	dir := filepath.Join(central, "acme", "0x1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(askReport), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(config.Config{CentralDir: central})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	h := s.Handler()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/r/acme/0x1/respond",
+		strings.NewReader(`{"block":"q1","value":"semantic"}`))
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /respond = %d, want 200", rec.Code)
+	}
+
+	saved, err := os.ReadFile(filepath.Join(dir, "responses.json"))
+	if err != nil {
+		t.Fatalf("responses.json not written: %v", err)
+	}
+	if !strings.Contains(string(saved), `"semantic"`) {
+		t.Errorf("responses.json missing the answer: %s", saved)
+	}
+
+	code, page := get(t, h, "/r/acme/0x1")
+	if code != http.StatusOK || !strings.Contains(page, "ask-answered") {
+		t.Error("report page should render the recorded answer after responding")
+	}
+}
+
 func TestEventsStreamOpens(t *testing.T) {
 	srv := httptest.NewServer(newTestServer(t))
 	defer srv.Close()
