@@ -4,7 +4,16 @@ _Last-session breadcrumb. Not a journal — keep it short._
 
 ## Where things are
 
-Phases 0–2 complete. `go build ./... && go test ./...` green.
+Phases 0–3 complete. `go build ./... && go test ./...` green.
+
+Phase 3 additions:
+- `internal/store`: each Entry carries the report's ModTime; `Signature()` is a
+  fingerprint of the indexed files (path + modtime).
+- `internal/server/sse.go`: an SSE `hub`, the `GET /events` endpoint, and a
+  `watch` goroutine that polls every 2s and broadcasts `change` when the store
+  signature moves. `/api/reports` no longer rescans — the watcher owns scanning.
+- `aggregator.js`: connects to `/events` via EventSource and reloads on change.
+Verified: adding a report file makes it appear in the tree/inbox with no reload.
 
 Phase 2 additions:
 - `internal/config`: JSON config at `~/.config/harness-deck/config.json`
@@ -43,13 +52,14 @@ drift). See decisions.md.
 
 ## Next
 
-Phase 3 — live updates:
+Phase 4 — response round-trip:
 
-1. Server-side change detection (poll the report dirs on an interval; no
-   fsnotify dependency — see decisions.md).
-2. `GET /events` SSE endpoint that pushes when the index changes.
-3. `aggregator.js`: connect to `/events`, call `HarnessDeck.reload()` on a
-   change (already exposed for this).
+1. Register interactive block types in `internal/manifest`: `ask`, `decision`,
+   `approval` (currently they hit the fallback panel).
+2. Render them as interactive controls in `internal/render`.
+3. `POST /r/{project}/{run}/respond` → write `responses.json` into the run dir.
+4. `internal/notify`: run the configured `notify_command`.
+5. Report-page JS to POST responses.
 
 Also outstanding: write `CONTRACT.md` (agent-facing manifest spec).
 

@@ -5,11 +5,14 @@ package store
 
 import (
 	"fmt"
+	"hash/fnv"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
@@ -32,10 +35,11 @@ type Entry struct {
 	Created  string `json:"created"`
 	Verdict  string `json:"verdict"`
 	Source   string `json:"source"` // "central" or "project"
-	Blocks   int    `json:"blocks"`
-	OpenAsks int    `json:"open_asks"`
-	Dir      string `json:"-"` // run directory
-	Path     string `json:"-"` // report.json path
+	Blocks   int       `json:"blocks"`
+	OpenAsks int       `json:"open_asks"`
+	Dir      string    `json:"-"` // run directory
+	Path     string    `json:"-"` // report.json path
+	ModTime  time.Time `json:"-"` // report.json modification time
 }
 
 // Store holds the discovered report index. It is safe for concurrent use.
@@ -44,6 +48,7 @@ type Store struct {
 	mu      sync.RWMutex
 	entries []Entry
 	errs    []string // paths that failed to parse, with the reason
+	sig     string   // fingerprint of the indexed files; changes when they do
 }
 
 // New returns an empty Store; call Scan to populate it.
@@ -93,8 +98,25 @@ func (s *Store) Scan() {
 	sort.SliceStable(entries, func(i, j int) bool { return entries[i].Created > entries[j].Created })
 
 	s.mu.Lock()
-	s.entries, s.errs = entries, errs
+	s.entries, s.errs, s.sig = entries, errs, signature(entries)
 	s.mu.Unlock()
+}
+
+// Signature is a fingerprint of the indexed report files. It changes whenever
+// a report is added, removed, or modified — the live-update watcher polls it.
+func (s *Store) Signature() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.sig
+}
+
+// signature hashes each report's path and modification time.
+func signature(entries []Entry) string {
+	h := fnv.New64a()
+	for _, e := range entries {
+		fmt.Fprintf(h, "%s|%d\n", e.Path, e.ModTime.UnixNano())
+	}
+	return strconv.FormatUint(h.Sum64(), 16)
 }
 
 // Entries returns a snapshot of the indexed reports, newest first.
@@ -150,6 +172,9 @@ func loadEntry(path, source string) (Entry, error) {
 		Title: rep.Title, Kind: rep.Kind, Status: rep.Status, Created: rep.Created,
 		Verdict: rep.Verdict, Source: source, Blocks: len(rep.Blocks),
 		Dir: filepath.Dir(path), Path: path,
+	}
+	if fi, statErr := os.Stat(path); statErr == nil {
+		e.ModTime = fi.ModTime()
 	}
 	for _, b := range rep.Blocks {
 		if interactiveTypes[b.Type] {

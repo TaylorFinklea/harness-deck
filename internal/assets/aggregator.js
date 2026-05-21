@@ -256,7 +256,15 @@
       });
   }
 
-  // exposed so Phase 3's live updates can trigger a refresh
+  /* live updates — the server pushes a 'change' event when the report index
+     changes on disk; EventSource reconnects on its own if the stream drops. */
+  function connectEvents() {
+    if (typeof EventSource === 'undefined') return;
+    var es = new EventSource('/events');
+    es.addEventListener('change', function () { load(); });
+  }
+
   window.HarnessDeck = { reload: load };
   load();
+  connectEvents();
 })();

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
 	"github.com/TaylorFinklea/harness-deck/internal/config"
@@ -18,12 +19,16 @@ import (
 //go:embed shell.html.tmpl
 var shellFS embed.FS
 
+// pollInterval is how often the watcher rescans for report changes.
+const pollInterval = 2 * time.Second
+
 // Server wires the report store, the HTML renderer, and the HTTP routes.
 type Server struct {
 	cfg      config.Config
 	store    *store.Store
 	renderer *render.Renderer
 	shell    *template.Template
+	hub      *hub
 	mux      *http.ServeMux
 }
 
@@ -40,10 +45,11 @@ func New(cfg config.Config) (*Server, error) {
 	st := store.New(cfg)
 	st.Scan()
 
-	s := &Server{cfg: cfg, store: st, renderer: renderer, shell: shell}
+	s := &Server{cfg: cfg, store: st, renderer: renderer, shell: shell, hub: newHub()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleShell)
 	mux.HandleFunc("GET /api/reports", s.handleReports)
+	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /r/{project}/{run}", s.handleReport)
 	s.mux = mux
 	return s, nil
@@ -52,8 +58,9 @@ func New(cfg config.Config) (*Server, error) {
 // Handler exposes the routes (used by tests).
 func (s *Server) Handler() http.Handler { return s.mux }
 
-// Serve starts the HTTP server on the configured port.
+// Serve starts the change watcher and the HTTP server on the configured port.
 func (s *Server) Serve() error {
+	go s.watch(pollInterval)
 	return http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", s.cfg.Port), s.mux)
 }
 
@@ -73,10 +80,9 @@ func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// handleReports rescans and returns the report index as JSON. Rescanning per
-// request keeps the index fresh before Phase 3 replaces polling with fsnotify.
+// handleReports returns the report index as JSON. The watcher keeps the store
+// fresh, so this serves the current snapshot without rescanning.
 func (s *Server) handleReports(w http.ResponseWriter, _ *http.Request) {
-	s.store.Scan()
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"reports": s.store.Entries(),

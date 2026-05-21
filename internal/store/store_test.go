@@ -53,6 +53,20 @@ func TestScanFindsCentralAndProjectReports(t *testing.T) {
 	}
 }
 
+func TestSignatureChangesWhenReportsChange(t *testing.T) {
+	central := t.TempDir()
+	writeReport(t, filepath.Join(central, "p", "r1"), "r1", "p", "draft")
+	s := New(config.Config{CentralDir: central})
+	s.Scan()
+	before := s.Signature()
+
+	writeReport(t, filepath.Join(central, "p", "r2"), "r2", "p", "draft")
+	s.Scan()
+	if s.Signature() == before {
+		t.Error("signature should change after a new report appears")
+	}
+}
+
 func TestScanRecordsParseErrors(t *testing.T) {
 	central := t.TempDir()
 	bad := filepath.Join(central, "broken", "r1")

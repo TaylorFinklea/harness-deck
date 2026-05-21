@@ -18,6 +18,7 @@ responses back to the harness.
 - **Phase 2 — discovery + aggregator.** Config, scan central + per-project dirs,
   aggregator shell page, `harness-deck serve`. _(done)_
 - **Phase 3 — live updates.** Change detection → SSE → live tree/view updates.
+  _(done)_
 - **Phase 4 — response round-trip.** Interactive block controls, `/respond`,
   `responses.json`, notification command.
 - **Phase 5 — roadmap view.** Render each project's `.docs/ai/roadmap.md` plus

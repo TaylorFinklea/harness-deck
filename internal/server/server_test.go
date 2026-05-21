@@ -1,12 +1,14 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 )
@@ -80,5 +82,28 @@ func TestReportPageRendered(t *testing.T) {
 
 	if code, _ := get(t, h, "/r/acme/nope"); code != http.StatusNotFound {
 		t.Errorf("GET unknown report = %d, want 404", code)
+	}
+}
+
+func TestEventsStreamOpens(t *testing.T) {
+	srv := httptest.NewServer(newTestServer(t))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/events", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /events: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if ct := resp.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Errorf("Content-Type = %q, want text/event-stream", ct)
+	}
+	buf := make([]byte, 128)
+	n, _ := resp.Body.Read(buf)
+	if !strings.Contains(string(buf[:n]), "event: hello") {
+		t.Errorf("first SSE chunk = %q, want a hello event", buf[:n])
 	}
 }
