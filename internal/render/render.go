@@ -89,7 +89,7 @@ func (r *Renderer) buildPage(rep *manifest.Report) pageView {
 		},
 		Run: runMeta(rep),
 		CSS: template.CSS(assets.ReportCSS),
-		JS:  template.JS(inlineJS(assets.VimNavJS)),
+		JS:  template.JS(assets.VimNavJSInline),
 	}
 	for i, b := range rep.Blocks {
 		title := blockTitle(b)
@@ -222,14 +222,6 @@ func funcMap() template.FuncMap {
 		// local single-user tool, so this is an accepted trust boundary.
 		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
 	}
-}
-
-// inlineJS makes JavaScript safe to embed in an inline <script> element by
-// neutralizing the literal "</script" sequence. The HTML parser ends a script
-// at "</script" regardless of JavaScript context (vim-nav.js mentions it in a
-// header comment); the backslash is inert inside JS strings and comments.
-func inlineJS(js string) string {
-	return strings.ReplaceAll(js, "</script", `<\/script`)
 }
 
 // pctText formats a percentage without a trailing ".0".

@@ -1,0 +1,61 @@
+{{define "shell" -}}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>harness-deck</title>
+<meta name="viewport" content="width=1280" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>{{.CSS}}</style>
+</head>
+<body>
+
+<header class="term-chrome">
+  <div class="titlebar">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <div class="title"><b>harness-deck</b> · dashboard</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+  <div class="tabbar">
+    <div class="tab active"><span class="num">~</span> dashboard</div>
+  </div>
+  <div class="keyhints vim-no-search">
+    <span><kbd>1</kbd>–<kbd>4</kbd> views</span>
+    <span><kbd>j</kbd><kbd>k</kbd> scroll</span>
+    <span><kbd>]</kbd><kbd>[</kbd> section</span>
+    <span><kbd>/</kbd> search</span>
+    <span><kbd>:</kbd> command</span>
+    <span><kbd>?</kbd> help</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar vim-no-search" id="tree"></aside>
+  <main class="content" id="content">
+    <div class="empty">loading reports…</div>
+  </main>
+</div>
+
+<div class="statusline" id="status" data-vim-mode="NORMAL">
+  <span class="seg mode" id="mode">▌ NORMAL</span>
+  <span class="seg file">dashboard</span>
+  <span class="seg info">harness-deck</span>
+  <span class="spacer"></span>
+  <span class="seg pos">127.0.0.1</span>
+</div>
+
+<script>{{.VimJS}}</script>
+<script>{{.AppJS}}</script>
+<script>
+  setInterval(() => {
+    const d = new Date(), p = (n) => String(n).padStart(2, '0');
+    document.getElementById('clock').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }, 1000);
+  const modeEl = document.getElementById('mode');
+  VimNav.init({ statusEl: '#status', onMode: (m) => { modeEl.textContent = '▌ ' + m; } });
+</script>
+</body>
+</html>
+{{- end}}

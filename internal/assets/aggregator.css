@@ -1,0 +1,106 @@
+/* harness-deck aggregator shell — styles for the dashboard tree and the four
+   home views, layered on tokyo-night.css + v1.css. */
+
+/* --- sidebar report tree --- */
+.tree .row.proj {
+  color: var(--tn-blue);
+  margin-top: 6px;
+  font-weight: 500;
+}
+.tree .row.proj .count {
+  margin-left: auto;
+  color: var(--tn-fg-gutter);
+  font-size: 10px;
+}
+.tree .row.run {
+  padding-left: 16px;
+  gap: 6px;
+}
+.tree .row.run .st {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--tn-comment);
+  flex: 0 0 auto;
+}
+.tree .row.run .st.awaiting-review { background: var(--tn-yellow); }
+.tree .row.run .st.answered { background: var(--tn-blue); }
+.tree .row.run .st.done { background: var(--tn-green); }
+.tree .row.run .label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tree .row.run .hbadge {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--tn-comment);
+}
+
+/* --- view-tab strip --- */
+.view-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--tn-bg-highlight);
+}
+.view-tab {
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--tn-comment);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.view-tab .k { color: var(--tn-fg-gutter); font-size: 10px; margin-right: 6px; }
+.view-tab:hover { color: var(--tn-fg-dark); }
+.view-tab.active {
+  color: var(--tn-fg);
+  border-bottom-color: var(--tn-blue);
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+/* --- inbox --- */
+.inbox-item {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 4px;
+  border-top: 1px dotted var(--tn-bg-highlight);
+  cursor: pointer;
+}
+.inbox-item:first-child { border-top: none; }
+.inbox-item:hover { background: var(--tn-bg-highlight); }
+.inbox-item .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--tn-yellow);
+  align-self: center;
+}
+.inbox-item .dot.answered { background: var(--tn-blue); }
+.inbox-item .main .title { color: var(--tn-fg); }
+.inbox-item .main .sub {
+  color: var(--tn-comment);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.inbox-item .main .sub .proj { color: var(--tn-cyan); }
+.inbox-item .aside {
+  text-align: right;
+  font-size: 11px;
+  color: var(--tn-comment);
+}
+.inbox-item .aside .asks { color: var(--tn-magenta); }
+
+/* --- empty state --- */
+.empty {
+  padding: 28px 14px;
+  text-align: center;
+  color: var(--tn-comment);
+  font-size: 12px;
+}
+.empty b { color: var(--tn-fg-dark); font-weight: 500; }
+
+/* --- scan errors --- */
+.scan-errs {
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--tn-red);
+}

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
 	"github.com/TaylorFinklea/harness-deck/internal/render"
+	"github.com/TaylorFinklea/harness-deck/internal/server"
 )
 
 func main() {
@@ -20,8 +22,7 @@ func main() {
 	case "render":
 		cmdRender(os.Args[2:])
 	case "serve":
-		fmt.Fprintln(os.Stderr, "serve: not yet implemented (Phase 2)")
-		os.Exit(1)
+		cmdServe()
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -108,6 +109,24 @@ func cmdRender(args []string) {
 		fatal("write", err)
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s (%d bytes)\n", out, len(html))
+}
+
+// cmdServe loads config and runs the dashboard server.
+func cmdServe() {
+	cfg, err := config.Load()
+	if err != nil {
+		fatal("config", err)
+	}
+	srv, err := server.New(cfg)
+	if err != nil {
+		fatal("server", err)
+	}
+	fmt.Printf("harness-deck · serving http://127.0.0.1:%d\n", cfg.Port)
+	fmt.Printf("  central : %s\n", config.Expand(cfg.CentralDir))
+	fmt.Printf("  projects: %d registered\n", len(cfg.Projects))
+	if err := srv.Serve(); err != nil {
+		fatal("serve", err)
+	}
 }
 
 func mustParse(path string) *manifest.Report {

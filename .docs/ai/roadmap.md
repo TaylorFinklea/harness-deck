@@ -16,8 +16,8 @@ responses back to the harness.
   block type incl. `html` escape hatch + Markdown; page shell; CLI `validate` /
   `render`. _(done — Go structs are the schema; see decisions.md)_
 - **Phase 2 — discovery + aggregator.** Config, scan central + per-project dirs,
-  aggregator shell page, `harness-deck serve`.
-- **Phase 3 — live updates.** fsnotify watch → SSE → live tree/tab updates.
+  aggregator shell page, `harness-deck serve`. _(done)_
+- **Phase 3 — live updates.** Change detection → SSE → live tree/view updates.
 - **Phase 4 — response round-trip.** Interactive block controls, `/respond`,
   `responses.json`, notification command.
 - **Phase 5 — roadmap view.** Render each project's `.docs/ai/roadmap.md` plus

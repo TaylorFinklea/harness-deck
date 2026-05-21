@@ -1,0 +1,74 @@
+package store
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/TaylorFinklea/harness-deck/internal/config"
+)
+
+func writeReport(t *testing.T, dir, id, project, status string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rep := fmt.Sprintf(`{"schema":"harness-deck/report@1","id":%q,"project":%q,
+	  "harness":"claude-code","title":"t","status":%q,
+	  "created":"2026-05-18T18:39:50Z","blocks":[{"type":"prose","markdown":"x"}]}`,
+		id, project, status)
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(rep), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestScanFindsCentralAndProjectReports(t *testing.T) {
+	central := t.TempDir()
+	proj := t.TempDir()
+	writeReport(t, filepath.Join(central, "acme", "r1"), "r1", "acme", "awaiting-review")
+	writeReport(t, filepath.Join(proj, ".harness", "r2"), "r2", "myproj", "done")
+
+	s := New(config.Config{CentralDir: central, Projects: []string{proj}})
+	s.Scan()
+
+	entries := s.Entries()
+	if len(entries) != 2 {
+		t.Fatalf("got %d entries, want 2", len(entries))
+	}
+	sources := map[string]string{}
+	for _, e := range entries {
+		sources[e.Run] = e.Source
+	}
+	if sources["r1"] != "central" || sources["r2"] != "project" {
+		t.Errorf("sources = %v, want r1=central r2=project", sources)
+	}
+
+	rep, entry, err := s.Get("myproj", "r2")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if rep.Title != "t" || entry.Status != "done" {
+		t.Errorf("Get returned title=%q status=%q", rep.Title, entry.Status)
+	}
+}
+
+func TestScanRecordsParseErrors(t *testing.T) {
+	central := t.TempDir()
+	bad := filepath.Join(central, "broken", "r1")
+	if err := os.MkdirAll(bad, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bad, "report.json"), []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := New(config.Config{CentralDir: central})
+	s.Scan()
+
+	if len(s.Entries()) != 0 {
+		t.Errorf("a malformed report should not produce an entry")
+	}
+	if len(s.Errors()) != 1 {
+		t.Fatalf("got %d scan errors, want 1", len(s.Errors()))
+	}
+}

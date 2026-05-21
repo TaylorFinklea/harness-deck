@@ -55,6 +55,21 @@ inlining (the HTML parser ends a script at `</script` regardless of JS
 context). The vendored asset file itself stays verbatim for the server to
 serve as a static file.
 
+## 2026-05-20 — JSON config, not TOML
+
+Config is JSON (`~/.config/harness-deck/config.json`), not the TOML the plan
+named. Reason: TOML needs a third-party parser (a module download); JSON is
+stdlib. Keeps the build hermetic — no `go get`. The whole project stays
+zero-external-dependency on purpose (see also the in-house Markdown renderer).
+
+## 2026-05-20 — Live updates by polling, not fsnotify
+
+Phase 3 detects report changes by polling the report directories on an
+interval rather than using `github.com/fsnotify/fsnotify`. Same reason as
+above — no module download — and for a handful of local report directories a
+~2s poll is indistinguishable from a watcher. The plan said fsnotify; the
+observable behaviour (live SSE updates) is identical.
+
 ## 2026-05-20 — Roadmap view reuses .docs/ai/roadmap.md
 
 The aggregator's roadmap view renders each registered project's existing
