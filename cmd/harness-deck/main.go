@@ -11,6 +11,14 @@ import (
 	"github.com/TaylorFinklea/harness-deck/internal/server"
 )
 
+// Build metadata. A release build overrides these via -ldflags -X; a plain
+// `go build` leaves the defaults.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -23,6 +31,8 @@ func main() {
 		cmdRender(os.Args[2:])
 	case "serve":
 		cmdServe()
+	case "version", "-v", "--version":
+		cmdVersion()
 	case "-h", "--help", "help":
 		usage()
 	default:
@@ -39,6 +49,7 @@ usage:
   harness-deck validate <report.json>        check a manifest for problems
   harness-deck render <report.json> [-o f]   render a manifest to HTML
   harness-deck serve                         start the dashboard server
+  harness-deck version                       print build metadata
 `)
 }
 
@@ -127,6 +138,15 @@ func cmdServe() {
 	if err := srv.Serve(); err != nil {
 		fatal("serve", err)
 	}
+}
+
+// cmdVersion prints the build metadata stamped in at release time.
+func cmdVersion() {
+	c := commit
+	if len(c) > 7 {
+		c = c[:7]
+	}
+	fmt.Printf("harness-deck %s (commit %s, built %s)\n", version, c, date)
 }
 
 func mustParse(path string) *manifest.Report {

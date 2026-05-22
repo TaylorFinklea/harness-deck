@@ -24,10 +24,14 @@ What exists:
   the configured notify command.
 - **`internal/config`** — JSON config at `~/.config/harness-deck/config.json`.
 - **`internal/assets`** — vendored design CSS/JS + `aggregator.js` / `respond.js`.
-- **`cmd/harness-deck`** — `validate`, `render`, `serve`.
+- **`cmd/harness-deck`** — `validate`, `render`, `serve`, `version`.
 - **`CONTRACT.md`** — the agent-facing report spec.
 - **`CLAUDE.md`** — repo guidance for Claude Code (architecture, the
   zero-dependency constraint, the four-places block-type checklist).
+- **Release pipeline** — `.goreleaser.yaml` + `.github/workflows/release.yml`:
+  pushing a `v*` tag builds static darwin/linux binaries, publishes a GitHub
+  Release, and commits the formula to `TaylorFinklea/homebrew-tap`. Install via
+  `brew install taylorfinklea/tap/harness-deck` or `go install`.
 
 Deviations from the plan (all in decisions.md): zero external dependencies — Go
 structs + `CONTRACT.md` instead of a `report.schema.json`; JSON config not TOML;

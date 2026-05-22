@@ -75,3 +75,24 @@ observable behaviour (live SSE updates) is identical.
 The aggregator's roadmap view renders each registered project's existing
 `.docs/ai/roadmap.md` (an established handoff convention) plus roadmap items
 agents append via manifests. No new authoring surface.
+
+## 2026-05-21 — Distribution via GoReleaser, GitHub Releases, and a Homebrew tap
+
+Pushing a `v*` tag runs `.github/workflows/release.yml` → GoReleaser builds
+static darwin/linux (amd64+arm64) binaries, publishes a GitHub Release, and
+commits the formula to `TaylorFinklea/homebrew-tap`. Install paths: `brew
+install taylorfinklea/tap/harness-deck`, `go install …`, or a release binary.
+
+Rejected npm: it would force a Node toolchain plus a binary-download shim
+package on users, contradicting the single-static-binary design. homebrew-core
+proper needs notability the project lacks; a personal tap is the realistic
+Homebrew route.
+
+The cross-repo formula push needs a PAT in the `HOMEBREW_TAP_TOKEN` secret —
+the built-in Actions `GITHUB_TOKEN` can't write to the separate tap repo.
+Currently the broad keychain PAT; a fine-grained tap-only token is the
+eventual swap.
+
+`cmd/harness-deck` gained a `version` command; GoReleaser stamps
+version/commit/date via `-ldflags -X main.*`. The pipeline keeps the
+zero-dependency rule — GoReleaser is a build-time tool, not a module import.

@@ -69,13 +69,27 @@ flowchart TD
   table of contents + run metadata, stacked content panels, vim navigation,
   Tokyo Night theme.
 
+## Install
+
+```sh
+# Homebrew (macOS / Linux)
+brew install taylorfinklea/tap/harness-deck
+
+# Go 1.26+
+go install github.com/TaylorFinklea/harness-deck/cmd/harness-deck@latest
+```
+
+Or download a prebuilt binary from the
+[releases page](https://github.com/TaylorFinklea/harness-deck/releases).
+
 ## Build & run
 
 ```sh
-go build ./...
-./harness-deck serve        # starts the local dashboard
+go build ./...               # build from source
+./harness-deck serve         # start the local dashboard
 ./harness-deck validate report.json
 ./harness-deck render report.json -o out.html
+./harness-deck version       # print build metadata
 ```
 
 ## License

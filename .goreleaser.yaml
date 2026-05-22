@@ -1,0 +1,62 @@
+# GoReleaser v2 — https://goreleaser.com
+#
+# Tagging v* and pushing the tag triggers .github/workflows/release.yml, which
+# runs `goreleaser release`: build static binaries, publish a GitHub Release,
+# and commit the Homebrew formula to TaylorFinklea/homebrew-tap.
+#
+# Local sanity check:  goreleaser check
+# Local dry-run build: goreleaser build --snapshot --clean
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: harness-deck
+    main: ./cmd/harness-deck
+    binary: harness-deck
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .CommitDate }}
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^Merge "
+
+brews:
+  - name: harness-deck
+    repository:
+      owner: TaylorFinklea
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/TaylorFinklea/harness-deck"
+    description: "Unified dashboard for AI coding work across harnesses and projects"
+    license: MIT
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    test: |
+      system "#{bin}/harness-deck", "version"
