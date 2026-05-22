@@ -13,6 +13,24 @@ report across every project into one live dashboard. Reports can ask for your
 opinion, surface a decision, or share an idea — and your responses flow back to
 the harness as a `responses.json` file plus a notification.
 
+## Screenshots
+
+The aggregator dashboard — every report across every project and every harness,
+with an inbox of the items that are awaiting your review:
+
+![The harness-deck aggregator dashboard](docs/screenshots/dashboard.png)
+
+A rendered report. The renderer turns a JSON block manifest into a consistent,
+terminal-styled page — so every report looks like this, and old reports restyle
+when the renderer changes:
+
+![A rendered harness-deck report](docs/screenshots/report.png)
+
+The roadmap view aggregates each registered project's `.docs/ai/roadmap.md`
+alongside any reports published with `kind: "roadmap"`:
+
+![The harness-deck roadmap view](docs/screenshots/roadmap.png)
+
 ## Status
 
 Early build. See [`.docs/ai/roadmap.md`](.docs/ai/roadmap.md) for the phased plan
