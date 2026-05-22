@@ -26,6 +26,8 @@ What exists:
 - **`internal/assets`** — vendored design CSS/JS + `aggregator.js` / `respond.js`.
 - **`cmd/harness-deck`** — `validate`, `render`, `serve`.
 - **`CONTRACT.md`** — the agent-facing report spec.
+- **`CLAUDE.md`** — repo guidance for Claude Code (architecture, the
+  zero-dependency constraint, the four-places block-type checklist).
 
 Deviations from the plan (all in decisions.md): zero external dependencies — Go
 structs + `CONTRACT.md` instead of a `report.schema.json`; JSON config not TOML;
