@@ -96,3 +96,17 @@ eventual swap.
 `cmd/harness-deck` gained a `version` command; GoReleaser stamps
 version/commit/date via `-ldflags -X main.*`. The pipeline keeps the
 zero-dependency rule — GoReleaser is a build-time tool, not a module import.
+
+## 2026-05-22 — Binary stays `harness-deck`; `hdeck` is a Homebrew symlink
+
+Considered renaming the binary to `deck`. Rejected: Kong's decK CLI installs a
+binary named `deck` via homebrew-core, so a `deck` in our formula would collide
+on a `bin/` filename for anyone in the Kong ecosystem. Kept `harness-deck` as
+the canonical name and added a short `hdeck` alias instead.
+
+`hdeck` is created by `bin.install_symlink` in the GoReleaser `brews` block —
+not a second binary. A separate `cmd/hdeck` would need `main` refactored into
+an importable package and would double release artifacts (8 tarballs vs 4) for
+something that is purely an alias. The CLI dispatches on `os.Args[1]` and
+ignores `os.Args[0]`, so the symlink is behaviourally identical. Trade-off:
+`hdeck` exists only for Homebrew installs, not `go install`/`go build`.

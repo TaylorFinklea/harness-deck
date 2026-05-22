@@ -30,8 +30,11 @@ What exists:
   zero-dependency constraint, the four-places block-type checklist).
 - **Release pipeline** — `.goreleaser.yaml` + `.github/workflows/release.yml`:
   pushing a `v*` tag builds static darwin/linux binaries, publishes a GitHub
-  Release, and commits the formula to `TaylorFinklea/homebrew-tap`. Install via
-  `brew install taylorfinklea/tap/harness-deck` or `go install`.
+  Release, and commits the formula to `TaylorFinklea/homebrew-tap`. The formula
+  installs `harness-deck` plus a short `hdeck` symlink alias. Install via `brew
+  install taylorfinklea/tap/harness-deck` or `go install`. (`v0.1.0` is the
+  released tag; the `hdeck` alias lands on the next tag — uncommitted as of
+  this breadcrumb.)
 
 Deviations from the plan (all in decisions.md): zero external dependencies — Go
 structs + `CONTRACT.md` instead of a `report.schema.json`; JSON config not TOML;

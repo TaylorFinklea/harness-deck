@@ -58,5 +58,10 @@ brews:
     commit_author:
       name: github-actions[bot]
       email: 41898282+github-actions[bot]@users.noreply.github.com
+    # `hdeck` is a short alias for the same binary, symlinked into the keg.
+    install: |
+      bin.install "harness-deck"
+      bin.install_symlink "harness-deck" => "hdeck"
     test: |
       system "#{bin}/harness-deck", "version"
+      system "#{bin}/hdeck", "version"

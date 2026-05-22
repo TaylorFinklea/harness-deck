@@ -72,14 +72,15 @@ flowchart TD
 ## Install
 
 ```sh
-# Homebrew (macOS / Linux)
+# Homebrew (macOS / Linux) — installs `harness-deck` and the short alias `hdeck`
 brew install taylorfinklea/tap/harness-deck
 
 # Go 1.26+
 go install github.com/TaylorFinklea/harness-deck/cmd/harness-deck@latest
 ```
 
-Or download a prebuilt binary from the
+After `brew tap taylorfinklea/tap`, the bare `brew install harness-deck` also
+works. Or download a prebuilt binary from the
 [releases page](https://github.com/TaylorFinklea/harness-deck/releases).
 
 ## Build & run
