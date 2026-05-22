@@ -26,10 +26,12 @@ when the renderer changes:
 
 ![A rendered harness-deck report](docs/screenshots/report.png)
 
-The roadmap view aggregates each registered project's `.docs/ai/roadmap.md`
-alongside any reports published with `kind: "roadmap"`:
+The projects view auto-discovers every project under your `scan_roots` (e.g.
+`~/git`) and shows each one's `.docs/ai/current-state.md` and `roadmap.md`
+together, alongside any reports published with `kind: "roadmap"`. A "tracked
+projects" panel lets you uncheck the ones you don't care to follow:
 
-![The harness-deck roadmap view](docs/screenshots/roadmap.png)
+![The harness-deck projects view](docs/screenshots/roadmap.png)
 
 ## Status
 

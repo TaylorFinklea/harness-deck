@@ -110,3 +110,28 @@ an importable package and would double release artifacts (8 tarballs vs 4) for
 something that is purely an alias. The CLI dispatches on `os.Args[1]` and
 ignores `os.Args[0]`, so the symlink is behaviourally identical. Trade-off:
 `hdeck` exists only for Homebrew installs, not `go install`/`go build`.
+
+## 2026-05-22 — Project discovery + tracking (the `projects` package)
+
+The roadmap view (decision 2026-05-20) required hand-listing every project in
+`config.json`'s `projects` array. Replaced that with discovery: `scan_roots`
+lists parent directories (e.g. `~/git`), and a depth-1 child holding a
+`.docs/ai` directory is a project. The roadmap view became the **projects**
+view — per project it now renders `current-state.md` *and* `roadmap.md`.
+
+Toggle state (which discovered projects are hidden) lives in a separate
+app-owned `projects.json`, **not** in `config.json`. Rejected writing back to
+`config.json`: it would make harness-deck reformat a hand-authored file on
+every toggle and put a fragile write on the user's real settings. The state
+file records only the `disabled` exceptions, so a newly discovered project is
+visible by default ("uncheck to hide") and a deleted one drops out. Writes are
+atomic (temp file + rename) — harness-deck's first write path.
+
+`store.Scan` was changed to take project roots as an argument instead of
+reading `cfg.Projects` itself; the server passes the enabled set. This keeps
+`store` decoupled from `projects` (no import) — the server orchestrates.
+
+The frontend (projects view + toggle checkboxes) has no unit tests: the repo
+has no JS test harness and the zero-dependency rule forbids adding one. It is
+browser-verified instead, consistent with the rest of the frontend. The Go
+side (`projects` package, `/api/projects`, toggle) is fully unit-tested.

@@ -62,15 +62,19 @@ starting point:
   **owns every byte of layout and CSS**; manifests carry content only. One bad
   block renders a fallback error panel instead of failing the whole page.
 - **`store`** — discovers `report.json` under the central dir and each
-  registered project's `.harness/`; in-memory index; `Signature()` fingerprint
+  given project's `.harness/`; in-memory index; `Signature()` fingerprint
   drives change detection.
-- **`server`** — aggregator shell, `/api/reports`, `/api/roadmap`, `/events`
-  (SSE), `/r/{project}/{run}` report pages, `POST .../respond`. A 2s watcher
-  polls the store and broadcasts SSE refreshes.
+- **`projects`** — discovers project roots (depth-1 children of `scan_roots`
+  holding a `.docs/ai` dir, plus explicit `projects`); persists which ones the
+  user hid in an app-owned `projects.json`; new projects default to enabled.
+- **`server`** — aggregator shell, `/api/reports`, `/api/projects`, `POST
+  /api/projects/toggle`, `/events` (SSE), `/r/{project}/{run}` report pages,
+  `POST .../respond`. A 2s watcher polls store + projects and broadcasts SSE.
 - **`respond`** / **`notify`** — `responses.json` read/write; the configured
   notify command fired when an answer is recorded.
 - **`config`** — JSON config at `~/.config/harness-deck/config.json`; every
-  field defaults, so it runs with no config file.
+  field defaults, so it runs with no config file. `scan_roots` lists
+  directories searched for project roots.
 - **`assets`** — vendored frontend files embedded for self-contained output.
 
 ## Key conventions

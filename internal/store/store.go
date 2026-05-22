@@ -1,6 +1,6 @@
 // Package store discovers report manifests on disk and keeps an in-memory
 // index of them. Reports are found in two places: the central reports
-// directory and the .harness/ directory of each registered project root.
+// directory and the .harness/ directory of each project root Scan is given.
 package store
 
 import (
@@ -22,16 +22,16 @@ import (
 // Entry is the indexed summary of one report. The full manifest is loaded
 // on demand via Get.
 type Entry struct {
-	Project  string `json:"project"`
-	Run      string `json:"run"`
-	Harness  string `json:"harness"`
-	Agent    string `json:"agent"`
-	Title    string `json:"title"`
-	Kind     string `json:"kind"`
-	Status   string `json:"status"`
-	Created  string `json:"created"`
-	Verdict  string `json:"verdict"`
-	Source   string `json:"source"` // "central" or "project"
+	Project  string    `json:"project"`
+	Run      string    `json:"run"`
+	Harness  string    `json:"harness"`
+	Agent    string    `json:"agent"`
+	Title    string    `json:"title"`
+	Kind     string    `json:"kind"`
+	Status   string    `json:"status"`
+	Created  string    `json:"created"`
+	Verdict  string    `json:"verdict"`
+	Source   string    `json:"source"` // "central" or "project"
 	Blocks   int       `json:"blocks"`
 	OpenAsks int       `json:"open_asks"`
 	Dir      string    `json:"-"` // run directory
@@ -51,9 +51,11 @@ type Store struct {
 // New returns an empty Store; call Scan to populate it.
 func New(cfg config.Config) *Store { return &Store{cfg: cfg} }
 
-// Scan rebuilds the index from disk: the central directory plus every
-// registered project's .harness/ directory.
-func (s *Store) Scan() {
+// Scan rebuilds the index from disk: the central directory plus the
+// .harness/ directory of each project root it is given. The caller decides
+// which projects count — typically the enabled set from the projects
+// package.
+func (s *Store) Scan(projectRoots []string) {
 	var entries []Entry
 	var errs []string
 	seen := map[string]bool{} // project\x00run — central wins ties (scanned first)
@@ -88,7 +90,7 @@ func (s *Store) Scan() {
 	}
 
 	collect(config.Expand(s.cfg.CentralDir), "central")
-	for _, p := range s.cfg.Projects {
+	for _, p := range projectRoots {
 		collect(filepath.Join(config.Expand(p), ".harness"), "project")
 	}
 	// Newest first. RFC3339 timestamps sort correctly as strings.

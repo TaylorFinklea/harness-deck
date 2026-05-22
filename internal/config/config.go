@@ -20,6 +20,9 @@ type Config struct {
 	CentralDir string `json:"central_dir"`
 	// Projects are project roots; each is scanned for .harness/<run>/report.json.
 	Projects []string `json:"projects"`
+	// ScanRoots are directories searched (depth-1) for project roots: a
+	// direct child holding a .docs/ai directory is a discovered project.
+	ScanRoots []string `json:"scan_roots"`
 	// NotifyCommand runs when a response is recorded (Phase 4). The report
 	// directory is appended as a final argument. Empty disables notification.
 	NotifyCommand string `json:"notify_command"`

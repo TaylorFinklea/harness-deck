@@ -29,8 +29,8 @@ func TestScanFindsCentralAndProjectReports(t *testing.T) {
 	writeReport(t, filepath.Join(central, "acme", "r1"), "r1", "acme", "awaiting-review")
 	writeReport(t, filepath.Join(proj, ".harness", "r2"), "r2", "myproj", "done")
 
-	s := New(config.Config{CentralDir: central, Projects: []string{proj}})
-	s.Scan()
+	s := New(config.Config{CentralDir: central})
+	s.Scan([]string{proj})
 
 	entries := s.Entries()
 	if len(entries) != 2 {
@@ -53,15 +53,40 @@ func TestScanFindsCentralAndProjectReports(t *testing.T) {
 	}
 }
 
+// TestScanUsesProjectRootsArgument checks that Scan indexes the project
+// roots it is given and no longer reads cfg.Projects itself — project
+// selection now lives upstream (the enabled set from the projects package).
+func TestScanUsesProjectRootsArgument(t *testing.T) {
+	central := t.TempDir()
+	argRoot := t.TempDir() // passed to Scan — should be indexed
+	cfgRoot := t.TempDir() // in cfg.Projects — should be ignored
+	writeReport(t, filepath.Join(argRoot, ".harness", "a1"), "a1", "argproj", "done")
+	writeReport(t, filepath.Join(cfgRoot, ".harness", "c1"), "c1", "cfgproj", "done")
+
+	s := New(config.Config{CentralDir: central, Projects: []string{cfgRoot}})
+	s.Scan([]string{argRoot})
+
+	runs := map[string]bool{}
+	for _, e := range s.Entries() {
+		runs[e.Run] = true
+	}
+	if !runs["a1"] {
+		t.Error("report under the Scan argument root was not indexed")
+	}
+	if runs["c1"] {
+		t.Error("report under cfg.Projects was indexed; Scan should use its argument")
+	}
+}
+
 func TestSignatureChangesWhenReportsChange(t *testing.T) {
 	central := t.TempDir()
 	writeReport(t, filepath.Join(central, "p", "r1"), "r1", "p", "draft")
 	s := New(config.Config{CentralDir: central})
-	s.Scan()
+	s.Scan(nil)
 	before := s.Signature()
 
 	writeReport(t, filepath.Join(central, "p", "r2"), "r2", "p", "draft")
-	s.Scan()
+	s.Scan(nil)
 	if s.Signature() == before {
 		t.Error("signature should change after a new report appears")
 	}
@@ -77,7 +102,7 @@ func TestScanRecordsParseErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := New(config.Config{CentralDir: central})
-	s.Scan()
+	s.Scan(nil)
 
 	if len(s.Entries()) != 0 {
 		t.Errorf("a malformed report should not produce an entry")

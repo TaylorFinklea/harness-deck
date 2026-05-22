@@ -80,16 +80,17 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// watch rescans the store on an interval and broadcasts when the report index
-// changes. Polling (rather than fsnotify) keeps the build dependency-free; a
+// watch rescans on an interval and broadcasts when anything the dashboard
+// reflects changes — reports, discovered projects, or their .docs/ai docs.
+// Polling (rather than fsnotify) keeps the build dependency-free; a
 // couple-second latency is imperceptible for a local dashboard.
 func (s *Server) watch(interval time.Duration) {
-	last := s.store.Signature()
+	last := s.changeFingerprint()
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for range t.C {
-		s.store.Scan()
-		if cur := s.store.Signature(); cur != last {
+		s.store.Scan(s.enabledRoots())
+		if cur := s.changeFingerprint(); cur != last {
 			last = cur
 			s.hub.broadcast("reports")
 		}

@@ -27,6 +27,13 @@ responses back to the harness.
 All planned phases (0–5) are complete. The next step is Phase 6 — harness-side
 integration — which lives in `chezmoi-config`, not this repo.
 
+## Post-MVP additions
+
+- **Project discovery + tracking** _(done — 2026-05-22)_ — `scan_roots`
+  auto-discovers project roots; the roadmap view became the **projects** view
+  (per-project current-state + roadmap) with a collapsible panel of visibility
+  toggles persisted to `projects.json`. See decisions.md.
+
 ## Later / out of scope
 
 - Harness-side integration (hooks/skill so harnesses emit manifests and pick up

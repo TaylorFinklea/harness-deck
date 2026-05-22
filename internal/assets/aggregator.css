@@ -104,3 +104,35 @@
   font-size: 11px;
   color: var(--tn-red);
 }
+
+/* --- projects view: tracked-projects settings panel --- */
+.tracked-head { cursor: pointer; }
+.tracked-head .sigil { color: var(--tn-comment); }
+.proj-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 4px;
+  cursor: pointer;
+  border-top: 1px dotted var(--tn-bg-highlight);
+}
+.proj-row:first-child { border-top: none; }
+.proj-row:hover { background: var(--tn-bg-highlight); }
+.proj-row .proj-name { color: var(--tn-fg); }
+.proj-row .proj-path {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--tn-fg-gutter);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.proj-toggle { accent-color: var(--tn-blue); cursor: pointer; }
+
+/* --- projects view: per-project section labels --- */
+.proj-sec {
+  margin: 14px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tn-fg-gutter);
+}
+.proj-sec:first-child { margin-top: 0; }

@@ -22,8 +22,16 @@ const sampleReport = `{
   "blocks": [{"type": "prose", "markdown": "all **clear**."}]
 }`
 
+// isolateState points the projects-state file at a temp dir so tests never
+// touch the real ~/.config/harness-deck/projects.json.
+func isolateState(t *testing.T) {
+	t.Helper()
+	t.Setenv("HARNESS_DECK_CONFIG", filepath.Join(t.TempDir(), "config.json"))
+}
+
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
+	isolateState(t)
 	central := t.TempDir()
 	dir := filepath.Join(central, "acme", "0x4a2f")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -96,6 +104,7 @@ const askReport = `{
 }`
 
 func TestRespondRecordsAndShowsAnswer(t *testing.T) {
+	isolateState(t)
 	central := t.TempDir()
 	dir := filepath.Join(central, "acme", "0x1")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -132,44 +141,106 @@ func TestRespondRecordsAndShowsAnswer(t *testing.T) {
 	}
 }
 
-func TestRoadmapRendersProjectFile(t *testing.T) {
-	central := t.TempDir()
-	proj := t.TempDir()
-	aiDir := filepath.Join(proj, ".docs", "ai")
+// projectsResponse mirrors the /api/projects payload for test decoding.
+type projectsResponse struct {
+	Projects []struct {
+		Project          string `json:"project"`
+		CurrentStateHTML string `json:"current_state_html"`
+		HasState         bool   `json:"has_state"`
+		RoadmapHTML      string `json:"roadmap_html"`
+		HasRoadmap       bool   `json:"has_roadmap"`
+	} `json:"projects"`
+	Discovered []struct {
+		Name    string `json:"name"`
+		Enabled bool   `json:"enabled"`
+	} `json:"discovered"`
+}
+
+// mkAIDoc writes a .docs/ai doc for a project under a scan root.
+func mkAIDoc(t *testing.T, scanRoot, project, doc, body string) {
+	t.Helper()
+	aiDir := filepath.Join(scanRoot, project, ".docs", "ai")
 	if err := os.MkdirAll(aiDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(aiDir, "roadmap.md"),
-		[]byte("# Plan\n\n- ship dark mode"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(aiDir, doc), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	s, err := New(config.Config{CentralDir: central, Projects: []string{proj}})
+}
+
+func TestProjectsViewRendersRoadmapAndState(t *testing.T) {
+	isolateState(t)
+	gitDir := t.TempDir()
+	mkAIDoc(t, gitDir, "larkline", "roadmap.md", "# Plan\n\n- ship dark mode")
+	mkAIDoc(t, gitDir, "larkline", "current-state.md", "## State\n\nbuild is green")
+
+	s, err := New(config.Config{CentralDir: t.TempDir(), ScanRoots: []string{gitDir}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 
-	code, body := get(t, s.Handler(), "/api/roadmap")
+	code, body := get(t, s.Handler(), "/api/projects")
 	if code != http.StatusOK {
-		t.Fatalf("GET /api/roadmap = %d, want 200", code)
+		t.Fatalf("GET /api/projects = %d, want 200", code)
 	}
-	var got struct {
-		Projects []struct {
-			HTML    string `json:"html"`
-			HasFile bool   `json:"has_file"`
-		} `json:"projects"`
-	}
+	var got projectsResponse
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
-		t.Fatalf("decode roadmap response: %v", err)
+		t.Fatalf("decode projects response: %v", err)
 	}
 	if len(got.Projects) != 1 {
-		t.Fatalf("got %d roadmap projects, want 1", len(got.Projects))
+		t.Fatalf("got %d projects, want 1; body: %s", len(got.Projects), body)
 	}
 	p := got.Projects[0]
-	if !p.HasFile {
-		t.Error("project should report has_file=true")
+	if p.Project != "larkline" {
+		t.Errorf("project = %q, want larkline", p.Project)
 	}
-	if !strings.Contains(p.HTML, "<h1>Plan</h1>") || !strings.Contains(p.HTML, "ship dark mode") {
-		t.Errorf("rendered roadmap HTML missing content: %q", p.HTML)
+	if !p.HasRoadmap || !strings.Contains(p.RoadmapHTML, "<h1>Plan</h1>") {
+		t.Errorf("roadmap not rendered: has=%v html=%q", p.HasRoadmap, p.RoadmapHTML)
+	}
+	if !p.HasState || !strings.Contains(p.CurrentStateHTML, "build is green") {
+		t.Errorf("current-state not rendered: has=%v html=%q", p.HasState, p.CurrentStateHTML)
+	}
+	if len(got.Discovered) != 1 || got.Discovered[0].Name != "larkline" || !got.Discovered[0].Enabled {
+		t.Errorf("discovered = %+v, want [{larkline true}]", got.Discovered)
+	}
+}
+
+func TestProjectToggleHidesProject(t *testing.T) {
+	isolateState(t)
+	gitDir := t.TempDir()
+	mkAIDoc(t, gitDir, "larkline", "roadmap.md", "# Plan")
+
+	s, err := New(config.Config{CentralDir: t.TempDir(), ScanRoots: []string{gitDir}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	h := s.Handler()
+
+	post := func(body string) int {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/projects/toggle",
+			strings.NewReader(body)))
+		return rec.Code
+	}
+
+	if code := post(`{"name":"larkline"}`); code != http.StatusOK {
+		t.Fatalf("POST toggle = %d, want 200", code)
+	}
+
+	_, body := get(t, h, "/api/projects")
+	var got projectsResponse
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got.Projects) != 0 {
+		t.Errorf("hidden project still in projects list: %+v", got.Projects)
+	}
+	if len(got.Discovered) != 1 || got.Discovered[0].Enabled {
+		t.Errorf("discovered = %+v, want larkline enabled=false", got.Discovered)
+	}
+
+	if code := post(`{"name":"ghost"}`); code != http.StatusBadRequest {
+		t.Errorf("toggle of unknown project = %d, want 400", code)
 	}
 }
 

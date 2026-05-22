@@ -14,6 +14,7 @@ import (
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
+	"github.com/TaylorFinklea/harness-deck/internal/projects"
 	"github.com/TaylorFinklea/harness-deck/internal/render"
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
@@ -29,6 +30,7 @@ const pollInterval = 2 * time.Second
 type Server struct {
 	cfg      config.Config
 	store    *store.Store
+	projects *projects.Manager
 	renderer *render.Renderer
 	shell    *template.Template
 	hub      *hub
@@ -45,19 +47,39 @@ func New(cfg config.Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse shell template: %w", err)
 	}
+	pm := projects.NewManager(cfg.ScanRoots, cfg.Projects, projects.StatePath())
 	st := store.New(cfg)
-	st.Scan()
 
-	s := &Server{cfg: cfg, store: st, renderer: renderer, shell: shell, hub: newHub()}
+	s := &Server{cfg: cfg, store: st, projects: pm, renderer: renderer, shell: shell, hub: newHub()}
+	s.store.Scan(s.enabledRoots())
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleShell)
 	mux.HandleFunc("GET /api/reports", s.handleReports)
-	mux.HandleFunc("GET /api/roadmap", s.handleRoadmap)
+	mux.HandleFunc("GET /api/projects", s.handleProjects)
+	mux.HandleFunc("POST /api/projects/toggle", s.handleProjectToggle)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /r/{project}/{run}", s.handleReport)
 	mux.HandleFunc("POST /r/{project}/{run}/respond", s.handleRespond)
 	s.mux = mux
 	return s, nil
+}
+
+// enabledRoots is the filesystem paths of the projects the user is tracking.
+func (s *Server) enabledRoots() []string {
+	enabled := s.projects.Enabled()
+	roots := make([]string, len(enabled))
+	for i, p := range enabled {
+		roots[i] = p.Path
+	}
+	return roots
+}
+
+// changeFingerprint digests everything the dashboard reflects — the report
+// index plus discovered projects and their docs — so the watcher can detect
+// any of it changing.
+func (s *Server) changeFingerprint() string {
+	return s.store.Signature() + "|" + s.projects.Fingerprint()
 }
 
 // Handler exposes the routes (used by tests).
@@ -150,7 +172,7 @@ func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 		log.Printf("harness-deck: notify command failed: %v", err)
 	}
 	// Reindex so OpenAsks counts drop, and tell the dashboard to refresh.
-	s.store.Scan()
+	s.store.Scan(s.enabledRoots())
 	s.hub.broadcast("reports")
 
 	w.Header().Set("Content-Type", "application/json")
