@@ -15,7 +15,8 @@
   ];
   var data = { reports: [], errors: [], projects: [], discovered: [] };
   var currentView = 'inbox';
-  var trackedOpen = false; // is the "tracked projects" panel expanded?
+  var trackedOpen = false;     // is the "tracked projects" panel expanded?
+  var draggedName = null;      // project name currently being dragged, or null
 
   /* el builds a DOM node. attrs: {class, text, data:{...}, <attr>:<val>}.
      kids: array of nodes or strings (strings become safe text nodes). */
@@ -108,7 +109,15 @@
     data.reports.forEach(function (r) {
       (byProj[r.project] = byProj[r.project] || []).push(r);
     });
-    var projects = Object.keys(byProj).sort();
+    // Sort the tree by the user's project order — falls back to alpha for
+    // projects without a discovered entry (e.g. central-dir-only reports).
+    var nameIdx = {};
+    (data.discovered || []).forEach(function (d, i) { nameIdx[d.name] = i; });
+    var projects = Object.keys(byProj).sort(function (a, b) {
+      var ai = (a in nameIdx) ? nameIdx[a] : Infinity;
+      var bi = (b in nameIdx) ? nameIdx[b] : Infinity;
+      return ai !== bi ? ai - bi : a.localeCompare(b);
+    });
     var tree = el('div', { class: 'tree' });
     if (!projects.length) {
       tree.appendChild(el('div', {
@@ -192,11 +201,18 @@
     return [panel('latest report', pill(r.status), [itemRow(r)])];
   }
 
-  /* projectToggleRow — one discovered project with a visibility checkbox. */
+  /* projectToggleRow — one discovered project with a drag handle and a
+     visibility checkbox. The whole row is draggable so users can grab
+     anywhere; the handle glyph is the visual cue. */
   function projectToggleRow(d) {
     var cb = el('input', { type: 'checkbox', class: 'proj-toggle', data: { name: d.name } });
     cb.checked = d.enabled;
-    return el('label', { class: 'proj-row' }, [
+    return el('label', {
+      class: 'proj-row',
+      draggable: 'true',
+      data: { name: d.name }
+    }, [
+      el('span', { class: 'proj-handle', text: '⋮⋮' }),
       cb,
       el('span', { class: 'proj-name', text: d.name }),
       el('span', { class: 'proj-path', text: d.path })
@@ -306,6 +322,54 @@
     if (cb) { toggleProject(cb.dataset.name); }
   });
 
+  /* drag-and-drop reordering of the tracked-projects rows. HTML5 native dnd
+     so no library — the whole .proj-row is draggable; we compute the drop
+     position from the cursor's Y within the target row. */
+  function clearDropMarkers() {
+    document.querySelectorAll('.proj-row.drop-above, .proj-row.drop-below').forEach(function (r) {
+      r.classList.remove('drop-above', 'drop-below');
+    });
+  }
+  document.addEventListener('dragstart', function (e) {
+    var row = e.target.closest('.proj-row');
+    if (!row) return;
+    draggedName = row.dataset.name;
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', draggedName); } catch (_) {}
+    row.classList.add('dragging');
+  });
+  document.addEventListener('dragover', function (e) {
+    var row = e.target.closest('.proj-row');
+    if (!row || !draggedName || row.dataset.name === draggedName) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    var rect = row.getBoundingClientRect();
+    var below = (e.clientY - rect.top) > rect.height / 2;
+    clearDropMarkers();
+    row.classList.add(below ? 'drop-below' : 'drop-above');
+  });
+  document.addEventListener('drop', function (e) {
+    var row = e.target.closest('.proj-row');
+    if (!row || !draggedName || row.dataset.name === draggedName) return;
+    e.preventDefault();
+    var rect = row.getBoundingClientRect();
+    var below = (e.clientY - rect.top) > rect.height / 2;
+    var target = row.dataset.name;
+    var order = (data.discovered || []).map(function (d) { return d.name; })
+      .filter(function (n) { return n !== draggedName; });
+    var idx = order.indexOf(target);
+    if (idx < 0) return;
+    order.splice(below ? idx + 1 : idx, 0, draggedName);
+    reorderProjects(order);
+  });
+  document.addEventListener('dragend', function () {
+    draggedName = null;
+    document.querySelectorAll('.proj-row.dragging').forEach(function (r) {
+      r.classList.remove('dragging');
+    });
+    clearDropMarkers();
+  });
+
   /* number keys 1-4 switch views, unless vim-nav owns the keystroke */
   document.addEventListener('keydown', function (e) {
     var t = e.target;
@@ -314,6 +378,19 @@
     var v = VIEWS.find(function (x) { return x.key === e.key; });
     if (v) { showView(v.id); e.preventDefault(); }
   });
+
+  /* reorderProjects persists the user's drag-and-drop result. */
+  function reorderProjects(order) {
+    fetch('/api/projects/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: order })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('reorder HTTP ' + r.status);
+    }).catch(function (err) {
+      console.error('harness-deck: reorder failed', err);
+    }).then(refresh);
+  }
 
   /* toggleProject hides or shows a project server-side, then re-syncs. */
   function toggleProject(name) {

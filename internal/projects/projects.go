@@ -65,13 +65,35 @@ func (m *Manager) Discovered() []Project {
 }
 
 // discovered is Discovered without locking, for callers already holding mu.
+// Projects listed in the saved order come first (in that order); anything not
+// in the order is appended alpha-sorted, so a fresh install keeps its
+// alphabetical default and newly discovered projects don't jump the line.
 func (m *Manager) discovered() []Project {
-	disabled := m.loadDisabled()
-	ps := discover(m.scanRoots, m.explicit)
-	for i := range ps {
-		ps[i].Enabled = !disabled[ps[i].Name]
+	disabled, order := m.loadState()
+	all := discover(m.scanRoots, m.explicit)
+	byName := make(map[string]Project, len(all))
+	for _, p := range all {
+		byName[p.Name] = p
 	}
-	return ps
+	out := make([]Project, 0, len(all))
+	consumed := make(map[string]bool, len(order))
+	for _, name := range order {
+		p, ok := byName[name]
+		if !ok || consumed[name] {
+			continue
+		}
+		p.Enabled = !disabled[name]
+		out = append(out, p)
+		consumed[name] = true
+	}
+	for _, p := range all {
+		if consumed[p.Name] {
+			continue
+		}
+		p.Enabled = !disabled[p.Name]
+		out = append(out, p)
+	}
+	return out
 }
 
 // Enabled returns only the projects the user has left visible.
@@ -100,13 +122,13 @@ func (m *Manager) Toggle(name string) error {
 	if !found {
 		return fmt.Errorf("projects: unknown project %q", name)
 	}
-	disabled := m.loadDisabled()
+	disabled, order := m.loadState()
 	if disabled[name] {
 		delete(disabled, name)
 	} else {
 		disabled[name] = true
 	}
-	return m.saveDisabled(disabled)
+	return m.saveState(disabled, order)
 }
 
 // docNames are the .docs/ai files surfaced in the projects view, also
@@ -129,41 +151,63 @@ func (m *Manager) Fingerprint() string {
 	return strconv.FormatUint(h.Sum64(), 16)
 }
 
-// stateFile is the on-disk shape of projects.json: just the hidden names.
-// Recording only the exceptions means a newly discovered project is visible
-// by default and a deleted project simply drops out.
-type stateFile struct {
-	Disabled []string `json:"disabled"`
+// Reorder records the user's preferred display order for discovered projects
+// and persists it. Every name must match a currently discovered project so
+// stale browser state can't smuggle ghost entries into the order. The hidden
+// set is preserved untouched — visibility and order are independent.
+func (m *Manager) Reorder(names []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	known := map[string]bool{}
+	for _, p := range discover(m.scanRoots, m.explicit) {
+		known[p.Name] = true
+	}
+	for _, n := range names {
+		if !known[n] {
+			return fmt.Errorf("projects: unknown project %q", n)
+		}
+	}
+	disabled, _ := m.loadState()
+	return m.saveState(disabled, names)
 }
 
-// loadDisabled reads the hidden set. A missing or corrupt file yields an
-// empty set — harness-deck degrades to "everything visible" rather than
-// failing.
-func (m *Manager) loadDisabled() map[string]bool {
+// stateFile is the on-disk shape of projects.json: the hidden names and the
+// user's preferred display order. Recording only the exceptions means a
+// newly discovered project is visible by default; a name no longer on disk
+// drops out of both sets harmlessly.
+type stateFile struct {
+	Disabled []string `json:"disabled"`
+	Order    []string `json:"order"`
+}
+
+// loadState reads the hidden set and the saved order. A missing or corrupt
+// file yields empty values — harness-deck degrades to "everything visible,
+// alphabetical" rather than failing.
+func (m *Manager) loadState() (map[string]bool, []string) {
 	set := map[string]bool{}
 	data, err := os.ReadFile(m.statePath)
 	if err != nil {
-		return set
+		return set, nil
 	}
 	var sf stateFile
 	if json.Unmarshal(data, &sf) != nil {
-		return set
+		return set, nil
 	}
 	for _, n := range sf.Disabled {
 		set[n] = true
 	}
-	return set
+	return set, sf.Order
 }
 
-// saveDisabled writes the hidden set atomically (temp file + rename) so a
-// crash mid-write cannot truncate projects.json.
-func (m *Manager) saveDisabled(set map[string]bool) error {
+// saveState writes the hidden set and the saved order atomically (temp file +
+// rename) so a crash mid-write cannot truncate projects.json.
+func (m *Manager) saveState(set map[string]bool, order []string) error {
 	names := make([]string, 0, len(set))
 	for n := range set {
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	data, err := json.MarshalIndent(stateFile{Disabled: names}, "", "  ")
+	data, err := json.MarshalIndent(stateFile{Disabled: names, Order: order}, "", "  ")
 	if err != nil {
 		return err
 	}

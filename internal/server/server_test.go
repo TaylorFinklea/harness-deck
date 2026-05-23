@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -241,6 +242,65 @@ func TestProjectToggleHidesProject(t *testing.T) {
 
 	if code := post(`{"name":"ghost"}`); code != http.StatusBadRequest {
 		t.Errorf("toggle of unknown project = %d, want 400", code)
+	}
+}
+
+func TestProjectsReorderUpdatesOrder(t *testing.T) {
+	isolateState(t)
+	gitDir := t.TempDir()
+	mkAIDoc(t, gitDir, "alpha", "roadmap.md", "# a")
+	mkAIDoc(t, gitDir, "beta", "roadmap.md", "# b")
+	mkAIDoc(t, gitDir, "gamma", "roadmap.md", "# g")
+
+	s, err := New(config.Config{CentralDir: t.TempDir(), ScanRoots: []string{gitDir}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	h := s.Handler()
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/projects/reorder",
+		strings.NewReader(`{"order":["gamma","alpha","beta"]}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST reorder = %d, want 200", rec.Code)
+	}
+
+	_, body := get(t, h, "/api/projects")
+	var got projectsResponse
+	if err := json.Unmarshal([]byte(body), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	var names []string
+	for _, p := range got.Discovered {
+		names = append(names, p.Name)
+	}
+	if want := []string{"gamma", "alpha", "beta"}; !reflect.DeepEqual(names, want) {
+		t.Errorf("discovered order = %v, want %v", names, want)
+	}
+	var viewNames []string
+	for _, p := range got.Projects {
+		viewNames = append(viewNames, p.Project)
+	}
+	if want := []string{"gamma", "alpha", "beta"}; !reflect.DeepEqual(viewNames, want) {
+		t.Errorf("projects view order = %v, want %v", viewNames, want)
+	}
+}
+
+func TestProjectsReorderRejectsUnknownNames(t *testing.T) {
+	isolateState(t)
+	gitDir := t.TempDir()
+	mkAIDoc(t, gitDir, "alpha", "roadmap.md", "# a")
+
+	s, err := New(config.Config{CentralDir: t.TempDir(), ScanRoots: []string{gitDir}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/projects/reorder",
+		strings.NewReader(`{"order":["alpha","ghost"]}`)))
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("reorder with ghost = %d, want 400", rec.Code)
 	}
 }
 

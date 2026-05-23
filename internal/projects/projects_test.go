@@ -1,11 +1,25 @@
 package projects
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+// writeState seeds a projects.json before constructing a Manager — handy for
+// driving Discovered's order/disabled handling.
+func writeState(t *testing.T, path string, state map[string]any) {
+	t.Helper()
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // mkProject creates a directory named name under root. With withDocs it also
 // creates the .docs/ai marker directory that makes it a discoverable project.
@@ -175,6 +189,139 @@ func TestFingerprintChangesOnToggle(t *testing.T) {
 	}
 	if m.Fingerprint() == before {
 		t.Error("Fingerprint unchanged after Toggle")
+	}
+}
+
+// TestDiscoveredAppliesSavedOrder checks that a saved order in projects.json
+// drives Discovered's output order instead of alphabetical.
+func TestDiscoveredAppliesSavedOrder(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "alpha", true)
+	mkProject(t, root, "beta", true)
+	mkProject(t, root, "gamma", true)
+	state := filepath.Join(t.TempDir(), "projects.json")
+	writeState(t, state, map[string]any{"order": []string{"gamma", "alpha", "beta"}})
+
+	m := NewManager([]string{root}, nil, state)
+	var names []string
+	for _, p := range m.Discovered() {
+		names = append(names, p.Name)
+	}
+	if want := []string{"gamma", "alpha", "beta"}; !reflect.DeepEqual(names, want) {
+		t.Fatalf("Discovered = %v, want %v", names, want)
+	}
+}
+
+// TestDiscoveredAppendsNewProjectsAlpha checks that projects not in the saved
+// order land at the end, alpha-sorted — newcomers don't shuffle existing ones.
+func TestDiscoveredAppendsNewProjectsAlpha(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "alpha", true)
+	mkProject(t, root, "beta", true)
+	mkProject(t, root, "gamma", true)
+	mkProject(t, root, "delta", true)
+	state := filepath.Join(t.TempDir(), "projects.json")
+	writeState(t, state, map[string]any{"order": []string{"gamma", "alpha"}})
+
+	m := NewManager([]string{root}, nil, state)
+	var names []string
+	for _, p := range m.Discovered() {
+		names = append(names, p.Name)
+	}
+	if want := []string{"gamma", "alpha", "beta", "delta"}; !reflect.DeepEqual(names, want) {
+		t.Fatalf("Discovered = %v, want %v", names, want)
+	}
+}
+
+// TestDiscoveredDropsMissingFromOrder checks that an order entry pointing at a
+// project that no longer exists on disk is silently skipped.
+func TestDiscoveredDropsMissingFromOrder(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "alpha", true)
+	state := filepath.Join(t.TempDir(), "projects.json")
+	writeState(t, state, map[string]any{"order": []string{"ghost", "alpha"}})
+
+	m := NewManager([]string{root}, nil, state)
+	var names []string
+	for _, p := range m.Discovered() {
+		names = append(names, p.Name)
+	}
+	if want := []string{"alpha"}; !reflect.DeepEqual(names, want) {
+		t.Fatalf("Discovered = %v, want %v", names, want)
+	}
+}
+
+// TestReorderPersists checks that Reorder writes a new order that a fresh
+// Manager picks up from projects.json.
+func TestReorderPersists(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "alpha", true)
+	mkProject(t, root, "beta", true)
+	mkProject(t, root, "gamma", true)
+	state := filepath.Join(t.TempDir(), "projects.json")
+
+	if err := NewManager([]string{root}, nil, state).Reorder([]string{"gamma", "alpha", "beta"}); err != nil {
+		t.Fatalf("Reorder: %v", err)
+	}
+
+	var names []string
+	for _, p := range NewManager([]string{root}, nil, state).Discovered() {
+		names = append(names, p.Name)
+	}
+	if want := []string{"gamma", "alpha", "beta"}; !reflect.DeepEqual(names, want) {
+		t.Fatalf("Discovered after reorder = %v, want %v", names, want)
+	}
+}
+
+// TestReorderUnknownNameErrors checks that a name not in the discovered set
+// is rejected — the user can't smuggle ghost projects into the order.
+func TestReorderUnknownNameErrors(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "alpha", true)
+	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+
+	if err := m.Reorder([]string{"alpha", "ghost"}); err == nil {
+		t.Error("Reorder(...ghost) = nil, want error")
+	}
+}
+
+// TestReorderPreservesDisabled checks that reordering doesn't touch the
+// hidden set — order and visibility are independent axes.
+func TestReorderPreservesDisabled(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "alpha", true)
+	mkProject(t, root, "beta", true)
+	state := filepath.Join(t.TempDir(), "projects.json")
+	m := NewManager([]string{root}, nil, state)
+
+	if err := m.Toggle("beta"); err != nil {
+		t.Fatalf("Toggle: %v", err)
+	}
+	if err := m.Reorder([]string{"beta", "alpha"}); err != nil {
+		t.Fatalf("Reorder: %v", err)
+	}
+	for _, p := range m.Discovered() {
+		want := p.Name != "beta"
+		if p.Enabled != want {
+			t.Errorf("%s: Enabled=%t, want %t", p.Name, p.Enabled, want)
+		}
+	}
+}
+
+// TestFingerprintChangesOnReorder checks that the watcher fingerprint reacts
+// to order changes so the dashboard can refresh.
+func TestFingerprintChangesOnReorder(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "alpha", true)
+	mkProject(t, root, "beta", true)
+	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+
+	before := m.Fingerprint()
+	if err := m.Reorder([]string{"beta", "alpha"}); err != nil {
+		t.Fatalf("Reorder: %v", err)
+	}
+	if m.Fingerprint() == before {
+		t.Error("Fingerprint unchanged after Reorder")
 	}
 }
 

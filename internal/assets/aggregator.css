@@ -127,6 +127,19 @@
 }
 .proj-toggle { accent-color: var(--tn-blue); cursor: pointer; }
 
+/* drag-and-drop reordering — the handle is the cue; the whole row drags. */
+.proj-handle {
+  color: var(--tn-fg-gutter);
+  cursor: grab;
+  user-select: none;
+  letter-spacing: -3px; /* tighten the doubled glyph */
+  margin-right: 2px;
+}
+.proj-row { transition: opacity 0.1s; }
+.proj-row.dragging { opacity: 0.4; }
+.proj-row.drop-above { box-shadow: inset 0 2px 0 var(--tn-blue); }
+.proj-row.drop-below { box-shadow: inset 0 -2px 0 var(--tn-blue); }
+
 /* --- projects view: per-project section labels --- */
 .proj-sec {
   margin: 14px 0 6px;

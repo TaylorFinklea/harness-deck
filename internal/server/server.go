@@ -58,6 +58,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /api/reports", s.handleReports)
 	mux.HandleFunc("GET /api/projects", s.handleProjects)
 	mux.HandleFunc("POST /api/projects/toggle", s.handleProjectToggle)
+	mux.HandleFunc("POST /api/projects/reorder", s.handleProjectReorder)
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /r/{project}/{run}", s.handleReport)
 	mux.HandleFunc("POST /r/{project}/{run}/respond", s.handleRespond)

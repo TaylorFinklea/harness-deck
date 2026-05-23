@@ -74,6 +74,30 @@ type projectToggleRequest struct {
 	Name string `json:"name"`
 }
 
+// projectReorderRequest is the POST body for setting the display order.
+type projectReorderRequest struct {
+	Order []string `json:"order"`
+}
+
+// handleProjectReorder records the user's preferred project order and
+// refreshes the dashboard so every project listing follows it.
+func (s *Server) handleProjectReorder(w http.ResponseWriter, r *http.Request) {
+	var req projectReorderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.projects.Reorder(req.Order); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.store.Scan(s.enabledRoots())
+	s.hub.broadcast("reports")
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"ok":true}`))
+}
+
 // handleProjectToggle flips a project's visibility, re-indexes reports for the
 // new enabled set, and refreshes the dashboard.
 func (s *Server) handleProjectToggle(w http.ResponseWriter, r *http.Request) {
