@@ -62,6 +62,9 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /r/{project}/{run}", s.handleReport)
 	mux.HandleFunc("POST /r/{project}/{run}/respond", s.handleRespond)
+	mux.HandleFunc("POST /r/{project}/{run}/close", s.handleReportClose)
+	mux.HandleFunc("POST /r/{project}/{run}/reopen", s.handleReportReopen)
+	mux.HandleFunc("DELETE /r/{project}/{run}", s.handleReportDelete)
 	s.mux = mux
 	return s, nil
 }

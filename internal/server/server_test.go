@@ -286,6 +286,186 @@ func TestProjectsReorderUpdatesOrder(t *testing.T) {
 	}
 }
 
+// richReport carries every optional top-level field so the close handler's
+// atomic rewrite is exercised against meaningful content to preserve.
+const richReport = `{
+  "schema": "harness-deck/report@1",
+  "id": "rich1", "project": "acme", "harness": "claude-code",
+  "agent": "claude-sonnet-4.5",
+  "title": "complex report",
+  "scope": "postgres",
+  "kind": "audit",
+  "status": "awaiting-review",
+  "created": "2026-05-23T18:00:00Z",
+  "verdict": "conditional-go",
+  "meta": [{"key":"cost","value":"$1.84"},{"key":"scope","value":"14 services"}],
+  "blocks": [
+    {"type":"prose","markdown":"summary"},
+    {"type":"metrics","metrics":[{"label":"queries","value":"312"}]}
+  ]
+}`
+
+// writeRichReport drops richReport at central/acme/rich1/report.json and
+// returns the run directory.
+func writeRichReport(t *testing.T, central string) string {
+	t.Helper()
+	dir := filepath.Join(central, "acme", "rich1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(richReport), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// statusOf reads report.json and returns the top-level status string.
+func statusOf(t *testing.T, dir string) string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, "report.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := got["status"].(string)
+	return s
+}
+
+func TestCloseSetsStatusDone(t *testing.T) {
+	isolateState(t)
+	central := t.TempDir()
+	dir := writeRichReport(t, central)
+	s, err := New(config.Config{CentralDir: central})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/r/acme/rich1/close", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("close = %d, want 200", rec.Code)
+	}
+	if got := statusOf(t, dir); got != "done" {
+		t.Errorf("status = %q, want done", got)
+	}
+}
+
+func TestCloseIsIdempotent(t *testing.T) {
+	isolateState(t)
+	central := t.TempDir()
+	dir := writeRichReport(t, central)
+	s, _ := New(config.Config{CentralDir: central})
+	h := s.Handler()
+
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/r/acme/rich1/close", nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("close pass %d = %d, want 200", i, rec.Code)
+		}
+	}
+	if got := statusOf(t, dir); got != "done" {
+		t.Errorf("status = %q, want done", got)
+	}
+}
+
+func TestCloseAtomicWritePreservesFields(t *testing.T) {
+	isolateState(t)
+	central := t.TempDir()
+	dir := writeRichReport(t, central)
+	s, _ := New(config.Config{CentralDir: central})
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/r/acme/rich1/close", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("close = %d, want 200", rec.Code)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, "report.json"))
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["verdict"] != "conditional-go" {
+		t.Errorf("verdict lost: %v", got["verdict"])
+	}
+	if got["scope"] != "postgres" {
+		t.Errorf("scope lost: %v", got["scope"])
+	}
+	if got["agent"] != "claude-sonnet-4.5" {
+		t.Errorf("agent lost: %v", got["agent"])
+	}
+	if meta, ok := got["meta"].([]any); !ok || len(meta) != 2 {
+		t.Errorf("meta lost: %v", got["meta"])
+	}
+	if blocks, ok := got["blocks"].([]any); !ok || len(blocks) != 2 {
+		t.Errorf("blocks lost: %v", got["blocks"])
+	}
+}
+
+func TestReopenSetsAwaitingReview(t *testing.T) {
+	isolateState(t)
+	central := t.TempDir()
+	dir := writeRichReport(t, central)
+	s, _ := New(config.Config{CentralDir: central})
+	h := s.Handler()
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/r/acme/rich1/close", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("close = %d", rec.Code)
+	}
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/r/acme/rich1/reopen", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reopen = %d, want 200", rec.Code)
+	}
+	if got := statusOf(t, dir); got != "awaiting-review" {
+		t.Errorf("status after reopen = %q, want awaiting-review", got)
+	}
+}
+
+func TestCloseUnknownReport404(t *testing.T) {
+	isolateState(t)
+	s, _ := New(config.Config{CentralDir: t.TempDir()})
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/r/ghost/none/close", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("close unknown = %d, want 404", rec.Code)
+	}
+}
+
+func TestDeleteRemovesRunDir(t *testing.T) {
+	isolateState(t)
+	central := t.TempDir()
+	dir := writeRichReport(t, central)
+	s, _ := New(config.Config{CentralDir: central})
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/r/acme/rich1", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete = %d, want 200", rec.Code)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Errorf("run dir still exists after delete: %v", err)
+	}
+}
+
+func TestDeleteUnknownReport404(t *testing.T) {
+	isolateState(t)
+	s, _ := New(config.Config{CentralDir: t.TempDir()})
+
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/r/ghost/none", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("delete unknown = %d, want 404", rec.Code)
+	}
+}
+
 func TestProjectsReorderRejectsUnknownNames(t *testing.T) {
 	isolateState(t)
 	gitDir := t.TempDir()

@@ -99,7 +99,12 @@
         el('div', { class: 'title', text: r.title || r.run }),
         el('div', { class: 'sub' }, sub)
       ]),
-      el('div', { class: 'aside' }, aside)
+      el('div', { class: 'aside' }, aside),
+      el('button', {
+        class: 'inbox-close',
+        title: 'close (mark done)',
+        data: { project: r.project, run: r.run }
+      }, ['✕'])
     ]);
   }
 
@@ -312,6 +317,12 @@
     if (tab) { showView(tab.dataset.view); return; }
     var th = e.target.closest('.tracked-head');
     if (th) { trackedOpen = !trackedOpen; render(); return; }
+    var closeBtn = e.target.closest('.inbox-close');
+    if (closeBtn) {
+      e.stopPropagation();
+      closeReport(closeBtn.dataset.project, closeBtn.dataset.run);
+      return;
+    }
     var row = e.target.closest('[data-url]');
     if (row) { window.location.href = row.dataset.url; }
   });
@@ -378,6 +389,17 @@
     var v = VIEWS.find(function (x) { return x.key === e.key; });
     if (v) { showView(v.id); e.preventDefault(); }
   });
+
+  /* closeReport marks a report done server-side, then re-syncs the list. */
+  function closeReport(project, run) {
+    fetch('/r/' + encodeURIComponent(project) + '/' + encodeURIComponent(run) + '/close', {
+      method: 'POST'
+    }).then(function (r) {
+      if (!r.ok) throw new Error('close HTTP ' + r.status);
+    }).catch(function (err) {
+      console.error('harness-deck: close failed', err);
+    }).then(refresh);
+  }
 
   /* reorderProjects persists the user's drag-and-drop result. */
   function reorderProjects(order) {

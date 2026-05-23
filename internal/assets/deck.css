@@ -114,3 +114,31 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* report-page actions — close / reopen / delete, right-aligned in the tabbar */
+.report-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 12px;
+}
+.report-actions button {
+  background: transparent;
+  color: var(--tn-fg-dark);
+  border: 1px solid var(--tn-bg-highlight);
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.report-actions button:hover {
+  background: var(--tn-bg-highlight);
+  color: var(--tn-fg);
+}
+.report-actions button.danger:hover {
+  background: rgba(247, 118, 142, 0.12);
+  color: var(--tn-red);
+  border-color: var(--tn-red);
+}

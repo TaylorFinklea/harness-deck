@@ -21,6 +21,14 @@
   </div>
   <div class="tabbar">
     <div class="tab active"><span class="num">1</span> {{.Report.Title}}</div>
+    <div class="report-actions vim-no-search">
+      {{if eq .Report.Status "done"}}
+        <button onclick="hdReopen()" title="reopen (back to inbox)">↺ reopen</button>
+      {{else}}
+        <button onclick="hdClose()" title="close (mark done)">✕ close</button>
+      {{end}}
+      <button onclick="hdDelete()" class="danger" title="delete the report file">⌦ delete</button>
+    </div>
   </div>
   <div class="keyhints vim-no-search">
     <span><kbd>j</kbd><kbd>k</kbd> scroll</span>
@@ -78,6 +86,25 @@
 </div>
 
 <script>window.HD_REPORT = { project: {{.Report.Project}}, run: {{.Report.ID}} };</script>
+<script>
+  /* close / reopen / delete — POST then bounce to the dashboard. */
+  function hdAction(action, method) {
+    var base = '/r/' + encodeURIComponent(HD_REPORT.project) + '/' + encodeURIComponent(HD_REPORT.run);
+    fetch(action ? base + '/' + action : base, { method: method }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      window.location.href = '/';
+    }).catch(function (err) {
+      console.error('harness-deck:', err);
+      alert('Action failed: ' + err.message);
+    });
+  }
+  function hdClose()  { hdAction('close',  'POST'); }
+  function hdReopen() { hdAction('reopen', 'POST'); }
+  function hdDelete() {
+    if (!confirm('Delete this report? This cannot be undone.')) return;
+    hdAction('', 'DELETE');
+  }
+</script>
 <script>{{.JS}}</script>
 <script>
   setInterval(() => {
