@@ -33,6 +33,11 @@ integration — which lives in `chezmoi-config`, not this repo.
   auto-discovers project roots; the roadmap view became the **projects** view
   (per-project current-state + roadmap) with a collapsible panel of visibility
   toggles persisted to `projects.json`. See decisions.md.
+- **Mobile PWA + Web Push** _(done — 2026-05-23)_ — phone-friendly responsive
+  CSS, installable manifest + service worker, stdlib-only Web Push pipeline
+  (`internal/push`), `harness-deck vapid` subcommand, opt-in `bind` + `tls`
+  config, settings view for per-browser subscribe/unsubscribe. Connectivity
+  model is Tailscale; HTTPS via `tailscale cert`. See decisions.md.
 
 ## Later / out of scope
 

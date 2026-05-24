@@ -9,12 +9,14 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
 	"github.com/TaylorFinklea/harness-deck/internal/projects"
+	"github.com/TaylorFinklea/harness-deck/internal/push"
 	"github.com/TaylorFinklea/harness-deck/internal/render"
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
@@ -35,6 +37,10 @@ type Server struct {
 	shell    *template.Template
 	hub      *hub
 	mux      *http.ServeMux
+	// Push state. pushKeys is nil until the user runs `harness-deck vapid`;
+	// when nil the push endpoints return 503 and the watcher skips notifying.
+	pushKeys *push.Keys
+	subs     *push.Store
 }
 
 // New builds a Server and performs the initial report scan.
@@ -50,7 +56,16 @@ func New(cfg config.Config) (*Server, error) {
 	pm := projects.NewManager(cfg.ScanRoots, cfg.Projects, projects.StatePath())
 	st := store.New(cfg)
 
-	s := &Server{cfg: cfg, store: st, projects: pm, renderer: renderer, shell: shell, hub: newHub()}
+	// Push is optional. A missing vapid.json means the user hasn't run
+	// `harness-deck vapid` yet; everything else keeps working without it.
+	vapidPath := filepath.Join(config.Dir(), "vapid.json")
+	keys, _, kerr := push.LoadOrMissing(vapidPath)
+	if kerr != nil {
+		log.Printf("harness-deck: vapid keys: %v — push disabled", kerr)
+	}
+	subs := push.NewStore(filepath.Join(config.Dir(), "subscriptions.json"))
+
+	s := &Server{cfg: cfg, store: st, projects: pm, renderer: renderer, shell: shell, hub: newHub(), pushKeys: keys, subs: subs}
 	s.store.Scan(s.enabledRoots())
 
 	mux := http.NewServeMux()
@@ -65,6 +80,13 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("POST /r/{project}/{run}/close", s.handleReportClose)
 	mux.HandleFunc("POST /r/{project}/{run}/reopen", s.handleReportReopen)
 	mux.HandleFunc("DELETE /r/{project}/{run}", s.handleReportDelete)
+	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
+	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
+	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)
+	mux.HandleFunc("POST /api/push/unsubscribe", s.handlePushUnsubscribe)
+	mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
+	mux.HandleFunc("GET /service-worker.js", s.handleServiceWorker)
+	mux.HandleFunc("GET /icon.svg", s.handleIcon)
 	s.mux = mux
 	return s, nil
 }
@@ -89,28 +111,63 @@ func (s *Server) changeFingerprint() string {
 // Handler exposes the routes (used by tests).
 func (s *Server) Handler() http.Handler { return s.mux }
 
-// Serve starts the change watcher and the HTTP server on the configured port.
+// Serve starts the change watcher and the HTTP server. When the config has
+// both a TLS cert and key, it serves HTTPS — required for iOS web push.
+// Otherwise it serves plain HTTP. Bind defaults to 127.0.0.1; set it to a
+// reachable interface (e.g. a Tailscale address or "0.0.0.0") to expose the
+// dashboard to a phone.
 func (s *Server) Serve() error {
 	go s.watch(pollInterval)
-	return http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", s.cfg.Port), s.mux)
+	addr := fmt.Sprintf("%s:%d", s.cfg.Bind, s.cfg.Port)
+	if s.cfg.TLS.Enabled() {
+		return http.ListenAndServeTLS(addr, s.cfg.TLS.Cert, s.cfg.TLS.Key, s.mux)
+	}
+	return http.ListenAndServe(addr, s.mux)
 }
 
 // handleShell serves the aggregator dashboard page.
 func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.shell.ExecuteTemplate(w, "shell", struct {
-		CSS          template.CSS
-		VimJS, AppJS template.JS
-		Favicon      template.URL
+		CSS                    template.CSS
+		VimJS, AppJS, MobileJS template.JS
+		Favicon                template.URL
 	}{
-		CSS:     template.CSS(assets.DeckUICSS),
-		VimJS:   template.JS(assets.VimNavJSInline),
-		AppJS:   template.JS(assets.AggregatorJS),
-		Favicon: template.URL(assets.FaviconDataURI),
+		CSS:      template.CSS(assets.DeckUICSS),
+		VimJS:    template.JS(assets.VimNavJSInline),
+		AppJS:    template.JS(assets.AggregatorJS),
+		MobileJS: template.JS(assets.MobileJSInline),
+		Favicon:  template.URL(assets.FaviconDataURI),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// handleManifest serves the PWA web app manifest.
+func (s *Server) handleManifest(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/manifest+json")
+	_, _ = w.Write([]byte(assets.ManifestJSON))
+}
+
+// handleServiceWorker serves the service worker script. Browsers require
+// it to be served from same-origin and with a JS MIME type, so we set
+// the Content-Type explicitly. The Service-Worker-Allowed header lets the
+// SW control the whole site even if browsers ever serve it from a
+// subdirectory.
+func (s *Server) handleServiceWorker(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Service-Worker-Allowed", "/")
+	w.Header().Set("Cache-Control", "no-cache")
+	_, _ = w.Write([]byte(assets.ServiceWorkerJS))
+}
+
+// handleIcon serves the hd monogram as the PWA icon (manifest icons +
+// apple-touch-icon both fetch this).
+func (s *Server) handleIcon(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write([]byte(assets.FaviconSVG))
 }
 
 // handleReports returns the report index as JSON. The watcher keeps the store

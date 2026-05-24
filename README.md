@@ -92,8 +92,31 @@ go build ./...               # build from source
 ./harness-deck serve         # start the local dashboard
 ./harness-deck validate report.json
 ./harness-deck render report.json -o out.html
+./harness-deck vapid         # generate the VAPID keypair for phone push (one-time)
 ./harness-deck version       # print build metadata
 ```
+
+## Mobile (PWA) + push notifications
+
+harness-deck is also a PWA. Open it on your phone over Tailscale, tap _Add to
+Home Screen_, and it installs as a standalone app. iOS lock-screen push
+notifications work too — the requirements are tailnet reachability and HTTPS:
+
+```jsonc
+// ~/.config/harness-deck/config.json
+{
+  "bind": "0.0.0.0",                        // or your Tailscale IP
+  "tls": {
+    "cert": "/Users/me/laptop.tailnet.crt", // tailscale cert <host>
+    "key":  "/Users/me/laptop.tailnet.key"
+  }
+}
+```
+
+Then `harness-deck vapid` once to generate the push identity, restart the
+server, open the dashboard on your phone, visit the **settings** view, and
+tap _Enable notifications on this browser_. New asks land on the lock screen
+and deep-link straight to the report.
 
 ## License
 

@@ -18,6 +18,7 @@ go test ./internal/render -run TestReport   # run one package / one test
 ./harness-deck serve                        # start the dashboard (default :7420)
 ./harness-deck validate report.json         # check a manifest
 ./harness-deck render report.json -o out.html
+./harness-deck vapid                        # generate the VAPID keypair for push (one-time)
 ```
 
 There is no Makefile, linter config, or CI — `go build` / `go test` are the
@@ -67,14 +68,23 @@ starting point:
 - **`projects`** — discovers project roots (depth-1 children of `scan_roots`
   holding a `.docs/ai` dir, plus explicit `projects`); persists which ones the
   user hid in an app-owned `projects.json`; new projects default to enabled.
+- **`push`** — Web Push delivery, stdlib-only: VAPID (RFC 8292) keypair gen
+  + JWT signing, RFC 8291 `aes128gcm` payload encryption (HKDF + AES-GCM),
+  HTTP POST to subscription endpoints, plus a JSON-backed subscription store.
+  The watcher fires one push per newly-appeared open ask.
 - **`server`** — aggregator shell, `/api/reports`, `/api/projects`, `POST
   /api/projects/toggle`, `/events` (SSE), `/r/{project}/{run}` report pages,
-  `POST .../respond`. A 2s watcher polls store + projects and broadcasts SSE.
+  `POST .../respond`. PWA endpoints: `/manifest.webmanifest`,
+  `/service-worker.js`, `/icon.svg`. Push endpoints under `/api/push/*`. A 2s
+  watcher polls store + projects and broadcasts SSE.
 - **`respond`** / **`notify`** — `responses.json` read/write; the configured
   notify command fired when an answer is recorded.
 - **`config`** — JSON config at `~/.config/harness-deck/config.json`; every
   field defaults, so it runs with no config file. `scan_roots` lists
-  directories searched for project roots.
+  directories searched for project roots. `bind` (default `127.0.0.1`)
+  controls the listen interface — set it to a Tailscale IP or `0.0.0.0`
+  to reach the dashboard from a phone. `tls.cert` + `tls.key` enable HTTPS
+  (required for iOS push); generate certs once with `tailscale cert`.
 - **`assets`** — vendored frontend files embedded for self-contained output.
 
 ## Key conventions

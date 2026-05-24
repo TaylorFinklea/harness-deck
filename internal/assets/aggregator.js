@@ -11,7 +11,8 @@
     { id: 'inbox', key: '1', label: 'inbox' },
     { id: 'overview', key: '2', label: 'overview' },
     { id: 'latest', key: '3', label: 'latest' },
-    { id: 'projects', key: '4', label: 'projects' }
+    { id: 'projects', key: '4', label: 'projects' },
+    { id: 'settings', key: '5', label: 'settings' }
   ];
   var data = { reports: [], errors: [], projects: [], discovered: [] };
   var currentView = 'inbox';
@@ -279,7 +280,150 @@
     return nodes;
   }
 
-  var BUILDERS = { inbox: viewInbox, overview: viewOverview, latest: viewLatest, projects: viewProjects };
+  /* viewSettings — the 5th view, single user-visible setting today:
+     phone push notifications. The whole view renders synchronously with
+     placeholder copy, then async fetches (server status, browser
+     subscription state) overwrite the relevant cells via id refs. */
+  function viewSettings() {
+    var statusValue = el('span', { id: 'set-push-status', text: 'checking…' });
+    var subValue = el('span', { id: 'set-push-sub', text: 'checking…' });
+    var actions = el('div', { class: 'respond-actions', id: 'set-push-actions' }, [
+      el('div', { class: 'sub', text: 'loading…' })
+    ]);
+
+    var body = [
+      el('div', { class: 'kv' }, [
+        el('div', null, [el('b', { text: 'push status: ' }), statusValue]),
+        el('div', null, [el('b', { text: 'this browser: ' }), subValue])
+      ]),
+      el('div', { style: 'margin-top: 14px;' }, [actions]),
+      el('div', { class: 'sub', style: 'margin-top: 18px;',
+        text: 'Push needs a VAPID keypair (run `harness-deck vapid` once) and HTTPS — iOS will not show notifications over plain http.' })
+    ];
+
+    // Kick off the async refresh after render returns.
+    setTimeout(refreshSettings, 0);
+
+    return [
+      panel('phone notifications', null, body),
+      panel('about', null, [
+        el('div', null, [el('b', { text: 'tip: ' }),
+          'open this page on your phone (over Tailscale) and tap Add to Home Screen to install harness-deck as an app.'])
+      ])
+    ];
+  }
+
+  /* refreshSettings — pulls /api/push/status and the in-browser
+     PushSubscription, then re-renders the settings cells. Safe to call
+     repeatedly; each call replaces the action button(s). */
+  function refreshSettings() {
+    var statusEl = document.getElementById('set-push-status');
+    var subEl = document.getElementById('set-push-sub');
+    var actEl = document.getElementById('set-push-actions');
+    if (!statusEl || !subEl || !actEl) return; // not on the settings view
+
+    fetch('/api/push/status').then(function (r) { return r.json(); }).then(function (s) {
+      if (!s.enabled) {
+        statusEl.textContent = 'disabled';
+        statusEl.className = 'pill warn';
+        actEl.replaceChildren(el('div', { class: 'sub',
+          text: 'No VAPID key found. Run `harness-deck vapid` in a terminal, then restart the server.' }));
+        return;
+      }
+      statusEl.textContent = 'ready · ' + s.subscription_count + ' device(s)';
+      statusEl.className = 'pill ok';
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        subEl.textContent = 'unsupported in this browser';
+        actEl.replaceChildren();
+        return;
+      }
+      navigator.serviceWorker.ready.then(function (reg) {
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (sub) {
+            subEl.textContent = 'subscribed';
+            subEl.className = 'pill ok';
+            actEl.replaceChildren(
+              el('button', { type: 'button', id: 'push-off', text: '⌦ unsubscribe this browser' })
+            );
+          } else {
+            subEl.textContent = 'not subscribed';
+            subEl.className = 'pill';
+            actEl.replaceChildren(
+              el('button', { type: 'button', id: 'push-on', text: '🔔 enable notifications on this browser' })
+            );
+          }
+        });
+      }).catch(function (err) {
+        subEl.textContent = 'error: ' + err.message;
+      });
+    }).catch(function (err) {
+      statusEl.textContent = 'error: ' + err.message;
+    });
+  }
+
+  /* enablePushHere — prompt for notification permission, ask the SW for
+     a PushManager subscription using the server's VAPID public key,
+     and POST it. Surfaces the user-facing error inline rather than via
+     alert() so the settings view stays usable. */
+  function enablePushHere() {
+    fetch('/api/push/vapid-key').then(function (r) {
+      if (!r.ok) throw new Error('vapid-key HTTP ' + r.status);
+      return r.json();
+    }).then(function (j) {
+      return navigator.serviceWorker.ready.then(function (reg) {
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(j.key)
+        });
+      });
+    }).then(function (sub) {
+      return fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub)
+      });
+    }).then(function (r) {
+      if (!r.ok) throw new Error('subscribe HTTP ' + r.status);
+      refreshSettings();
+    }).catch(function (err) {
+      var sub = document.getElementById('set-push-sub');
+      if (sub) { sub.textContent = 'enable failed: ' + err.message; }
+    });
+  }
+
+  /* disablePushHere — unsubscribe in the browser, then tell the server
+     to drop the stored Subscription. */
+  function disablePushHere() {
+    navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      if (!sub) return null;
+      var endpoint = sub.endpoint;
+      return sub.unsubscribe().then(function () {
+        return fetch('/api/push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: endpoint })
+        });
+      });
+    }).then(refreshSettings).catch(function (err) {
+      var sub = document.getElementById('set-push-sub');
+      if (sub) { sub.textContent = 'disable failed: ' + err.message; }
+    });
+  }
+
+  /* urlBase64ToUint8Array — converts the base64url VAPID key the server
+     returns into the Uint8Array format PushManager.subscribe wants. */
+  function urlBase64ToUint8Array(s) {
+    var pad = '='.repeat((4 - (s.length % 4)) % 4);
+    var b64 = (s + pad).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(b64);
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  var BUILDERS = { inbox: viewInbox, overview: viewOverview, latest: viewLatest, projects: viewProjects, settings: viewSettings };
 
   function renderContent() {
     var tabs = el('div', { class: 'view-tabs' }, VIEWS.map(function (v) {
@@ -323,6 +467,8 @@
       closeReport(closeBtn.dataset.project, closeBtn.dataset.run);
       return;
     }
+    if (e.target.id === 'push-on') { enablePushHere(); return; }
+    if (e.target.id === 'push-off') { disablePushHere(); return; }
     var row = e.target.closest('[data-url]');
     if (row) { window.location.href = row.dataset.url; }
   });

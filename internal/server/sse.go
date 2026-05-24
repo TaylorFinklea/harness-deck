@@ -84,12 +84,20 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 // reflects changes — reports, discovered projects, or their .docs/ai docs.
 // Polling (rather than fsnotify) keeps the build dependency-free; a
 // couple-second latency is imperceptible for a local dashboard.
+//
+// The first observed snapshot is treated as the baseline, so a backlog of
+// existing open asks does not spam the phone at startup — only deltas
+// after the first poll fire pushes.
 func (s *Server) watch(interval time.Duration) {
 	last := s.changeFingerprint()
+	prevAsks, _ := s.currentAskDigests()
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for range t.C {
 		s.store.Scan(s.enabledRoots())
+		curAsks, entries := s.currentAskDigests()
+		s.notifyNewAsks(prevAsks, curAsks, entries)
+		prevAsks = curAsks
 		if cur := s.changeFingerprint(); cur != last {
 			last = cur
 			s.hub.broadcast("reports")

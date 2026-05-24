@@ -135,3 +135,58 @@ The frontend (projects view + toggle checkboxes) has no unit tests: the repo
 has no JS test harness and the zero-dependency rule forbids adding one. It is
 browser-verified instead, consistent with the rest of the frontend. The Go
 side (`projects` package, `/api/projects`, toggle) is fully unit-tested.
+
+---
+
+## 2026-05-23 — Mobile PWA + Web Push, all stdlib
+
+The dashboard needed to be usable from a phone. The space of plausible
+choices: a native iOS app (rejected — second codebase, App Store dance,
+and the renderer already owns all HTML); a PWA served from the existing
+Go server (chosen); a cloud-mirrored variant that wouldn't need the
+laptop online (rejected — violates local-tool ethos, doubles the moving
+parts). Phone reaches the laptop over Tailscale, which keeps the
+trust-boundary unchanged: the tailnet is the auth.
+
+The push pipeline is stdlib-only. Go 1.26 ships everything needed:
+`crypto/ecdsa` (VAPID JWT signing, ES256), `crypto/ecdh` (per-message
+ECDH P-256), `crypto/hkdf` (key derivation), `crypto/aes` + `crypto/cipher`
+(AES-128-GCM). A dedicated `internal/push` package handles VAPID key
+gen/load/save, JWT signing, RFC 8291 `aes128gcm` payload encryption,
+and the HTTP send; `push.Store` persists subscriptions as JSON. A
+roundtrip test (simulate the UA, decrypt with its private key) gives
+high confidence the encryption math is right despite the protocol's
+notorious finickiness.
+
+TLS is opt-in via a new `tls.cert` + `tls.key` config pair. The default
+remains plain HTTP on `127.0.0.1`, so the threat model for someone who
+just runs `harness-deck serve` does not change. Users wanting phone push
+run `tailscale cert <host>` once and point config at the resulting
+files; harness-deck never shells out to `tailscale`, so we add no
+runtime dependency on the Tailscale CLI being installed.
+
+Notification trigger: the watcher already polls every 2s. It now also
+records a per-report digest of unanswered ask block IDs, and fires one
+push per id that appears in the new digest but not the previous one.
+The first poll seeds the baseline, so a backlog of existing asks does
+not spam the phone at startup. The notification payload contains the
+project, report title, and the ask prompt — same boundary as the
+dashboard, since anyone with phone access has tailnet access already.
+
+Icons are the existing `hd.svg` reused via the manifest `image/svg+xml`
+entries and as `apple-touch-icon`. We did not prerender PNG variants —
+it would either require a runtime dep (rejected) or a build-time
+toolchain (rejected). If older iOS home-screen rendering looks poor we
+can revisit and commit prerendered PNGs.
+
+The mobile layout reuses the existing CSS by layering a
+`mobile.css` `@media (max-width: 720px)` overlay rather than forking
+into a separate stylesheet — the desktop terminal aesthetic stays
+pixel-identical above the breakpoint. A hamburger button + slide-in
+drawer replaces the sidebar tree on phones; vim-nav and drag handles
+hide on touch viewports per the mobile scope.
+
+The settings view (5th aggregator view, key `5`) is the single
+phone-relevant control surface today. Asking the server for status and
+asking the browser for its `PushSubscription` are independent calls;
+the view renders synchronously, then async-fills the two cells.

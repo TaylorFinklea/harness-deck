@@ -1,0 +1,120 @@
+/* Mobile-responsive overrides — kick in below ~720px so the desktop
+   terminal aesthetic is untouched on a laptop, and the phone gets a
+   single-column layout with a slide-in sidebar drawer.
+
+   The aggregator shell adds a .menu-button toggle and a .drawer-scrim
+   overlay; mobile-toggle.js (inlined into the shell) flips
+   body.drawer-open to slide the sidebar in. */
+
+@media (max-width: 720px) {
+  body {
+    /* Stop horizontal overflow that the desktop layout would otherwise
+       cause on a narrow viewport. */
+    overflow-x: hidden;
+  }
+
+  .term-chrome { position: sticky; top: 0; z-index: 30; }
+
+  .titlebar { padding: 8px 10px; gap: 8px; }
+  .titlebar .dots { display: none; }            /* macOS dots add noise on a phone */
+  .titlebar .clock { font-size: 11px; }
+
+  .tabbar { display: none; }                    /* one tab — drop the row */
+  .keyhints { display: none; }                  /* no keyboard, no kbd hints */
+
+  /* The menu button only renders on mobile; the shell ships it unconditionally
+     and CSS gates its visibility. */
+  .menu-button {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    background: transparent;
+    border: 1px solid var(--tn-bg-highlight);
+    color: var(--tn-fg);
+    font-size: 18px; line-height: 1;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .menu-button:active { background: var(--tn-bg-highlight); }
+
+  /* Single-column layout: content takes the viewport, sidebar slides over it. */
+  .layout {
+    grid-template-columns: 1fr;
+    min-height: calc(100vh - 44px - 28px);
+  }
+  .sidebar {
+    position: fixed;
+    top: 44px; left: 0; bottom: 28px;
+    width: 80vw; max-width: 320px;
+    height: auto;
+    z-index: 40;
+    transform: translateX(-100%);
+    transition: transform 180ms ease-out;
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.35);
+  }
+  body.drawer-open .sidebar { transform: translateX(0); }
+
+  .drawer-scrim {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 35;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease-out;
+  }
+  body.drawer-open .drawer-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Bigger tap targets in the tree. Apple HIG: 44pt minimum. */
+  .tree .row {
+    padding: 8px 8px;
+    min-height: 36px;
+    white-space: normal;
+  }
+
+  .content { padding: 14px 14px; }
+
+  /* Panels: less padding, ensure content scrolls instead of clipping. */
+  .panel { padding: 12px; margin-bottom: 14px; }
+  .panel pre, .panel code {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  table { display: block; overflow-x: auto; }
+
+  /* Interactive blocks: stack actions vertically with full-width buttons
+     so they're always tappable, never hover-only. */
+  .respond-actions { display: flex; flex-direction: column; gap: 8px; }
+  .respond-actions button,
+  .respond-actions input[type="text"] {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px;                            /* iOS Safari blocks autozoom at ≥16px */
+  }
+
+  /* Inbox rows: the hover-revealed close button becomes always-visible. */
+  .inbox-row .row-actions { opacity: 1; }
+  .inbox-row .row-actions button { padding: 6px 10px; min-height: 36px; }
+
+  /* Drag handles aren't usable on touch — hide them. Reordering is a
+     desktop-only affordance per the mobile scope decision. */
+  .drag-handle { display: none; }
+
+  /* Status line: drop the placeholder pos so the file segment can fill. */
+  .statusline { padding: 4px 8px; font-size: 11px; }
+  .statusline .pos { display: none; }
+  .statusline .info { display: none; }
+}
+
+/* Hide the mobile menu button on wide screens; it's part of every page
+   so the shell template stays the same. */
+@media (min-width: 721px) {
+  .menu-button, .drawer-scrim { display: none; }
+}
+
+/* iOS Safari: respect notch/safe areas around the chrome and statusline. */
+@supports (padding: max(0px)) {
+  .term-chrome { padding-top: env(safe-area-inset-top); }
+  .statusline { padding-bottom: max(env(safe-area-inset-bottom), 4px); }
+}

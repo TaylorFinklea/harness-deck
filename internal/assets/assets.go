@@ -21,11 +21,17 @@ var DeckCSS string
 //go:embed aggregator.css
 var AggregatorCSS string
 
+//go:embed mobile.css
+var MobileCSS string
+
 //go:embed vim-nav.js
 var VimNavJS string
 
 //go:embed aggregator.js
 var AggregatorJS string
+
+//go:embed mobile.js
+var MobileJS string
 
 //go:embed respond.js
 var RespondJS string
@@ -33,13 +39,20 @@ var RespondJS string
 //go:embed hd.svg
 var FaviconSVG string
 
+//go:embed manifest.webmanifest
+var ManifestJSON string
+
+//go:embed service-worker.js
+var ServiceWorkerJS string
+
 // FaviconDataURI is the hd monogram as a data: URI, for an inline
 // <link rel="icon"> — so rendered report pages stay self-contained.
 var FaviconDataURI = "data:image/svg+xml;base64," +
 	base64.StdEncoding.EncodeToString([]byte(FaviconSVG))
 
-// ReportCSS is the full stylesheet bundle for a rendered report page.
-var ReportCSS = TokyoNightCSS + "\n" + V1CSS + "\n" + DeckCSS
+// ReportCSS is the full stylesheet bundle for a rendered report page —
+// includes the mobile overrides so a phone-opened report scales too.
+var ReportCSS = TokyoNightCSS + "\n" + V1CSS + "\n" + DeckCSS + "\n" + MobileCSS
 
 // DeckUICSS is the stylesheet bundle for the aggregator shell.
 var DeckUICSS = ReportCSS + "\n" + AggregatorCSS
@@ -50,6 +63,11 @@ var DeckUICSS = ReportCSS + "\n" + AggregatorCSS
 // backslash is inert inside JS strings and comments.
 var VimNavJSInline = strings.ReplaceAll(VimNavJS, "</script", `<\/script`)
 
+// MobileJSInline is mobile.js with the same </script-escape treatment so
+// it is safe to inline.
+var MobileJSInline = strings.ReplaceAll(MobileJS, "</script", `<\/script`)
+
 // ReportJS is the script bundle inlined into a rendered report page: vim
-// navigation plus the interactive-block response handler.
-var ReportJS = VimNavJSInline + "\n" + RespondJS
+// navigation, the response handler, and the mobile drawer + service
+// worker registration.
+var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline

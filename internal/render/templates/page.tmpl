@@ -4,8 +4,14 @@
 <head>
 <meta charset="utf-8" />
 <title>harness-deck · {{.Report.Title}}</title>
-<meta name="viewport" content="width=1280" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#161723" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="harness-deck" />
+<link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="{{.Favicon}}" />
+<link rel="apple-touch-icon" href="/icon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -15,6 +21,7 @@
 
 <header class="term-chrome">
   <div class="titlebar">
+    <button class="menu-button" type="button" aria-label="Toggle navigation">☰</button>
     <div class="dots"><span></span><span></span><span></span></div>
     <div class="title"><b>harness-deck</b> · {{.Report.Project}} · agent {{with .Report.Agent}}{{.}}{{else}}{{$.Report.Harness}}{{end}}</div>
     <div class="clock" id="clock">--:--:--</div>
@@ -41,6 +48,7 @@
   </div>
 </header>
 
+<div class="drawer-scrim"></div>
 <div class="layout">
   <aside class="sidebar vim-no-search">
     <div class="sidebar-section">

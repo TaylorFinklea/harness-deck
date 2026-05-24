@@ -28,13 +28,31 @@ type Config struct {
 	NotifyCommand string `json:"notify_command"`
 	// Port is the local HTTP port for `harness-deck serve`.
 	Port int `json:"port"`
+	// Bind is the interface the server listens on. Default "127.0.0.1" keeps
+	// the dashboard private to the local machine; set "0.0.0.0" or a specific
+	// interface address (e.g. a Tailscale IP) to make it reachable from a phone.
+	Bind string `json:"bind"`
+	// TLS holds optional cert + key paths. When both are set the server
+	// listens with HTTPS, which is required for iOS web push notifications.
+	// Generate certs once with `tailscale cert <hostname>`.
+	TLS TLSConfig `json:"tls"`
 }
+
+// TLSConfig points at the cert + key files used when HTTPS is enabled.
+type TLSConfig struct {
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
+}
+
+// Enabled reports whether TLS is configured.
+func (t TLSConfig) Enabled() bool { return t.Cert != "" && t.Key != "" }
 
 // Default returns the configuration used when no config file is present.
 func Default() Config {
 	return Config{
 		CentralDir: "~/.harness/reports",
 		Port:       7420,
+		Bind:       "127.0.0.1",
 	}
 }
 
@@ -70,8 +88,16 @@ func Load() (Config, error) {
 	if c.CentralDir == "" {
 		c.CentralDir = Default().CentralDir
 	}
+	if c.Bind == "" {
+		c.Bind = Default().Bind
+	}
 	return c, nil
 }
+
+// Dir returns the directory the config file lives in, e.g.
+// ~/.config/harness-deck. Companion state (VAPID keys, push subscriptions)
+// is stored alongside it.
+func Dir() string { return filepath.Dir(Path()) }
 
 // Expand resolves a leading ~ to the user's home directory.
 func Expand(p string) string {

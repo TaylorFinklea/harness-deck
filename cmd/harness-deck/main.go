@@ -4,9 +4,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
+	"github.com/TaylorFinklea/harness-deck/internal/push"
 	"github.com/TaylorFinklea/harness-deck/internal/render"
 	"github.com/TaylorFinklea/harness-deck/internal/server"
 )
@@ -31,6 +33,8 @@ func main() {
 		cmdRender(os.Args[2:])
 	case "serve":
 		cmdServe()
+	case "vapid":
+		cmdVAPID(os.Args[2:])
 	case "version", "-v", "--version":
 		cmdVersion()
 	case "-h", "--help", "help":
@@ -49,6 +53,7 @@ usage:
   harness-deck validate <report.json>        check a manifest for problems
   harness-deck render <report.json> [-o f]   render a manifest to HTML
   harness-deck serve                         start the dashboard server
+  harness-deck vapid                         generate the VAPID keypair for push
   harness-deck version                       print build metadata
 `)
 }
@@ -132,12 +137,46 @@ func cmdServe() {
 	if err != nil {
 		fatal("server", err)
 	}
-	fmt.Printf("harness-deck · serving http://127.0.0.1:%d\n", cfg.Port)
+	scheme := "http"
+	if cfg.TLS.Enabled() {
+		scheme = "https"
+	}
+	fmt.Printf("harness-deck · serving %s://%s:%d\n", scheme, cfg.Bind, cfg.Port)
 	fmt.Printf("  central : %s\n", config.Expand(cfg.CentralDir))
 	fmt.Printf("  projects: %d registered\n", len(cfg.Projects))
 	if err := srv.Serve(); err != nil {
 		fatal("serve", err)
 	}
+}
+
+// cmdVAPID generates a fresh VAPID keypair and stores it next to the
+// config file. Re-running it after a key already exists is refused unless
+// --force is passed, because rotating the key invalidates every existing
+// push subscription.
+func cmdVAPID(args []string) {
+	force := false
+	for _, a := range args {
+		if a == "--force" || a == "-f" {
+			force = true
+		}
+	}
+	path := filepath.Join(config.Dir(), "vapid.json")
+	if _, err := os.Stat(path); err == nil && !force {
+		fmt.Fprintf(os.Stderr, "harness-deck: %s already exists. Pass --force to overwrite (this invalidates every existing push subscription).\n", path)
+		os.Exit(1)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		fatal("mkdir config", err)
+	}
+	keys, err := push.Generate()
+	if err != nil {
+		fatal("generate", err)
+	}
+	if err := keys.Save(path); err != nil {
+		fatal("save", err)
+	}
+	fmt.Printf("wrote %s\n", path)
+	fmt.Printf("public key: %s\n", keys.PublicB64URL())
 }
 
 // cmdVersion prints the build metadata stamped in at release time.

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/push"
 )
 
 const sampleReport = `{
@@ -505,4 +506,94 @@ func TestEventsStreamOpens(t *testing.T) {
 	if !strings.Contains(string(buf[:n]), "event: hello") {
 		t.Errorf("first SSE chunk = %q, want a hello event", buf[:n])
 	}
+}
+
+// TestPushDisabledByDefault confirms the push endpoints refuse work when
+// no VAPID keypair has been generated — the server stays healthy and the
+// rest of the dashboard continues to work.
+func TestPushDisabledByDefault(t *testing.T) {
+	h := newTestServer(t)
+
+	code, _ := get(t, h, "/api/push/vapid-key")
+	if code != http.StatusServiceUnavailable {
+		t.Errorf("vapid-key without keys = %d, want 503", code)
+	}
+
+	code, body := get(t, h, "/api/push/status")
+	if code != http.StatusOK {
+		t.Errorf("status = %d, want 200", code)
+	}
+	if !strings.Contains(body, `"enabled":false`) {
+		t.Errorf("status body = %s, want enabled:false", body)
+	}
+}
+
+// TestPushSubscribeRoundTrip generates a real VAPID keypair, subscribes
+// a fake browser, confirms it lands in subscriptions.json, then
+// unsubscribes and confirms the file is empty.
+func TestPushSubscribeRoundTrip(t *testing.T) {
+	isolateState(t)
+
+	// Generate and stash VAPID keys where the server will find them.
+	central := t.TempDir()
+	dir := filepath.Join(central, "acme", "0x4a2f")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(sampleReport), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	keysPath := filepath.Join(filepath.Dir(os.Getenv("HARNESS_DECK_CONFIG")), "vapid.json")
+	if err := writeFakeVAPID(keysPath); err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(config.Config{CentralDir: central, Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := s.Handler()
+
+	code, body := get(t, h, "/api/push/vapid-key")
+	if code != http.StatusOK {
+		t.Fatalf("vapid-key = %d, body=%s", code, body)
+	}
+	if !strings.Contains(body, `"key":"`) {
+		t.Errorf("vapid-key body missing key: %s", body)
+	}
+
+	subBody := `{"endpoint":"https://push.example/abc","keys":{"p256dh":"BPx","auth":"AAAA"}}`
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/push/subscribe", strings.NewReader(subBody)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("subscribe = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	code, body = get(t, h, "/api/push/status")
+	if !strings.Contains(body, `"subscription_count":1`) {
+		t.Errorf("after subscribe status = %s", body)
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/push/unsubscribe",
+		strings.NewReader(`{"endpoint":"https://push.example/abc"}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unsubscribe = %d", rec.Code)
+	}
+	code, body = get(t, h, "/api/push/status")
+	if !strings.Contains(body, `"subscription_count":0`) {
+		t.Errorf("after unsubscribe status = %s", body)
+	}
+}
+
+// writeFakeVAPID drops a fresh VAPID keypair on disk for tests so the
+// push endpoints become reachable.
+func writeFakeVAPID(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	keys, err := push.Generate()
+	if err != nil {
+		return err
+	}
+	return keys.Save(path)
 }
