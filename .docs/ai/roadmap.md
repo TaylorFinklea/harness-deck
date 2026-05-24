@@ -46,13 +46,14 @@ integration — which lives in `chezmoi-config`, not this repo.
   palette gains wildmenu-style autocomplete; in-app tab strip pins
   multiple report URLs in localStorage with `gt`/`gT` to cycle.
 
-## Next
-
-- **Keyboard triage of interactive blocks** _(planned)_ — answer
-  ask/decision/approval blocks purely with the keyboard: a focus model
-  for the open-asks banner, `j`/`k` to move between unanswered blocks,
-  `1`/`2`/… to pick a choice, `Enter` to submit. Pairs naturally with
-  the in-app tab strip so a power user never reaches for the mouse.
+- **Keyboard triage** _(done — 2026-05-24)_ — first unanswered ask
+  auto-focuses on report load; digits pick option N, `y`/`n` map to
+  yes/no or approve/changes-requested, `Enter` submits the highlighted
+  choice, `i` jumps into the text-mode input, `Tab` / `Shift+Tab` skip
+  between unanswered blocks, `Esc` defocuses. Page reload after submit
+  carries focus naturally to the next unanswered ask, so the inner loop
+  is "press digit, page reloads, press digit". `?` help overlay lists
+  the triage shortcuts.
 
 ## Later / out of scope
 

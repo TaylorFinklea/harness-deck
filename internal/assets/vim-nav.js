@@ -404,8 +404,18 @@
           <kbd>/</kbd><span>search</span>
           <kbd>n / N</kbd><span>next / prev match</span>
           <kbd>:</kbd><span>command</span>
+          <kbd>gt / gT</kbd><span>next / prev tab</span>
           <kbd>?</kbd><span>toggle this</span>
           <kbd>Esc</kbd><span>cancel</span>
+        </div>
+        <div class="vim-help-title" style="margin-top:14px">~ triage ~</div>
+        <div class="vim-help-grid">
+          <kbd>Tab</kbd><span>next unanswered ask</span>
+          <kbd>Shift+Tab</kbd><span>prev unanswered ask</span>
+          <kbd>1 – 9</kbd><span>pick option N</span>
+          <kbd>y / n</kbd><span>yes / no shortcut</span>
+          <kbd>Enter</kbd><span>submit highlighted</span>
+          <kbd>i</kbd><span>focus text input</span>
         </div>
         <div class="vim-help-foot">press ? or Esc to close</div>
       </div>`;

@@ -78,12 +78,17 @@ The mobile PWA + Web Push pipeline (`internal/push`, the PWA asset bundle,
 the settings view, the `vapid` subcommand, opt-in TLS) shipped as `v0.1.5`
 — see decisions.md.
 
-The visibility/archive/tabs/code-copy round (commit pending) layered on
-top: pinned open-asks banner + titlebar counter, soft-archive flag +
-archive view (`POST /r/{p}/{r}/archive` + `unarchive`), fenced code block
-rendering with copy button, recommendations through full Markdown, `:`
-command palette autocomplete (wildmenu-style with Tab/↑/↓), in-app tab
-strip persisted to localStorage with `gt`/`gT` cycling.
+The visibility/archive/tabs/code-copy round shipped as `v0.1.6`: pinned
+open-asks banner + titlebar counter, soft-archive flag + archive view
+(`POST /r/{p}/{r}/archive` + `unarchive`), fenced code block rendering
+with copy button, recommendations through full Markdown, `:` command
+palette autocomplete (wildmenu-style with Tab/↑/↓), in-app tab strip
+persisted to localStorage with `gt`/`gT` cycling.
+
+Keyboard triage (commit pending): `internal/assets/triage.js`. First
+unanswered ask auto-focuses; digits pick option N, y/n shortcut yes/no,
+Enter submits highlighted, i focuses text input, Tab/Shift+Tab skip
+between asks, Esc defocuses. Help overlay (`?`) lists the bindings.
 
 Manual test fixtures live in `/tmp/hd-test/` (config + sample reports):
 `HARNESS_DECK_CONFIG=/tmp/hd-test/config.json harness-deck serve`.

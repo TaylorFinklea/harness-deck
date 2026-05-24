@@ -290,3 +290,25 @@
 @media (hover: none) {
   .tab-close { opacity: 1; }
 }
+
+/* Keyboard triage — the currently-focused unanswered interactive block
+   gets a soft blue outline, and the button Enter would submit gets the
+   "active" treatment so the user can see at a glance what they're about
+   to do. */
+.panel.ask-focused {
+  outline: 1px solid var(--tn-blue);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 4px rgba(122, 162, 247, 0.10);
+}
+.hd-btn-active {
+  background: var(--tn-bg-visual);
+  color: var(--tn-fg);
+  border-color: var(--tn-blue);
+}
+.hd-btn-firing {
+  background: var(--tn-blue);
+  color: var(--tn-bg);
+  border-color: var(--tn-blue);
+  transform: scale(0.97);
+  transition: transform 80ms ease-out;
+}
