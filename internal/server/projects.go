@@ -25,10 +25,12 @@ type projectView struct {
 // current-state.md and roadmap.md, plus reports of kind "roadmap". It also
 // returns the full discovered list so the settings panel can show toggles.
 func (s *Server) handleProjects(w http.ResponseWriter, _ *http.Request) {
-	// Group roadmap-kind reports by project name.
+	// Group roadmap-kind reports by project name. Archived reports stay
+	// in /api/reports for the archive view but are hidden here so the
+	// project pages reflect just current work.
 	roadmapReports := map[string][]store.Entry{}
 	for _, e := range s.store.Entries() {
-		if e.Kind == "roadmap" {
+		if e.Kind == "roadmap" && !e.Archived {
 			roadmapReports[e.Project] = append(roadmapReports[e.Project], e)
 		}
 	}

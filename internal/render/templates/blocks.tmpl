@@ -106,7 +106,7 @@
 <section class="panel" data-vim-section id="{{.ID}}">
 {{template "panel-head" .}}
 <div class="panel-body recs">
-{{range $i, $r := .Body.Items}}<div class="rec"><span class="id">{{if $r.ID}}{{$r.ID}}{{else}}#{{add $i 1}}{{end}}</span>{{if $r.Owner}}<span class="own {{$r.Owner}}">{{$r.Owner}}</span>{{else}}<span></span>{{end}}<div>{{mdInline $r.Markdown}}</div></div>
+{{range $i, $r := .Body.Items}}<div class="rec"><span class="id">{{if $r.ID}}{{$r.ID}}{{else}}#{{add $i 1}}{{end}}</span>{{if $r.Owner}}<span class="own {{$r.Owner}}">{{$r.Owner}}</span>{{else}}<span></span>{{end}}<div class="rec-body">{{md $r.Markdown}}</div></div>
 {{end}}</div>
 </section>
 {{- end}}

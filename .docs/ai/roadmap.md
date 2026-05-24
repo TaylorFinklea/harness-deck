@@ -38,6 +38,21 @@ integration — which lives in `chezmoi-config`, not this repo.
   (`internal/push`), `harness-deck vapid` subcommand, opt-in `bind` + `tls`
   config, settings view for per-browser subscribe/unsubscribe. Connectivity
   model is Tailscale; HTTPS via `tailscale cert`. See decisions.md.
+- **Asks visibility, archive, in-app tabs, code copy** _(done — 2026-05-24)_
+  — pinned unanswered-asks banner at the top of every report; aggregate
+  open-asks counter in the titlebar + browser tab title; soft-archive
+  with a recoverable archive view; fenced code blocks render with a copy
+  button; recommendations bodies pass through full Markdown; `:` command
+  palette gains wildmenu-style autocomplete; in-app tab strip pins
+  multiple report URLs in localStorage with `gt`/`gT` to cycle.
+
+## Next
+
+- **Keyboard triage of interactive blocks** _(planned)_ — answer
+  ask/decision/approval blocks purely with the keyboard: a focus model
+  for the open-asks banner, `j`/`k` to move between unanswered blocks,
+  `1`/`2`/… to pick a choice, `Enter` to submit. Pairs naturally with
+  the in-app tab strip so a power user never reaches for the mouse.
 
 ## Later / out of scope
 

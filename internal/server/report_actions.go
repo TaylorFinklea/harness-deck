@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 )
 
-// setReportStatus rewrites report.json with a new top-level status, preserving
-// every other field via a map round-trip. The write is atomic (temp + rename)
-// so a crash mid-write cannot truncate the agent's report.
-func setReportStatus(dir, newStatus string) error {
+// patchReport rewrites report.json after applying changes to its
+// top-level fields, preserving every other field via a map round-trip.
+// The write is atomic (temp + rename) so a crash mid-write cannot
+// truncate the agent's report.
+func patchReport(dir string, changes map[string]any) error {
 	path := filepath.Join(dir, "report.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -20,7 +21,13 @@ func setReportStatus(dir, newStatus string) error {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return err
 	}
-	doc["status"] = newStatus
+	for k, v := range changes {
+		if v == nil {
+			delete(doc, k)
+		} else {
+			doc[k] = v
+		}
+	}
 	out, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
 		return err
@@ -51,8 +58,44 @@ func (s *Server) mutateReportStatus(w http.ResponseWriter, r *http.Request, newS
 		http.Error(w, "report not found: "+err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := setReportStatus(entry.Dir, newStatus); err != nil {
+	if err := patchReport(entry.Dir, map[string]any{"status": newStatus}); err != nil {
 		http.Error(w, "could not update status: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.store.Scan(s.enabledRoots())
+	s.hub.broadcast("reports")
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"ok":true}`))
+}
+
+// handleReportArchive flips the archived flag so the report drops out of
+// every default view. Files stay on disk; the archive view lists them
+// for restore or permanent delete.
+func (s *Server) handleReportArchive(w http.ResponseWriter, r *http.Request) {
+	s.mutateArchived(w, r, true)
+}
+
+// handleReportUnarchive restores an archived report to its prior state.
+func (s *Server) handleReportUnarchive(w http.ResponseWriter, r *http.Request) {
+	s.mutateArchived(w, r, false)
+}
+
+func (s *Server) mutateArchived(w http.ResponseWriter, r *http.Request, archived bool) {
+	_, entry, err := s.store.Get(r.PathValue("project"), r.PathValue("run"))
+	if err != nil {
+		http.Error(w, "report not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+	// Omit the field entirely when clearing — keeps report.json clean rather
+	// than carrying an "archived: false" tombstone in unarchived files.
+	var v any
+	if archived {
+		v = true
+	} else {
+		v = nil
+	}
+	if err := patchReport(entry.Dir, map[string]any{"archived": v}); err != nil {
+		http.Error(w, "could not update archived flag: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.store.Scan(s.enabledRoots())

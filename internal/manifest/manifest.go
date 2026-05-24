@@ -14,19 +14,24 @@ const Schema = "harness-deck/report@1"
 
 // Report is a single harness-deck report manifest.
 type Report struct {
-	Schema  string  `json:"schema"`
-	ID      string  `json:"id"`
-	Project string  `json:"project"`
-	Harness string  `json:"harness"`           // claude-code | pi-mono | opencode | …
-	Agent   string  `json:"agent,omitempty"`   // model identifier
-	Title   string  `json:"title"`
-	Scope   string  `json:"scope,omitempty"`   // short prefix highlighted in the banner
-	Kind    string  `json:"kind,omitempty"`    // audit | progress | idea | ask | …
-	Status  string  `json:"status"`            // draft | awaiting-review | answered | done
-	Created string  `json:"created"`           // RFC3339 timestamp
-	Verdict string  `json:"verdict,omitempty"` // free-text headline conclusion
-	Meta    []KV    `json:"meta,omitempty"`    // ordered run metadata (tokens, cost, …)
-	Blocks  []Block `json:"blocks"`
+	Schema  string `json:"schema"`
+	ID      string `json:"id"`
+	Project string `json:"project"`
+	Harness string `json:"harness"`         // claude-code | pi-mono | opencode | …
+	Agent   string `json:"agent,omitempty"` // model identifier
+	Title   string `json:"title"`
+	Scope   string `json:"scope,omitempty"`   // short prefix highlighted in the banner
+	Kind    string `json:"kind,omitempty"`    // audit | progress | idea | ask | …
+	Status  string `json:"status"`            // draft | awaiting-review | answered | done
+	Created string `json:"created"`           // RFC3339 timestamp
+	Verdict string `json:"verdict,omitempty"` // free-text headline conclusion
+	Meta    []KV   `json:"meta,omitempty"`    // ordered run metadata (tokens, cost, …)
+	// Archived is a soft-delete flag: true hides the report from every
+	// default view but leaves report.json + responses.json untouched on
+	// disk. Distinct from Status so archiving an awaiting-review report
+	// does not lose its open-ask state when restored.
+	Archived bool    `json:"archived,omitempty"`
+	Blocks   []Block `json:"blocks"`
 }
 
 // KV is an ordered key/value pair. Manifests use an ordered list rather than a

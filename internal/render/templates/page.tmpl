@@ -34,7 +34,12 @@
       {{else}}
         <button onclick="hdClose()" title="close (mark done)">✕ close</button>
       {{end}}
-      <button onclick="hdDelete()" class="danger" title="delete the report file">⌦ delete</button>
+      {{if .Report.Archived}}
+        <button onclick="hdUnarchive()" title="restore from archive">↺ unarchive</button>
+      {{else}}
+        <button onclick="hdArchive()" title="hide from default views (recoverable)">📦 archive</button>
+      {{end}}
+      <button onclick="hdDelete()" class="danger" title="delete the report file (permanent)">⌦ delete</button>
     </div>
   </div>
   <div class="keyhints vim-no-search">
@@ -79,6 +84,18 @@
       </div>
     </div>
 
+    {{if .OpenAsks}}
+    <div class="open-asks" id="open-asks">
+      <div class="open-asks-head">
+        <span class="open-asks-count">{{len .OpenAsks}} unanswered</span>
+        <span class="open-asks-hint">tap to jump</span>
+      </div>
+      <ul class="open-asks-list">
+        {{range .OpenAsks}}<li><a href="#{{.Anchor}}"><span class="num">§{{.Num}}</span> <span class="kind {{.Kind}}">{{.Kind}}</span> <span class="title">{{.Title}}</span></a></li>{{end}}
+      </ul>
+    </div>
+    {{end}}
+
     {{range .Blocks}}{{.}}
     {{end}}
   </main>
@@ -93,7 +110,7 @@
   <span class="seg pos">ln <span id="ln">1</span>:<span id="col">1</span></span>
 </div>
 
-<script>window.HD_REPORT = { project: {{.Report.Project}}, run: {{.Report.ID}} };</script>
+<script>window.HD_REPORT = { project: {{.Report.Project}}, run: {{.Report.ID}}, title: {{.Report.Title}} };</script>
 <script>
   /* close / reopen / delete — POST then bounce to the dashboard. */
   function hdAction(action, method) {
@@ -106,10 +123,12 @@
       alert('Action failed: ' + err.message);
     });
   }
-  function hdClose()  { hdAction('close',  'POST'); }
-  function hdReopen() { hdAction('reopen', 'POST'); }
+  function hdClose()     { hdAction('close',     'POST'); }
+  function hdReopen()    { hdAction('reopen',    'POST'); }
+  function hdArchive()   { hdAction('archive',   'POST'); }
+  function hdUnarchive() { hdAction('unarchive', 'POST'); }
   function hdDelete() {
-    if (!confirm('Delete this report? This cannot be undone.')) return;
+    if (!confirm('Permanently delete this report? This removes the run directory from disk. Archive instead if you might want it back.')) return;
     hdAction('', 'DELETE');
   }
 </script>
@@ -129,6 +148,12 @@
   document.addEventListener('scroll', updatePos, { passive: true });
   updatePos();
   VimNav.init({ statusEl: '#status', onMode: (m) => { modeEl.textContent = '▌ ' + m; } });
+  // Pin the report we just landed on into the tab strip (covers direct
+  // bookmarks, push-notification deep-links, and browser back/forward).
+  if (window.HDTabs) {
+    HDTabs.ensureCurrent(HD_REPORT.title || HD_REPORT.run);
+    HDTabs.render();
+  }
 </script>
 </body>
 </html>

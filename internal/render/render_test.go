@@ -44,14 +44,14 @@ func TestReportRendersBlocks(t *testing.T) {
 		`<title>harness-deck · readiness audit</title>`,
 		`class="report-banner"`,
 		`<span class="scope">postgres</span>`,
-		`class="panel"`,            // panels rendered
-		`<b>ready</b>`,             // markdown bold
-		`class="metric-grid"`,      // metrics block
-		`class="delta pos"`,        // metric trend
-		`<svg class="spark"`,       // sparkline
-		`class="sev crit"`,         // risk severity
-		`<i id=esc>raw</i>`,        // html escape-hatch passed through
-		`VimNav.init`,              // vim navigation wired
+		`class="panel"`,       // panels rendered
+		`<b>ready</b>`,        // markdown bold
+		`class="metric-grid"`, // metrics block
+		`class="delta pos"`,   // metric trend
+		`<svg class="spark"`,  // sparkline
+		`class="sev crit"`,    // risk severity
+		`<i id=esc>raw</i>`,   // html escape-hatch passed through
+		`VimNav.init`,         // vim navigation wired
 		`class="statusline"`,
 	} {
 		if !strings.Contains(html, want) {
@@ -110,6 +110,30 @@ func TestMarkdownRendersHeadingsListsAndInline(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
 		}
+	}
+}
+
+// TestMarkdownFencedCodeRendersCopyable confirms ```lang ... ``` produces
+// the copy-button wrapper the frontend wires up, with the body escaped
+// but never mistakenly run through inline markdown.
+func TestMarkdownFencedCodeRendersCopyable(t *testing.T) {
+	src := "Prefix paragraph.\n\n```python\nfor i in range(3):\n    print(i * 2)\n```\n\nTrailing line."
+	out := string(Markdown(src))
+	for _, want := range []string{
+		`<div class="code-block">`,
+		`<span class="lang">python</span>`,
+		`<button class="copy-btn"`,
+		`<code class="lang-python">`,
+		`print(i * 2)`, // body present verbatim, not markdown-italicized
+		`<p>Prefix paragraph.</p>`,
+		`<p>Trailing line.</p>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+	if strings.Contains(out, "<i>") {
+		t.Errorf("fenced code body should not be italicized\ngot: %s", out)
 	}
 }
 

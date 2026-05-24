@@ -62,26 +62,48 @@
     if (prompt) return prompt;
     prompt = document.createElement('div');
     prompt.id = 'vim-prompt';
-    prompt.innerHTML = '<span class="vim-prompt-sigil"></span><input type="text" autocomplete="off" autocorrect="off" spellcheck="false" /><span class="vim-prompt-hint"></span>';
+    // Build the prompt DOM imperatively (no innerHTML) so a malicious
+    // command name in cfg.commands could never inject markup.
+    const list = document.createElement('div');
+    list.className = 'vim-prompt-list';
+    list.style.display = 'none';
+    Object.assign(list.style, {
+      maxHeight: '40vh', overflowY: 'auto',
+      borderBottom: '1px solid var(--tn-rule, rgba(122,162,247,.18))',
+      fontSize: '12px',
+    });
+    const row = document.createElement('div');
+    row.className = 'vim-prompt-row';
+    Object.assign(row.style, {
+      display: 'flex', alignItems: 'center', gap: '8px',
+      padding: '6px 12px',
+    });
+    const sigil = document.createElement('span');
+    sigil.className = 'vim-prompt-sigil';
+    Object.assign(sigil.style, { color: 'var(--tn-cyan, #7dcfff)', fontWeight: '600' });
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.autocomplete = 'off';
+    inp.autocorrect = 'off';
+    inp.spellcheck = false;
+    Object.assign(inp.style, {
+      flex: 1, border: 'none', outline: 'none', background: 'transparent',
+      color: 'inherit', font: 'inherit', padding: 0,
+    });
+    const hint = document.createElement('span');
+    hint.className = 'vim-prompt-hint';
+    Object.assign(hint.style, { color: 'var(--tn-comment, #565f89)', fontSize: '12px' });
+    row.append(sigil, inp, hint);
+    prompt.append(list, row);
     Object.assign(prompt.style, {
       position: 'fixed', left: 0, right: 0, bottom: 0,
-      display: 'none', alignItems: 'center', gap: '8px',
-      padding: '6px 12px',
+      display: 'none', flexDirection: 'column',
       background: 'var(--tn-bg-darker, #13141c)',
       borderTop: '1px solid var(--tn-rule, rgba(122,162,247,.18))',
       fontFamily: 'inherit', fontSize: '13px',
       color: 'var(--tn-fg, #c0caf5)',
       zIndex: 99999,
     });
-    const inp = prompt.querySelector('input');
-    Object.assign(inp.style, {
-      flex: 1, border: 'none', outline: 'none', background: 'transparent',
-      color: 'inherit', font: 'inherit', padding: 0,
-    });
-    const sigil = prompt.querySelector('.vim-prompt-sigil');
-    Object.assign(sigil.style, { color: 'var(--tn-cyan, #7dcfff)', fontWeight: '600' });
-    const hint = prompt.querySelector('.vim-prompt-hint');
-    Object.assign(hint.style, { color: 'var(--tn-comment, #565f89)', fontSize: '12px' });
     document.body.appendChild(prompt);
     return prompt;
   };
@@ -99,6 +121,10 @@
   const hidePrompt = () => {
     if (!prompt) return;
     prompt.style.display = 'none';
+    // Always clear the autocomplete list so a stale palette can't show up
+    // the next time : reuses this prompt element.
+    const list = prompt.querySelector('.vim-prompt-list');
+    if (list) { list.style.display = 'none'; list.replaceChildren(); }
     prompt.querySelector('input').blur();
   };
 
@@ -202,6 +228,14 @@
   };
 
   /* ---------- command palette ---------- */
+  // Built-in names handled inline by runCommand. Included in autocomplete
+  // so the user discovers them.
+  const BUILTIN_COMMANDS = {
+    q: 'close the prompt',
+    quit: 'close the prompt',
+    help: 'toggle the keymap overlay',
+  };
+
   const runCommand = (line) => {
     const [name, ...args] = line.trim().split(/\s+/);
     if (!name) return;
@@ -216,6 +250,123 @@
       // Unknown — flash status briefly
       flash('E492: Not an editor command: ' + name);
     }
+  };
+
+  // openCommandPalette wires up the : prompt with a wildmenu-style
+  // autocomplete: typing filters the suggestion list to prefix matches,
+  // ↑/↓ moves the highlight, Tab fills the input, Enter runs the
+  // current input (whether or not it matches a suggestion).
+  const openCommandPalette = () => {
+    const inp = prompt.querySelector('input');
+    const list = prompt.querySelector('.vim-prompt-list');
+    const hint = prompt.querySelector('.vim-prompt-hint');
+    const allNames = Object.keys(cfg.commands)
+      .concat(Object.keys(BUILTIN_COMMANDS))
+      .sort();
+    let visible = allNames.slice();
+    let activeIdx = 0;
+
+    const describe = (name) => {
+      if (cfg.descriptions && cfg.descriptions[name]) return cfg.descriptions[name];
+      if (BUILTIN_COMMANDS[name]) return BUILTIN_COMMANDS[name];
+      return '';
+    };
+
+    const renderList = () => {
+      list.replaceChildren();
+      if (!visible.length) {
+        list.style.display = 'none';
+        hint.textContent = 'no match';
+        return;
+      }
+      hint.textContent = '';
+      list.style.display = '';
+      visible.forEach((name, i) => {
+        const row = document.createElement('div');
+        row.className = 'vim-prompt-row-item';
+        row.dataset.name = name;
+        Object.assign(row.style, {
+          display: 'flex', alignItems: 'baseline', gap: '12px',
+          padding: '4px 12px',
+          cursor: 'pointer',
+          color: i === activeIdx ? 'var(--tn-fg, #c0caf5)' : 'var(--tn-fg-dark, #a9b1d6)',
+          background: i === activeIdx ? 'var(--tn-bg-highlight, #292e42)' : 'transparent',
+        });
+        const n = document.createElement('span');
+        n.textContent = name;
+        n.style.color = i === activeIdx ? 'var(--tn-cyan, #7dcfff)' : 'inherit';
+        n.style.fontWeight = '500';
+        const d = document.createElement('span');
+        d.textContent = describe(name);
+        d.style.color = 'var(--tn-comment, #565f89)';
+        d.style.flex = '1';
+        row.append(n, d);
+        list.appendChild(row);
+      });
+    };
+
+    const filter = (q) => {
+      q = q.trim();
+      // Match the first whitespace-delimited word (typed command name),
+      // so once the user has the name + args they no longer pick from list.
+      const head = q.split(/\s+/)[0];
+      if (!q || q.indexOf(' ') >= 0) {
+        // After a space, the user is typing args — hide the list.
+        visible = [];
+      } else if (!head) {
+        visible = allNames.slice();
+      } else {
+        visible = allNames.filter((n) => n.indexOf(head) === 0);
+      }
+      activeIdx = 0;
+      renderList();
+    };
+
+    inp.oninput = () => filter(inp.value);
+    inp.onkeydown = (ev) => {
+      if (ev.key === 'Enter') {
+        const v = inp.value;
+        hidePrompt();
+        list.style.display = 'none';
+        setMode('NORMAL');
+        runCommand(v);
+        return;
+      }
+      if (ev.key === 'Escape') {
+        hidePrompt();
+        list.style.display = 'none';
+        setMode('NORMAL');
+        return;
+      }
+      if (ev.key === 'Tab' && visible.length) {
+        ev.preventDefault();
+        inp.value = visible[activeIdx] + ' ';
+        // Refilter so the list reflects the now-completed name.
+        filter(inp.value);
+        return;
+      }
+      if (ev.key === 'ArrowDown' && visible.length) {
+        ev.preventDefault();
+        activeIdx = (activeIdx + 1) % visible.length;
+        renderList();
+        return;
+      }
+      if (ev.key === 'ArrowUp' && visible.length) {
+        ev.preventDefault();
+        activeIdx = (activeIdx - 1 + visible.length) % visible.length;
+        renderList();
+        return;
+      }
+    };
+    list.onclick = (ev) => {
+      const row = ev.target.closest && ev.target.closest('.vim-prompt-row-item');
+      if (!row) return;
+      inp.value = row.dataset.name + ' ';
+      inp.focus();
+      filter(inp.value);
+    };
+
+    filter('');
   };
 
   const flash = (msg) => {
@@ -370,13 +521,8 @@
       }
       case ':': {
         setMode('COMMAND');
-        const hints = Object.keys(cfg.commands);
-        showPrompt(':', hints.length ? hints.slice(0, 6).join(' · ') : '');
-        const inp = prompt.querySelector('input');
-        inp.onkeydown = (ev) => {
-          if (ev.key === 'Enter') { const v = inp.value; hidePrompt(); setMode('NORMAL'); runCommand(v); }
-          if (ev.key === 'Escape') { hidePrompt(); setMode('NORMAL'); }
-        };
+        showPrompt(':', '');
+        openCommandPalette();
         e.preventDefault(); break;
       }
       case '?': toggleHelp(); e.preventDefault(); break;

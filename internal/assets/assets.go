@@ -33,6 +33,9 @@ var AggregatorJS string
 //go:embed mobile.js
 var MobileJS string
 
+//go:embed tabs.js
+var TabsJS string
+
 //go:embed respond.js
 var RespondJS string
 
@@ -67,7 +70,10 @@ var VimNavJSInline = strings.ReplaceAll(VimNavJS, "</script", `<\/script`)
 // it is safe to inline.
 var MobileJSInline = strings.ReplaceAll(MobileJS, "</script", `<\/script`)
 
+// TabsJSInline is tabs.js with </script escaped for safe inlining.
+var TabsJSInline = strings.ReplaceAll(TabsJS, "</script", `<\/script`)
+
 // ReportJS is the script bundle inlined into a rendered report page: vim
-// navigation, the response handler, and the mobile drawer + service
-// worker registration.
-var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline
+// navigation, the response handler, the mobile drawer + service worker
+// registration, and the in-app tab strip.
+var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline

@@ -34,9 +34,10 @@ type Entry struct {
 	Source   string    `json:"source"` // "central" or "project"
 	Blocks   int       `json:"blocks"`
 	OpenAsks int       `json:"open_asks"`
-	Dir      string    `json:"-"` // run directory
-	Path     string    `json:"-"` // report.json path
-	ModTime  time.Time `json:"-"` // report.json modification time
+	Archived bool      `json:"archived"` // soft-deleted; hidden from default views
+	Dir      string    `json:"-"`        // run directory
+	Path     string    `json:"-"`        // report.json path
+	ModTime  time.Time `json:"-"`        // report.json modification time
 }
 
 // Store holds the discovered report index. It is safe for concurrent use.
@@ -170,7 +171,8 @@ func loadEntry(path, source string) (Entry, error) {
 		Project: rep.Project, Run: rep.ID, Harness: rep.Harness, Agent: rep.Agent,
 		Title: rep.Title, Kind: rep.Kind, Status: rep.Status, Created: rep.Created,
 		Verdict: rep.Verdict, Source: source, Blocks: len(rep.Blocks),
-		Dir: filepath.Dir(path), Path: path,
+		Archived: rep.Archived,
+		Dir:      filepath.Dir(path), Path: path,
 	}
 	if fi, statErr := os.Stat(path); statErr == nil {
 		e.ModTime = fi.ModTime()

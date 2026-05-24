@@ -53,11 +53,22 @@ type pageView struct {
 	Report *manifest.Report
 	Banner bannerView
 	TOC    []tocItem
-	Run    []manifest.KV   // sidebar "run" metadata section
-	Blocks  []template.HTML // pre-rendered block panels
-	CSS     template.CSS
-	JS      template.JS
-	Favicon template.URL
+	Run    []manifest.KV // sidebar "run" metadata section
+	// OpenAsks summarizes the unanswered interactive blocks for the
+	// pinned banner at the top of the report. Empty when nothing is
+	// outstanding — the template hides the banner in that case.
+	OpenAsks []openAsk
+	Blocks   []template.HTML // pre-rendered block panels
+	CSS      template.CSS
+	JS       template.JS
+	Favicon  template.URL
+}
+
+// openAsk is one unanswered interactive block surfaced in the pinned
+// banner. Num matches the §NN section number, Kind is "ask" / "decision"
+// / "approval", Title is the block's human label.
+type openAsk struct {
+	Num, Anchor, Kind, Title string
 }
 
 type bannerView struct {
@@ -92,19 +103,26 @@ func (r *Renderer) buildPage(rep *manifest.Report, responses map[string]respond.
 			Verdict: rep.Verdict,
 			Meta:    bannerMeta(rep),
 		},
-		Run: runMeta(rep),
+		Run:     runMeta(rep),
 		CSS:     template.CSS(assets.ReportCSS),
 		JS:      template.JS(assets.ReportJS),
 		Favicon: template.URL(assets.FaviconDataURI),
 	}
 	for i, b := range rep.Blocks {
 		title := blockTitle(b)
-		pv.TOC = append(pv.TOC, tocItem{
-			Num:    fmt.Sprintf("%02d", i+1),
-			Title:  title,
-			Anchor: fmt.Sprintf("sec-%d", i+1),
-		})
+		num := fmt.Sprintf("%02d", i+1)
+		anchor := fmt.Sprintf("sec-%d", i+1)
+		pv.TOC = append(pv.TOC, tocItem{Num: num, Title: title, Anchor: anchor})
 		pv.Blocks = append(pv.Blocks, r.renderBlock(i, b, title, responses))
+		if manifest.InteractiveTypes[b.Type] {
+			id := manifest.InteractiveID(b)
+			if id != "" {
+				if _, answered := responses[id]; answered {
+					continue
+				}
+			}
+			pv.OpenAsks = append(pv.OpenAsks, openAsk{Num: num, Anchor: anchor, Kind: b.Type, Title: title})
+		}
 	}
 	return pv
 }

@@ -75,8 +75,15 @@ Drag-and-drop reordering and report close/reopen/delete landed on `main`
 after the projects view shipped (commits `0a8bfbb`, `df97c80`).
 
 The mobile PWA + Web Push pipeline (`internal/push`, the PWA asset bundle,
-the settings view, the `vapid` subcommand, opt-in TLS) is in the working
-tree but not committed — see decisions.md for the design choices.
+the settings view, the `vapid` subcommand, opt-in TLS) shipped as `v0.1.5`
+— see decisions.md.
+
+The visibility/archive/tabs/code-copy round (commit pending) layered on
+top: pinned open-asks banner + titlebar counter, soft-archive flag +
+archive view (`POST /r/{p}/{r}/archive` + `unarchive`), fenced code block
+rendering with copy button, recommendations through full Markdown, `:`
+command palette autocomplete (wildmenu-style with Tab/↑/↓), in-app tab
+strip persisted to localStorage with `gt`/`gT` cycling.
 
 Manual test fixtures live in `/tmp/hd-test/` (config + sample reports):
 `HARNESS_DECK_CONFIG=/tmp/hd-test/config.json harness-deck serve`.

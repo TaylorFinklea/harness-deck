@@ -169,3 +169,31 @@
   color: var(--tn-fg-gutter);
 }
 .proj-sec:first-child { margin-top: 0; }
+
+/* Archive-view actions — restore + permanent delete. The row is the
+   same itemRow used everywhere; we just append a side-by-side button
+   pair. */
+.inbox-item .archive-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 12px;
+}
+.inbox-item .archive-actions button {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  background: var(--tn-bg-dark);
+  color: var(--tn-fg-dark);
+  border: 1px solid var(--tn-bg-highlight);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.inbox-item .archive-actions button:hover {
+  color: var(--tn-fg);
+  border-color: var(--tn-blue);
+}
+.inbox-item .archive-actions button.danger:hover {
+  color: var(--tn-red);
+  border-color: var(--tn-red);
+  background: rgba(247, 118, 142, 0.08);
+}

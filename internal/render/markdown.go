@@ -42,6 +42,34 @@ func renderMarkdownInline(s string) template.HTML {
 // the roadmap view, which renders each project's .docs/ai/roadmap.md.
 func Markdown(s string) template.HTML { return renderMarkdown(s) }
 
+// fencedCodeHTML returns the HTML for a fenced code block — a copy-button
+// wrapper around <pre><code>. The body is HTML-escaped but otherwise
+// untouched: inline marks like ` * _ inside code are literal.
+func fencedCodeHTML(lang, body string) string {
+	classAttr := ""
+	if lang != "" {
+		classAttr = ` class="lang-` + html.EscapeString(lang) + `"`
+	}
+	langChip := ""
+	if lang != "" {
+		langChip = `<span class="lang">` + html.EscapeString(lang) + `</span>`
+	}
+	return `<div class="code-block">` + langChip +
+		`<button class="copy-btn" type="button" aria-label="Copy">copy</button>` +
+		`<pre><code` + classAttr + `>` + html.EscapeString(body) + `</code></pre></div>`
+}
+
+// isFence reports whether line opens or closes a fenced code block, and
+// returns the language tag if present. Only triple-backtick fences are
+// recognised; tildes are uncommon in agent-authored reports.
+func isFence(line string) (bool, string) {
+	t := strings.TrimSpace(line)
+	if !strings.HasPrefix(t, "```") {
+		return false, ""
+	}
+	return true, strings.TrimSpace(strings.TrimPrefix(t, "```"))
+}
+
 func renderMarkdown(s string) template.HTML {
 	var out strings.Builder
 	lines := strings.Split(strings.ReplaceAll(strings.TrimSpace(s), "\r\n", "\n"), "\n")
@@ -50,6 +78,21 @@ func renderMarkdown(s string) template.HTML {
 		switch {
 		case line == "":
 			i++
+		case func() bool { ok, _ := isFence(lines[i]); return ok }():
+			// Fenced code block: gather literal lines until the closing fence
+			// (or EOF) and emit a single copyable <pre> block.
+			_, lang := isFence(lines[i])
+			i++
+			var code []string
+			for i < len(lines) {
+				if ok, _ := isFence(lines[i]); ok {
+					i++ // consume the closing fence
+					break
+				}
+				code = append(code, lines[i])
+				i++
+			}
+			out.WriteString(fencedCodeHTML(lang, strings.Join(code, "\n")))
 		case headingLevel(line) > 0:
 			lvl := headingLevel(line)
 			text := strings.TrimSpace(strings.TrimLeft(line, "#"))
@@ -71,6 +114,9 @@ func renderMarkdown(s string) template.HTML {
 			for i < len(lines) {
 				cur := strings.TrimSpace(lines[i])
 				if cur == "" || headingLevel(cur) > 0 || reBullet.MatchString(cur) {
+					break
+				}
+				if ok, _ := isFence(lines[i]); ok {
 					break
 				}
 				para = append(para, cur)

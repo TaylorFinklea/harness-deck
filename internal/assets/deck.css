@@ -142,3 +142,151 @@
   color: var(--tn-red);
   border-color: var(--tn-red);
 }
+
+/* Pinned open-asks banner — surfaces every unanswered interactive block
+   at the top of a report so the user always lands on what needs them.
+   Author's narrative order is preserved below; this banner is just a
+   high-contrast index. Shrinks naturally as items are answered (the
+   server re-renders the page on response). */
+.open-asks {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--tn-yellow);
+  background: rgba(224, 175, 104, 0.06);
+  border-radius: 3px;
+}
+.open-asks-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.open-asks-count {
+  color: var(--tn-yellow);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.open-asks-hint { color: var(--tn-comment); font-size: 10px; }
+.open-asks-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.open-asks-list li a {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 6px;
+  color: var(--tn-fg);
+  text-decoration: none;
+  border-radius: 2px;
+}
+.open-asks-list li a:hover { background: var(--tn-bg-highlight); }
+.open-asks-list .num { color: var(--tn-comment); font-variant-numeric: tabular-nums; min-width: 3.5em; }
+.open-asks-list .kind {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 2px;
+  background: var(--tn-bg-highlight);
+  color: var(--tn-fg-dark);
+}
+.open-asks-list .kind.ask      { background: rgba(125, 207, 255, 0.18); color: var(--tn-cyan); }
+.open-asks-list .kind.decision { background: rgba(187, 154, 247, 0.18); color: var(--tn-purple); }
+.open-asks-list .kind.approval { background: rgba(224, 175, 104, 0.18); color: var(--tn-yellow); }
+.open-asks-list .title { color: var(--tn-fg-dark); }
+
+/* Titlebar open-asks chip — empty (no styling) when zero asks are open;
+   .has-asks paints it yellow so it draws the eye. */
+.title-asks { color: var(--tn-comment); font-weight: 400; }
+.title-asks.has-asks { color: var(--tn-yellow); font-weight: 500; }
+
+/* Fenced code blocks — styled <pre><code> with a copy button. The wrapper
+   is positioned so the button sits in the top-right corner; on touch the
+   button is always visible, on a mouse it appears on hover. */
+.code-block {
+  position: relative;
+  margin: 8px 0;
+  background: var(--tn-bg-dark);
+  border: 1px solid var(--tn-bg-highlight);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.code-block pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--tn-fg);
+}
+.code-block code { background: none; padding: 0; color: inherit; }
+.code-block .lang {
+  position: absolute; top: 6px; left: 10px;
+  font-size: 10px; color: var(--tn-comment);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  pointer-events: none;
+}
+.code-block .copy-btn {
+  position: absolute; top: 6px; right: 6px;
+  font-family: inherit; font-size: 11px;
+  background: var(--tn-bg-highlight);
+  color: var(--tn-fg-dark);
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  border-radius: 2px;
+}
+.code-block:hover .copy-btn,
+.code-block .copy-btn:focus { opacity: 1; }
+.code-block .copy-btn.ok { color: var(--tn-green); border-color: var(--tn-green); opacity: 1; }
+@media (hover: none) { .code-block .copy-btn { opacity: 1; } }
+.code-block .copy-btn:hover { color: var(--tn-fg); }
+
+/* Inline <code> styling — now applies anywhere inside a panel, not only
+   in .prose, so backticks inside recommendations/callouts/etc render as
+   visible code. */
+.panel code, .open-asks-list code, .rec-body code {
+  color: var(--tn-cyan);
+  background: var(--tn-bg-dark);
+  padding: 0 4px;
+  font-size: 12px;
+  border-radius: 1px;
+}
+/* Don't double-style the fenced-block inner code. */
+.code-block code { color: inherit; background: none; padding: 0; }
+
+/* Recommendation body: now passes through full Markdown, so paragraph and
+   list margins need to be trimmed to keep the row compact. */
+.rec-body p { margin: 0; }
+.rec-body p + p { margin-top: 6px; }
+.rec-body ul { margin: 6px 0; padding-left: 20px; }
+
+/* Tab strip — anchor tags rendered by tabs.js. Inherits .tab from v1.css
+   for the chrome look; we add link styling, max-width truncation, and the
+   close button. */
+.tabbar a.tab { text-decoration: none; color: var(--tn-comment); }
+.tabbar a.tab:hover:not(.active) { color: var(--tn-fg-dark); }
+.tab .label {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab-close {
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  color: var(--tn-comment);
+  padding: 0 4px;
+  margin-left: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  border-radius: 2px;
+}
+.tab:hover .tab-close { opacity: 0.7; }
+.tab-close:hover { opacity: 1; color: var(--tn-red); background: rgba(247, 118, 142, 0.12); }
+.tab.active .tab-close { opacity: 0.7; }
+@media (hover: none) {
+  .tab-close { opacity: 1; }
+}

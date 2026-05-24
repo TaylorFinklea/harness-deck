@@ -110,7 +110,7 @@ func (s *Server) currentAskDigests() (map[string]askDigest, map[string]store.Ent
 	digests := map[string]askDigest{}
 	entries := map[string]store.Entry{}
 	for _, e := range s.store.Entries() {
-		if e.OpenAsks == 0 {
+		if e.OpenAsks == 0 || e.Archived {
 			continue
 		}
 		key := e.Project + "/" + e.Run

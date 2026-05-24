@@ -23,14 +23,14 @@
   <div class="titlebar">
     <button class="menu-button" type="button" aria-label="Toggle navigation">☰</button>
     <div class="dots"><span></span><span></span><span></span></div>
-    <div class="title"><b>harness-deck</b> · dashboard</div>
+    <div class="title"><b>harness-deck</b> · dashboard<span id="title-asks" class="title-asks"></span></div>
     <div class="clock" id="clock">--:--:--</div>
   </div>
   <div class="tabbar">
     <div class="tab active"><span class="num">~</span> dashboard</div>
   </div>
   <div class="keyhints vim-no-search">
-    <span><kbd>1</kbd>–<kbd>5</kbd> views</span>
+    <span><kbd>1</kbd>–<kbd>6</kbd> views</span>
     <span><kbd>j</kbd><kbd>k</kbd> scroll</span>
     <span><kbd>]</kbd><kbd>[</kbd> section</span>
     <span><kbd>/</kbd> search</span>
@@ -58,6 +58,7 @@
 <script>{{.VimJS}}</script>
 <script>{{.AppJS}}</script>
 <script>{{.MobileJS}}</script>
+<script>{{.TabsJS}}</script>
 <script>
   setInterval(() => {
     const d = new Date(), p = (n) => String(n).padStart(2, '0');

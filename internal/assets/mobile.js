@@ -29,4 +29,42 @@
       });
     });
   }
+
+  // 3) Copy-button delegation for fenced code blocks. Lives here (rather
+  // than in respond.js or aggregator.js) because mobile.js is the one
+  // script loaded on every page — report pages, aggregator shell, and
+  // any future page that inlines /assets MobileJSInline.
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('.copy-btn');
+    if (!btn) return;
+    var block = btn.closest('.code-block');
+    var code = block && block.querySelector('code');
+    if (!code) return;
+    var text = code.textContent || '';
+    var done = function () {
+      var orig = btn.textContent;
+      btn.textContent = 'copied';
+      btn.classList.add('ok');
+      setTimeout(function () { btn.textContent = orig; btn.classList.remove('ok'); }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () { fb(text); done(); });
+    } else {
+      fb(text);
+      done();
+    }
+  });
+  // fb — textarea+execCommand fallback. Needed when the page is served
+  // over plain HTTP (Clipboard API requires a secure context).
+  function fb(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    document.body.removeChild(ta);
+  }
 })();

@@ -12,8 +12,20 @@
     { id: 'overview', key: '2', label: 'overview' },
     { id: 'latest', key: '3', label: 'latest' },
     { id: 'projects', key: '4', label: 'projects' },
-    { id: 'settings', key: '5', label: 'settings' }
+    { id: 'settings', key: '5', label: 'settings' },
+    { id: 'archive', key: '6', label: 'archive' }
   ];
+
+  /* activeReports — non-archived only. Every default view operates on
+     these so the inbox stays the "things you actually care about" list.
+     The archive view reads data.reports directly and filters the other
+     way. */
+  function activeReports() {
+    return (data.reports || []).filter(function (r) { return !r.archived; });
+  }
+  function archivedReports() {
+    return (data.reports || []).filter(function (r) { return r.archived; });
+  }
   var data = { reports: [], errors: [], projects: [], discovered: [] };
   var currentView = 'inbox';
   var trackedOpen = false;     // is the "tracked projects" panel expanded?
@@ -112,7 +124,7 @@
   /* --- sidebar tree --- */
   function renderTree() {
     var byProj = {};
-    data.reports.forEach(function (r) {
+    activeReports().forEach(function (r) {
       (byProj[r.project] = byProj[r.project] || []).push(r);
     });
     // Sort the tree by the user's project order — falls back to alpha for
@@ -161,7 +173,7 @@
 
   /* --- home views --- each returns an array of nodes --- */
   function viewInbox() {
-    var items = data.reports.filter(function (r) {
+    var items = activeReports().filter(function (r) {
       return r.status === 'awaiting-review' || r.open_asks > 0;
     });
     var body = items.length
@@ -173,12 +185,15 @@
   }
 
   function viewOverview() {
-    var rs = data.reports, st = countBy('status');
+    var rs = activeReports();
+    var st = rs.reduce(function (m, r) { m[r.status || '—'] = (m[r.status || '—'] || 0) + 1; return m; }, {});
+    var projectsSeen = {};
+    rs.forEach(function (r) { projectsSeen[r.project] = true; });
     var cells = [
       ['reports', rs.length],
       ['awaiting review', st['awaiting-review'] || 0],
       ['answered', st['answered'] || 0],
-      ['projects', Object.keys(countBy('project')).length]
+      ['projects', Object.keys(projectsSeen).length]
     ];
     var grid = el('div', { class: 'metric-grid' }, cells.map(function (c) {
       return el('div', { class: 'metric' }, [
@@ -200,11 +215,46 @@
   }
 
   function viewLatest() {
-    if (!data.reports.length) {
+    var rs = activeReports();
+    if (!rs.length) {
       return [panel('latest', null, [emptyState(['no reports yet'])])];
     }
-    var r = data.reports[0];
+    var r = rs[0];
     return [panel('latest report', pill(r.status), [itemRow(r)])];
+  }
+
+  /* viewArchive — archived reports listed newest-first with restore and
+     hard-delete buttons. Empty state offers the "tip: archive instead of
+     delete" pointer so users discover the safer flow. */
+  function viewArchive() {
+    var rs = archivedReports();
+    if (!rs.length) {
+      return [panel('archive', null, [emptyState([
+        'nothing archived. ',
+        el('b', { text: 'tip:' }),
+        ' use the 📦 archive button on a report instead of ⌦ delete to keep its files around in case you need them.'
+      ])])];
+    }
+    var rows = rs.map(function (r) {
+      var actions = el('div', { class: 'archive-actions' }, [
+        el('button', {
+          type: 'button',
+          class: 'archive-restore',
+          data: { project: r.project, run: r.run },
+          text: '↺ restore'
+        }),
+        el('button', {
+          type: 'button',
+          class: 'archive-delete danger',
+          data: { project: r.project, run: r.run },
+          text: '⌦ delete'
+        })
+      ]);
+      var row = itemRow(r);
+      row.appendChild(actions);
+      return row;
+    });
+    return [panel('archive', pill(rs.length + ' archived'), rows)];
   }
 
   /* projectToggleRow — one discovered project with a drag handle and a
@@ -423,7 +473,7 @@
     return out;
   }
 
-  var BUILDERS = { inbox: viewInbox, overview: viewOverview, latest: viewLatest, projects: viewProjects, settings: viewSettings };
+  var BUILDERS = { inbox: viewInbox, overview: viewOverview, latest: viewLatest, projects: viewProjects, settings: viewSettings, archive: viewArchive };
 
   function renderContent() {
     var tabs = el('div', { class: 'view-tabs' }, VIEWS.map(function (v) {
@@ -449,10 +499,31 @@
     });
   }
 
+  /* refreshAsksCount surfaces the aggregate open-asks count as a chip in
+     the titlebar and in document.title — visible everywhere, including
+     the browser/PWA tab strip and (on iOS) the home-screen badge area. */
+  function refreshAsksCount() {
+    var n = (data.reports || []).reduce(function (acc, r) {
+      return acc + (r.open_asks || 0);
+    }, 0);
+    var chip = document.getElementById('title-asks');
+    if (chip) {
+      if (n > 0) {
+        chip.textContent = ' · ' + n + ' open';
+        chip.classList.add('has-asks');
+      } else {
+        chip.textContent = '';
+        chip.classList.remove('has-asks');
+      }
+    }
+    document.title = n > 0 ? '(' + n + ') harness-deck' : 'harness-deck';
+  }
+
   function render() {
     renderTree();
     renderContent();
     showView(currentView);
+    refreshAsksCount();
   }
 
   /* one delegated click handler for every navigable row */
@@ -465,6 +536,19 @@
     if (closeBtn) {
       e.stopPropagation();
       closeReport(closeBtn.dataset.project, closeBtn.dataset.run);
+      return;
+    }
+    var restoreBtn = e.target.closest('.archive-restore');
+    if (restoreBtn) {
+      e.stopPropagation();
+      reportAction(restoreBtn.dataset.project, restoreBtn.dataset.run, 'unarchive', 'POST');
+      return;
+    }
+    var hardDelBtn = e.target.closest('.archive-delete');
+    if (hardDelBtn) {
+      e.stopPropagation();
+      if (!confirm('Permanently delete this archived report? This removes the run directory from disk.')) return;
+      reportAction(hardDelBtn.dataset.project, hardDelBtn.dataset.run, '', 'DELETE');
       return;
     }
     if (e.target.id === 'push-on') { enablePushHere(); return; }
@@ -544,6 +628,16 @@
       if (!r.ok) throw new Error('close HTTP ' + r.status);
     }).catch(function (err) {
       console.error('harness-deck: close failed', err);
+    }).then(refresh);
+  }
+
+  /* archive endpoints mirror close — fire-and-refresh. */
+  function reportAction(project, run, action, method) {
+    var base = '/r/' + encodeURIComponent(project) + '/' + encodeURIComponent(run);
+    fetch(action ? base + '/' + action : base, { method: method }).then(function (r) {
+      if (!r.ok) throw new Error(action + ' HTTP ' + r.status);
+    }).catch(function (err) {
+      console.error('harness-deck:', action, 'failed', err);
     }).then(refresh);
   }
 
