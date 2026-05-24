@@ -7,10 +7,12 @@
    body.drawer-open to slide the sidebar in. */
 
 @media (max-width: 720px) {
-  body {
-    /* Stop horizontal overflow that the desktop layout would otherwise
-       cause on a narrow viewport. */
+  /* Both elements get overflow-x:hidden because iOS Safari sometimes
+     scrolls the html root and sometimes the body, depending on whether
+     position:fixed is in play. */
+  html, body {
     overflow-x: hidden;
+    max-width: 100vw;
   }
 
   .term-chrome { position: sticky; top: 0; z-index: 30; }
@@ -56,11 +58,38 @@
      pushes the clock off the right edge. */
   .titlebar .title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Inbox items: stack the timestamp/asks aside below the main row on
-     narrow phones so a long title has space to breathe. */
+  /* Inbox items: drop the 4-column grid entirely on phones. The desktop
+     grid (dot · main · aside · close) only fits because the title can
+     absorb slack — on a 393pt viewport even short titles can't. Stack
+     vertically with the dot pinned at the left edge and the close
+     button overlaid top-right. */
+  .inbox-item {
+    display: block;
+    position: relative;
+    padding: 10px 36px 10px 22px;
+  }
+  .inbox-item .dot {
+    position: absolute;
+    top: 14px;
+    left: 6px;
+  }
   .inbox-item .main { min-width: 0; }
-  .inbox-item .main .title { white-space: normal; }
-  .inbox-item .aside { flex: 0 0 auto; }
+  .inbox-item .main .title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .inbox-item .aside {
+    text-align: left;
+    margin-top: 4px;
+  }
+  .inbox-item .aside br { display: none; } /* keep timestamp + asks inline */
+  .inbox-item .aside .asks { margin-left: 8px; }
+  .inbox-item .inbox-close {
+    position: absolute;
+    top: 6px;
+    right: 4px;
+    opacity: 1; /* hover doesn't exist on touch; reveal by default */
+  }
 
   /* Open-asks banner: head can wrap, list rows wrap title + kind. */
   .open-asks { padding: 8px 10px; }
@@ -117,10 +146,20 @@
   }
   .menu-button:active { background: var(--tn-bg-highlight); }
 
-  /* Single-column layout: content takes the viewport, sidebar slides over it. */
+  /* Single-column layout: content takes the viewport, sidebar slides
+     over it. minmax(0, 1fr) (not just 1fr) is the trick — plain 1fr
+     resolves to minmax(auto, 1fr) which grows to fit content, so a
+     wide descendant like .view-tabs pushes the whole grid past the
+     viewport. minmax(0, …) forces the track to clip instead. */
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     min-height: calc(100vh - 44px - 28px);
+  }
+  /* min-width:0 on every overflow container so their scroll behavior
+     actually kicks in. Without this the container grows to fit its
+     children, and overflow-x:auto is decorative. */
+  .content, .view, .view-tabs, .tabbar, .panel, .panel-body {
+    min-width: 0;
   }
   .sidebar {
     position: fixed;
