@@ -19,8 +19,89 @@
   .titlebar .dots { display: none; }            /* macOS dots add noise on a phone */
   .titlebar .clock { font-size: 11px; }
 
-  .tabbar { display: none; }                    /* one tab — drop the row */
+  /* In-app tab strip stays visible but scrolls horizontally — touch
+     users still need it for switching between open reports. Drop the
+     bottom border on the row so it tucks neatly under the titlebar. */
+  .tabbar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabbar::-webkit-scrollbar { display: none; }
+  .tab { padding: 8px 12px; font-size: 12px; }
+  .tab .label { max-width: 140px; }
+
   .keyhints { display: none; }                  /* no keyboard, no kbd hints */
+
+  /* View-tab strip (inbox / overview / latest / projects / settings /
+     archive) — 6 tabs blow past 360pt viewports. Make the strip a
+     horizontal scroller and hide the keyboard-shortcut chip per tab. */
+  .view-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .view-tabs::-webkit-scrollbar { display: none; }
+  .view-tab {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    white-space: nowrap;
+    min-height: 36px;
+  }
+  .view-tab .k { display: none; }
+
+  /* Title-asks counter — let the title shrink so " · N open" never
+     pushes the clock off the right edge. */
+  .titlebar .title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Inbox items: stack the timestamp/asks aside below the main row on
+     narrow phones so a long title has space to breathe. */
+  .inbox-item .main { min-width: 0; }
+  .inbox-item .main .title { white-space: normal; }
+  .inbox-item .aside { flex: 0 0 auto; }
+
+  /* Open-asks banner: head can wrap, list rows wrap title + kind. */
+  .open-asks { padding: 8px 10px; }
+  .open-asks-head { flex-wrap: wrap; gap: 4px; }
+  .open-asks-list li a { flex-wrap: wrap; padding: 8px 6px; min-height: 36px; }
+  .open-asks-list .num { min-width: auto; }
+  .open-asks-list .title { flex: 1 1 100%; }
+
+  /* Recommendations: drop the owner column so the body can use full width.
+     The owner pill, when present, gets a smaller inline chip above. */
+  .recs .rec { grid-template-columns: 28px 1fr; }
+  .recs .rec .own {
+    grid-column: 2;
+    justify-self: start;
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+
+  /* Metric grid: force single column on narrow phones — no point
+     squeezing four metrics into the width of one. */
+  .metric-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Compare / decision A vs B blocks: stack vertically. */
+  .compare { display: block; }
+  .compare .a, .compare .b { width: auto; }
+
+  /* Diff blocks: force a horizontal scroller rather than blowing out
+     the viewport. */
+  .diff pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 11px;
+  }
+
+  /* Tracked-projects panel rows: stack name + path. */
+  .proj-row { flex-wrap: wrap; }
+  .proj-row .proj-path { flex: 1 1 100%; font-size: 11px; opacity: 0.7; }
+
+  /* Code blocks: leave room for the always-visible copy button (which
+     mobile.css already pinned via @media (hover: none)). */
+  .code-block pre { padding-right: 60px; }
 
   /* The menu button only renders on mobile; the shell ships it unconditionally
      and CSS gates its visibility. */
