@@ -77,6 +77,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /events", s.handleEvents)
 	mux.HandleFunc("GET /r/{project}/{run}", s.handleReport)
 	mux.HandleFunc("POST /r/{project}/{run}/respond", s.handleRespond)
+	mux.HandleFunc("GET /r/{project}/{run}/sig", s.handleReportSig)
 	mux.HandleFunc("POST /r/{project}/{run}/close", s.handleReportClose)
 	mux.HandleFunc("POST /r/{project}/{run}/reopen", s.handleReportReopen)
 	mux.HandleFunc("POST /r/{project}/{run}/archive", s.handleReportArchive)
@@ -192,7 +193,7 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	answers, _ := respond.Load(entry.Dir) // missing responses file is fine
-	html, err := s.renderer.Report(rep, answers.Responses)
+	html, err := s.renderer.Report(rep, answers.Responses, entry.Sig())
 	if err != nil {
 		http.Error(w, "render failed: "+err.Error(), http.StatusInternalServerError)
 		return

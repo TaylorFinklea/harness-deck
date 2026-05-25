@@ -585,6 +585,31 @@ func TestPushSubscribeRoundTrip(t *testing.T) {
 	}
 }
 
+// TestReportSigEndpoint covers the live-reload fingerprint endpoint:
+// existing report returns sig + status, unknown report returns
+// {exists:false} so the page can redirect to /.
+func TestReportSigEndpoint(t *testing.T) {
+	h := newTestServer(t)
+
+	code, body := get(t, h, "/r/acme/0x4a2f/sig")
+	if code != http.StatusOK {
+		t.Fatalf("sig = %d, body=%s", code, body)
+	}
+	for _, want := range []string{`"exists":true`, `"sig":"`, `"archived":false`, `"status":"awaiting-review"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("sig body missing %q; body=%s", want, body)
+		}
+	}
+
+	code, body = get(t, h, "/r/acme/does-not-exist/sig")
+	if code != http.StatusOK {
+		t.Fatalf("missing-report sig = %d, body=%s", code, body)
+	}
+	if !strings.Contains(body, `"exists":false`) {
+		t.Errorf("missing-report body = %s", body)
+	}
+}
+
 // writeFakeVAPID drops a fresh VAPID keypair on disk for tests so the
 // push endpoints become reachable.
 func writeFakeVAPID(path string) error {

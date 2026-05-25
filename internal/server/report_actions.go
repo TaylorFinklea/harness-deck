@@ -104,6 +104,26 @@ func (s *Server) mutateArchived(w http.ResponseWriter, r *http.Request, archived
 	_, _ = w.Write([]byte(`{"ok":true}`))
 }
 
+// handleReportSig returns the current fingerprint for a report. The
+// report page polls this on every SSE change event to decide whether to
+// reload. Returning {exists: false} signals that the report was deleted
+// or archived to a hidden state — the page redirects to / in that case.
+func (s *Server) handleReportSig(w http.ResponseWriter, r *http.Request) {
+	_, entry, err := s.store.Get(r.PathValue("project"), r.PathValue("run"))
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	if err != nil {
+		_, _ = w.Write([]byte(`{"exists":false}`))
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"exists":   true,
+		"sig":      entry.Sig(),
+		"archived": entry.Archived,
+		"status":   entry.Status,
+	})
+}
+
 // handleReportDelete removes a report's run directory — report.json,
 // responses.json, and any artifacts the agent left alongside.
 func (s *Server) handleReportDelete(w http.ResponseWriter, r *http.Request) {

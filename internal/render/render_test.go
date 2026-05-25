@@ -18,7 +18,7 @@ func renderJSON(t *testing.T, src string) string {
 	if err != nil {
 		t.Fatalf("renderer: %v", err)
 	}
-	out, err := r.Report(rep, nil)
+	out, err := r.Report(rep, nil, "")
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestInteractiveBlockShowsControlsThenAnswer(t *testing.T) {
 		t.Fatalf("renderer: %v", err)
 	}
 
-	unanswered, err := r.Report(rep, nil)
+	unanswered, err := r.Report(rep, nil, "")
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestInteractiveBlockShowsControlsThenAnswer(t *testing.T) {
 
 	answered, err := r.Report(rep, map[string]respond.Response{
 		"q1": {Block: "q1", Value: "yes", At: "2026-05-20T10:00:00Z"},
-	})
+	}, "")
 	if err != nil {
 		t.Fatalf("render answered: %v", err)
 	}

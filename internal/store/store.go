@@ -22,22 +22,30 @@ import (
 // Entry is the indexed summary of one report. The full manifest is loaded
 // on demand via Get.
 type Entry struct {
-	Project  string    `json:"project"`
-	Run      string    `json:"run"`
-	Harness  string    `json:"harness"`
-	Agent    string    `json:"agent"`
-	Title    string    `json:"title"`
-	Kind     string    `json:"kind"`
-	Status   string    `json:"status"`
-	Created  string    `json:"created"`
-	Verdict  string    `json:"verdict"`
-	Source   string    `json:"source"` // "central" or "project"
-	Blocks   int       `json:"blocks"`
-	OpenAsks int       `json:"open_asks"`
-	Archived bool      `json:"archived"` // soft-deleted; hidden from default views
-	Dir      string    `json:"-"`        // run directory
-	Path     string    `json:"-"`        // report.json path
-	ModTime  time.Time `json:"-"`        // report.json modification time
+	Project     string    `json:"project"`
+	Run         string    `json:"run"`
+	Harness     string    `json:"harness"`
+	Agent       string    `json:"agent"`
+	Title       string    `json:"title"`
+	Kind        string    `json:"kind"`
+	Status      string    `json:"status"`
+	Created     string    `json:"created"`
+	Verdict     string    `json:"verdict"`
+	Source      string    `json:"source"` // "central" or "project"
+	Blocks      int       `json:"blocks"`
+	OpenAsks    int       `json:"open_asks"`
+	Archived    bool      `json:"archived"` // soft-deleted; hidden from default views
+	Dir         string    `json:"-"`        // run directory
+	Path        string    `json:"-"`        // report.json path
+	ModTime     time.Time `json:"-"`        // report.json modification time
+	RespModTime time.Time `json:"-"`        // responses.json modification time, zero if absent
+}
+
+// Sig returns a stable per-entry fingerprint. Changes whenever the
+// report.json or its sibling responses.json is rewritten — which is the
+// trigger for the report page's live-reload behavior.
+func (e Entry) Sig() string {
+	return fmt.Sprintf("%d-%d-%t", e.ModTime.UnixNano(), e.RespModTime.UnixNano(), e.Archived)
 }
 
 // Store holds the discovered report index. It is safe for concurrent use.
@@ -110,11 +118,14 @@ func (s *Store) Signature() string {
 	return s.sig
 }
 
-// signature hashes each report's path and modification time.
+// signature hashes each report's path, modification time, and the mtime
+// of its responses.json sibling. Including responses.json means the
+// watcher fires on cross-device answers, which the live-reload behavior
+// on the report page relies on.
 func signature(entries []Entry) string {
 	h := fnv.New64a()
 	for _, e := range entries {
-		fmt.Fprintf(h, "%s|%d\n", e.Path, e.ModTime.UnixNano())
+		fmt.Fprintf(h, "%s|%d|%d|%t\n", e.Path, e.ModTime.UnixNano(), e.RespModTime.UnixNano(), e.Archived)
 	}
 	return strconv.FormatUint(h.Sum64(), 16)
 }
@@ -176,6 +187,9 @@ func loadEntry(path, source string) (Entry, error) {
 	}
 	if fi, statErr := os.Stat(path); statErr == nil {
 		e.ModTime = fi.ModTime()
+	}
+	if fi, statErr := os.Stat(filepath.Join(e.Dir, "responses.json")); statErr == nil {
+		e.RespModTime = fi.ModTime()
 	}
 	// OpenAsks is the count of interactive blocks not yet answered in
 	// responses.json — the "needs you" signal for the inbox.

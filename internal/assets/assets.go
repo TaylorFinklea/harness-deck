@@ -39,6 +39,9 @@ var TabsJS string
 //go:embed triage.js
 var TriageJS string
 
+//go:embed live.js
+var LiveJS string
+
 //go:embed respond.js
 var RespondJS string
 
@@ -83,7 +86,11 @@ var TabsJSInline = strings.ReplaceAll(TabsJS, "</script", `<\/script`)
 // TriageJSInline is triage.js with </script escaped for safe inlining.
 var TriageJSInline = strings.ReplaceAll(TriageJS, "</script", `<\/script`)
 
+// LiveJSInline is live.js with </script escaped for safe inlining.
+var LiveJSInline = strings.ReplaceAll(LiveJS, "</script", `<\/script`)
+
 // ReportJS is the script bundle inlined into a rendered report page: vim
 // navigation, the response handler, the mobile drawer + service worker
-// registration, the in-app tab strip, and the keyboard triage helper.
-var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline
+// registration, the in-app tab strip, the keyboard triage helper, and
+// the SSE-driven live-reload watcher.
+var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline

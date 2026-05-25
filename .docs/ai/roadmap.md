@@ -54,6 +54,18 @@ integration — which lives in `chezmoi-config`, not this repo.
   carries focus naturally to the next unanswered ask, so the inner loop
   is "press digit, page reloads, press digit". `?` help overlay lists
   the triage shortcuts.
+- **Mobile polish** _(done — 2026-05-24)_ — v0.1.8 + v0.1.9: real iPhone
+  testing surfaced a CSS Grid `1fr` foot-gun (the default `minmax(auto,
+  1fr)` lets a wide descendant push the whole page past the viewport)
+  plus a wrong asset-bundle order. Fixed with `minmax(0, 1fr)`,
+  `min-width: 0` on overflow containers, MobileCSS always last in the
+  bundle, and an inbox-row layout that stacks vertically below 720px.
+- **Report-page live reload** _(done — 2026-05-25)_ — store signature
+  now hashes responses.json mtime so cross-device answers trigger SSE;
+  `GET /r/{p}/{r}/sig` exposes a per-report fingerprint; `live.js` on
+  the report page reloads when the server-side sig diverges (or
+  redirects to / if the report is gone). 2s post-load grace prevents
+  respond.js's own reload from triggering a second one.
 
 ## Later / out of scope
 

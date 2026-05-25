@@ -37,11 +37,17 @@ func New() (*Renderer, error) {
 }
 
 // Report renders a full HTML report page. responses holds answers already
-// recorded for the report's interactive blocks (keyed by block id); pass nil
-// when there are none.
-func (r *Renderer) Report(rep *manifest.Report, responses map[string]respond.Response) ([]byte, error) {
+// recorded for the report's interactive blocks (keyed by block id); pass
+// nil when there are none. sig is an opaque fingerprint of the report's
+// current on-disk state — the page bakes it into window.HD_REPORT.sig so
+// the live-reload JS can detect when the server's view differs from what
+// the page is showing. Pass "" when no live-reload is wanted (e.g. the
+// standalone `harness-deck render` CLI).
+func (r *Renderer) Report(rep *manifest.Report, responses map[string]respond.Response, sig string) ([]byte, error) {
+	pv := r.buildPage(rep, responses)
+	pv.Sig = sig
 	var buf bytes.Buffer
-	if err := r.tmpl.ExecuteTemplate(&buf, "page", r.buildPage(rep, responses)); err != nil {
+	if err := r.tmpl.ExecuteTemplate(&buf, "page", pv); err != nil {
 		return nil, fmt.Errorf("render report: %w", err)
 	}
 	return buf.Bytes(), nil
@@ -59,6 +65,7 @@ type pageView struct {
 	// outstanding — the template hides the banner in that case.
 	OpenAsks []openAsk
 	Blocks   []template.HTML // pre-rendered block panels
+	Sig      string          // server-side fingerprint for live-reload diffing
 	CSS      template.CSS
 	JS       template.JS
 	Favicon  template.URL
