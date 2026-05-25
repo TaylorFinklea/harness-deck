@@ -312,3 +312,54 @@
   transform: scale(0.97);
   transition: transform 80ms ease-out;
 }
+
+/* Markdown tables (the `| h | h |` GitHub-flavored kind, distinct from the
+   `table` block type's .dtable). Tighter, monospace, fits inside .prose,
+   .panel-body, and the recommendations grid alike. */
+.md-table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.md-table th, .md-table td {
+  border: 1px solid var(--tn-bg-highlight);
+  padding: 4px 10px;
+  text-align: left;
+}
+.md-table th {
+  background: var(--tn-bg-dark);
+  color: var(--tn-comment);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.md-table tbody tr:hover { background: var(--tn-bg-highlight); }
+
+/* Markdown blockquotes — a left rail in cyan, dimmed body. Used by prose,
+   roadmap views, callouts, and any other place renderMarkdown runs. */
+blockquote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--tn-cyan);
+  color: var(--tn-fg-dark);
+  background: rgba(125, 207, 255, 0.05);
+}
+blockquote p { margin: 4px 0; }
+
+/* Markdown links — cyan, no underline by default; reveal on hover. */
+.panel a,
+.roadmap-md a,
+blockquote a,
+.md-table a {
+  color: var(--tn-cyan);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(125, 207, 255, 0.4);
+}
+.panel a:hover,
+.roadmap-md a:hover,
+blockquote a:hover,
+.md-table a:hover {
+  border-bottom-style: solid;
+  color: var(--tn-blue);
+}

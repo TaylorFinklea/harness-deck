@@ -60,8 +60,10 @@ block type degrades to a visible error panel rather than breaking the report.
 | `html` | **escape hatch** — raw HTML inside panel chrome | `html` |
 
 Markdown fields support paragraphs, `# headings`, `- lists`, `**bold**`,
-`*italic*`, and `` `code` ``. See `samples/postgres-audit.report.json` for a
-complete worked example.
+`*italic*`, `` `code` ``, fenced ``` ```lang ``` ``` blocks (rendered with a
+copy button), GitHub-style tables (`| h | h |` / `| - | - |` / rows),
+`> ` blockquotes, and links (`[text](url)` or `<https://…>`). See
+`samples/postgres-audit.report.json` for a complete worked example.
 
 ### Interactive blocks
 

@@ -99,7 +99,7 @@ past the viewport. Fixed via `minmax(0, 1fr)` plus `min-width: 0` on
 overflow-bearing containers; asset bundle reordered so MobileCSS is
 always last (`baseCSS + AggregatorCSS + MobileCSS`).
 
-Report-page live reload (commit pending): the watcher now hashes
+Report-page live reload shipped as `v0.1.10`: the watcher now hashes
 responses.json mtime into the store signature so cross-device answers
 fire SSE. New `GET /r/{p}/{r}/sig` returns `{exists, sig, archived,
 status}`. `internal/assets/live.js` opens EventSource on the report
@@ -107,6 +107,17 @@ page, fetches /sig on each change event, and reloads if the
 fingerprint diverges (or redirects to / if the report is gone). 2s
 post-load grace plus single-in-flight debounce prevents the
 respond.js double-reload.
+
+Pull-to-refresh shipped as `v0.1.11`: both iOS Safari and Chrome strip
+native PTR when display-mode is standalone, so installed PWAs had no
+gesture for forcing a reload. `mobile.js` adds a touch-based PTR gated
+on standalone (no native-PTR double trigger), damped rubber-band pull
+with 70px threshold, 120ms confirmation flash before reload.
+
+Richer Markdown (commit pending): tables, blockquotes, and links
+(inline `[text](url)` + `<https://…>` autolinks) added to
+`internal/render/markdown.go`. CSS additions to deck.css; CONTRACT.md
+Markdown vocabulary updated. Still stdlib-only.
 
 Manual test fixtures live in `/tmp/hd-test/` (config + sample reports):
 `HARNESS_DECK_CONFIG=/tmp/hd-test/config.json harness-deck serve`.

@@ -66,6 +66,17 @@ integration — which lives in `chezmoi-config`, not this repo.
   the report page reloads when the server-side sig diverges (or
   redirects to / if the report is gone). 2s post-load grace prevents
   respond.js's own reload from triggering a second one.
+- **Pull-to-refresh on PWAs** _(done — 2026-05-25)_ — both iOS Safari and
+  Chrome strip native pull-to-refresh when display-mode is standalone, so
+  installed PWAs had no way to force a reload. Added a touch-based PTR in
+  mobile.js gated on standalone (no double-trigger with browser native PTR),
+  damped pull with rubber-band feel, 70px threshold, 120ms confirmation
+  flash before location.reload().
+- **Richer Markdown** _(done — 2026-05-25)_ — GitHub-style tables
+  (`| h | h |` header + `| --- |` separator + rows), `> ` blockquotes, and
+  links (`[text](url)` inline + `<https://…>` autolinks) added to the
+  in-house Markdown renderer. Style ride-along in deck.css; CONTRACT.md
+  Markdown vocabulary updated. Stdlib-only — still zero external deps.
 
 ## Later / out of scope
 

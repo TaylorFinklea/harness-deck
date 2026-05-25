@@ -113,6 +113,59 @@ func TestMarkdownRendersHeadingsListsAndInline(t *testing.T) {
 	}
 }
 
+// TestMarkdownTable confirms GitHub-style tables produce a <table.md-table>
+// with <thead>/<tbody>, header cells in <th>, data cells in <td>, and that
+// cell content still runs through inlineMarkdown (so **bold** in a cell
+// becomes <b>).
+func TestMarkdownTable(t *testing.T) {
+	src := "Before.\n\n| col1 | col2 |\n| ---- | ---- |\n| **a** | b |\n| c | d |\n\nAfter."
+	out := string(Markdown(src))
+	for _, want := range []string{
+		`<p>Before.</p>`,
+		`<table class="md-table">`,
+		`<thead><tr><th>col1</th><th>col2</th></tr></thead>`,
+		`<tbody>`,
+		`<tr><td><b>a</b></td><td>b</td></tr>`,
+		`<tr><td>c</td><td>d</td></tr>`,
+		`</tbody></table>`,
+		`<p>After.</p>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
+// TestMarkdownBlockquote covers `> ` blockquotes, multi-line joins with a
+// space, and inline marks inside the quote text.
+func TestMarkdownBlockquote(t *testing.T) {
+	src := "> first **bold** line\n> second line\n\nAfter."
+	out := string(Markdown(src))
+	for _, want := range []string{
+		`<blockquote><p>first <b>bold</b> line second line</p></blockquote>`,
+		`<p>After.</p>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
+// TestMarkdownLinks covers inline `[text](url)` links and `<https://…>`
+// autolinks. Both should yield <a href="…"> with rel="noopener".
+func TestMarkdownLinks(t *testing.T) {
+	src := "See [the docs](https://example.com/x) or <https://example.com/y>."
+	out := string(Markdown(src))
+	for _, want := range []string{
+		`<a href="https://example.com/x" rel="noopener">the docs</a>`,
+		`<a href="https://example.com/y" rel="noopener">https://example.com/y</a>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
 // TestMarkdownFencedCodeRendersCopyable confirms ```lang ... ``` produces
 // the copy-button wrapper the frontend wires up, with the body escaped
 // but never mistakenly run through inline markdown.
