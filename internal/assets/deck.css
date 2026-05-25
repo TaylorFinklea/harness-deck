@@ -577,3 +577,27 @@ hr {
   color: var(--tn-fg);
   border-color: var(--tn-bg-highlight);
 }
+
+/* Theme picker — three-way segmented control in the settings view. */
+.theme-bar {
+  display: inline-flex;
+  border: 1px solid var(--tn-bg-highlight);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.theme-btn {
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--tn-bg);
+  color: var(--tn-fg-dark);
+  border: none;
+  padding: 6px 14px;
+  cursor: pointer;
+  border-right: 1px solid var(--tn-bg-highlight);
+}
+.theme-btn:last-child { border-right: none; }
+.theme-btn:hover { color: var(--tn-fg); background: var(--tn-bg-highlight); }
+.theme-btn.active {
+  background: var(--tn-bg-visual);
+  color: var(--tn-fg);
+}

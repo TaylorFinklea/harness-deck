@@ -44,6 +44,86 @@
   color-scheme: dark;
 }
 
+/* Tokyo Night Day — the official light variant. Applied via either an
+   explicit user override (`data-theme="light"` on <html>) or the system
+   preference when no override is set. `data-theme="dark"` forces dark
+   regardless of OS setting, so the toggle has three states:
+       no attribute    → follow OS
+       dark            → force dark
+       light           → force light
+   The two routes (media query + explicit) share the same body so any
+   palette tweak lands in one place. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --tn-bg:           #e1e2e7;
+    --tn-bg-dark:      #d6d8e0;
+    --tn-bg-darker:    #cbcdd6;
+    --tn-bg-highlight: #b6bac4;
+    --tn-bg-visual:    #b6c4ec;
+    --tn-bg-search:    #99b1e0;
+
+    --tn-fg:           #3760bf;
+    --tn-fg-dark:      #4c6ec0;
+    --tn-fg-gutter:    #a8aecb;
+    --tn-comment:      #848cb5;
+    --tn-line:         #d2d4dc;
+
+    --tn-blue:    #2e7de9;
+    --tn-cyan:    #007197;
+    --tn-blue1:   #188092;
+    --tn-blue7:   #6172b0;
+    --tn-purple:  #9854f1;
+    --tn-magenta: #d20065;
+    --tn-pink:    #d20065;
+    --tn-red:     #f52a65;
+    --tn-red1:    #c64343;
+    --tn-orange:  #b15c00;
+    --tn-yellow:  #8c6c3e;
+    --tn-green:   #587539;
+    --tn-green1:  #387068;
+    --tn-teal:    #118c74;
+
+    --tn-grid:  rgba(46, 125, 233, 0.06);
+    --tn-rule:  rgba(46, 125, 233, 0.18);
+
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --tn-bg:           #e1e2e7;
+  --tn-bg-dark:      #d6d8e0;
+  --tn-bg-darker:    #cbcdd6;
+  --tn-bg-highlight: #b6bac4;
+  --tn-bg-visual:    #b6c4ec;
+  --tn-bg-search:    #99b1e0;
+
+  --tn-fg:           #3760bf;
+  --tn-fg-dark:      #4c6ec0;
+  --tn-fg-gutter:    #a8aecb;
+  --tn-comment:      #848cb5;
+  --tn-line:         #d2d4dc;
+
+  --tn-blue:    #2e7de9;
+  --tn-cyan:    #007197;
+  --tn-blue1:   #188092;
+  --tn-blue7:   #6172b0;
+  --tn-purple:  #9854f1;
+  --tn-magenta: #d20065;
+  --tn-pink:    #d20065;
+  --tn-red:     #f52a65;
+  --tn-red1:    #c64343;
+  --tn-orange:  #b15c00;
+  --tn-yellow:  #8c6c3e;
+  --tn-green:   #587539;
+  --tn-green1:  #387068;
+  --tn-teal:    #118c74;
+
+  --tn-grid:  rgba(46, 125, 233, 0.06);
+  --tn-rule:  rgba(46, 125, 233, 0.18);
+
+  color-scheme: light;
+}
+
 html, body {
   background: var(--tn-bg);
   color: var(--tn-fg);

@@ -9,6 +9,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="harness-deck" />
+<script>
+  // Apply the saved theme preference before the page renders so we don't
+  // flash dark/light incorrectly. "system" (or absent) defers to the
+  // prefers-color-scheme media query in tokyo-night.css.
+  (function(){
+    try {
+      var t = localStorage.getItem('harness-deck:theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch(_) {}
+  })();
+</script>
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="icon" href="{{.Favicon}}" />
 <link rel="apple-touch-icon" href="/icon.svg" />

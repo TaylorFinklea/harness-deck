@@ -356,11 +356,58 @@
 
     return [
       panel('phone notifications', null, body),
+      panel('theme', null, [themePicker()]),
       panel('about', null, [
         el('div', null, [el('b', { text: 'tip: ' }),
           'open this page on your phone (over Tailscale) and tap Add to Home Screen to install harness-deck as an app.'])
       ])
     ];
+  }
+
+  /* themePicker — three-way segmented control (system / dark / light)
+     persisted to localStorage. "system" follows prefers-color-scheme
+     via the @media query in tokyo-night.css. The dark/light buttons
+     set data-theme on <html> immediately so the page repaints. */
+  function themePicker() {
+    var current = 'system';
+    try {
+      var t = localStorage.getItem('harness-deck:theme');
+      if (t === 'light' || t === 'dark') current = t;
+    } catch (_) {}
+    function btn(key, label) {
+      return el('button', {
+        type: 'button',
+        class: 'theme-btn' + (current === key ? ' active' : ''),
+        data: { theme: key },
+        text: label,
+      });
+    }
+    var bar = el('div', { class: 'theme-bar' }, [
+      btn('system', 'system'),
+      btn('dark', 'dark'),
+      btn('light', 'light'),
+    ]);
+    return el('div', null, [
+      bar,
+      el('div', { class: 'sub', style: 'margin-top: 10px;',
+        text: 'system follows your OS preference (prefers-color-scheme). dark / light override it for this browser; choice persists across sessions.' }),
+    ]);
+  }
+
+  function setTheme(choice) {
+    try {
+      if (choice === 'system') localStorage.removeItem('harness-deck:theme');
+      else localStorage.setItem('harness-deck:theme', choice);
+    } catch (_) {}
+    if (choice === 'dark' || choice === 'light') {
+      document.documentElement.setAttribute('data-theme', choice);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    // Update active states without re-rendering the whole view.
+    document.querySelectorAll('.theme-btn').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.theme === choice);
+    });
   }
 
   /* refreshSettings — pulls /api/push/status and the in-browser
@@ -553,6 +600,8 @@
     }
     if (e.target.id === 'push-on') { enablePushHere(); return; }
     if (e.target.id === 'push-off') { disablePushHere(); return; }
+    var themeBtn = e.target.closest('.theme-btn');
+    if (themeBtn) { setTheme(themeBtn.dataset.theme); return; }
     var row = e.target.closest('[data-url]');
     if (row) { window.location.href = row.dataset.url; }
   });

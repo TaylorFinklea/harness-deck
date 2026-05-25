@@ -98,6 +98,13 @@ integration — which lives in `chezmoi-config`, not this repo.
   `<mark>` highlighting). Frontend: `search.js` adds a Cmd+P / Ctrl+P
   palette overlay (debounced live-fetch, ↑/↓ navigate, Enter opens via
   HDTabs, Esc closes). Titlebar gets a `🔎` button for touch users.
+- **Theme switch + light mode** _(done — 2026-05-25)_ — added Tokyo Night
+  Day palette overrides under both `@media (prefers-color-scheme: light)`
+  and `[data-theme="light"]` so default behavior follows the OS. Settings
+  view picks up a three-way segmented control (system / dark / light)
+  persisted to `localStorage('harness-deck:theme')`. A tiny inline
+  preamble script applies the saved preference before render to avoid
+  flash-of-wrong-theme.
 
 ## Later / out of scope
 
