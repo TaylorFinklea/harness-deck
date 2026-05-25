@@ -83,6 +83,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("POST /r/{project}/{run}/archive", s.handleReportArchive)
 	mux.HandleFunc("POST /r/{project}/{run}/unarchive", s.handleReportUnarchive)
 	mux.HandleFunc("DELETE /r/{project}/{run}", s.handleReportDelete)
+	mux.HandleFunc("GET /api/search", s.handleSearch)
 	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
 	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)
@@ -132,15 +133,16 @@ func (s *Server) Serve() error {
 func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.shell.ExecuteTemplate(w, "shell", struct {
-		CSS                            template.CSS
-		VimJS, AppJS, MobileJS, TabsJS template.JS
-		Favicon                        template.URL
+		CSS                                      template.CSS
+		VimJS, AppJS, MobileJS, TabsJS, SearchJS template.JS
+		Favicon                                  template.URL
 	}{
 		CSS:      template.CSS(assets.DeckUICSS),
 		VimJS:    template.JS(assets.VimNavJSInline),
 		AppJS:    template.JS(assets.AggregatorJS),
 		MobileJS: template.JS(assets.MobileJSInline),
 		TabsJS:   template.JS(assets.TabsJSInline),
+		SearchJS: template.JS(assets.SearchJSInline),
 		Favicon:  template.URL(assets.FaviconDataURI),
 	})
 	if err != nil {

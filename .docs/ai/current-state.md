@@ -21,7 +21,9 @@ What exists:
   `scan_roots` holding `.docs/ai`, plus explicit `projects`); `projects.json`
   records hidden ones (new = enabled); `Toggle` writes it atomically.
 - **`internal/server`** — aggregator shell, `/api/reports`, `/api/projects`,
-  `POST /api/projects/toggle`, `POST /api/projects/reorder`, `/events` (SSE),
+  `/api/search?q=` (cross-report content search; metadata + body, returns
+  top 20 with snippet around first hit), `POST /api/projects/toggle`,
+  `POST /api/projects/reorder`, `/events` (SSE),
   `/r/{project}/{run}` report pages, `POST …/respond`, plus report lifecycle:
   `POST …/close` (status→done), `POST …/reopen` (status→awaiting-review,
   preserves all other fields via map[string]any round-trip + atomic write),

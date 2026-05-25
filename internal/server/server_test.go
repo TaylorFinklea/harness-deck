@@ -585,6 +585,49 @@ func TestPushSubscribeRoundTrip(t *testing.T) {
 	}
 }
 
+// TestSearchEndpoint covers /api/search across metadata + body content.
+// The fixture report has a known title and prose body so we can assert
+// both axes match and that the snippet wraps the hit.
+func TestSearchEndpoint(t *testing.T) {
+	h := newTestServer(t)
+
+	// Empty query — endpoint returns 200 with an empty matches array.
+	code, body := get(t, h, "/api/search?q=")
+	if code != http.StatusOK {
+		t.Fatalf("empty q: code=%d", code)
+	}
+	if !strings.Contains(body, `"matches":[]`) {
+		t.Errorf("empty q body = %s", body)
+	}
+
+	// Metadata hit — the sample title is "readiness audit".
+	code, body = get(t, h, "/api/search?q=readiness")
+	if code != http.StatusOK {
+		t.Fatalf("title q: code=%d", code)
+	}
+	if !strings.Contains(body, `"title":"readiness audit"`) {
+		t.Errorf("title hit missing title; body = %s", body)
+	}
+
+	// Body hit — the sample prose markdown contains "clear" (in `all **clear**`).
+	code, body = get(t, h, "/api/search?q=clear")
+	if code != http.StatusOK {
+		t.Fatalf("body q: code=%d", code)
+	}
+	if !strings.Contains(body, `"snippet":`) {
+		t.Errorf("body hit missing snippet; body = %s", body)
+	}
+	if !strings.Contains(body, `[[clear]]`) {
+		t.Errorf("snippet should bracket the match; body = %s", body)
+	}
+
+	// Miss — no garbage matches.
+	code, body = get(t, h, "/api/search?q=nonexistent-string-xyz")
+	if !strings.Contains(body, `"matches":[]`) {
+		t.Errorf("expected empty matches; body = %s", body)
+	}
+}
+
 // TestReportSigEndpoint covers the live-reload fingerprint endpoint:
 // existing report returns sig + status, unknown report returns
 // {exists:false} so the page can redirect to /.

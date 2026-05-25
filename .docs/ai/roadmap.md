@@ -91,6 +91,13 @@ integration — which lives in `chezmoi-config`, not this repo.
   `harness-deck register <path>` atomically adds a project root to
   the config's `projects` array; `--remove` removes it. Both use the
   shared atomic-write pattern and preserve unknown config fields.
+- **Cross-report search** _(done — 2026-05-25)_ — new `GET /api/search?q=`
+  walks all non-archived entries, scores metadata + block body content
+  (case-insensitive substring), returns top 20 matches with a snippet
+  around the first body hit (markers around the match for client-side
+  `<mark>` highlighting). Frontend: `search.js` adds a Cmd+P / Ctrl+P
+  palette overlay (debounced live-fetch, ↑/↓ navigate, Enter opens via
+  HDTabs, Esc closes). Titlebar gets a `🔎` button for touch users.
 
 ## Later / out of scope
 
