@@ -35,6 +35,10 @@ func main() {
 		cmdServe()
 	case "vapid":
 		cmdVAPID(os.Args[2:])
+	case "new":
+		cmdNew(os.Args[2:])
+	case "register":
+		cmdRegister(os.Args[2:])
 	case "version", "-v", "--version":
 		cmdVersion()
 	case "-h", "--help", "help":
@@ -53,6 +57,8 @@ usage:
   harness-deck validate <report.json>        check a manifest for problems
   harness-deck render <report.json> [-o f]   render a manifest to HTML
   harness-deck serve                         start the dashboard server
+  harness-deck new --project P --title T     scaffold a starter report.json
+  harness-deck register <path>               add a project root to the config
   harness-deck vapid                         generate the VAPID keypair for push
   harness-deck version                       print build metadata
 `)

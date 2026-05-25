@@ -18,6 +18,8 @@ go test ./internal/render -run TestReport   # run one package / one test
 ./harness-deck serve                        # start the dashboard (default :7420)
 ./harness-deck validate report.json         # check a manifest
 ./harness-deck render report.json -o out.html
+./harness-deck new --title "first report"   # scaffold a starter report.json
+./harness-deck register /path/to/project    # add a project root to the config
 ./harness-deck vapid                        # generate the VAPID keypair for push (one-time)
 ```
 

@@ -92,6 +92,8 @@ go build ./...               # build from source
 ./harness-deck serve         # start the local dashboard
 ./harness-deck validate report.json
 ./harness-deck render report.json -o out.html
+./harness-deck new --title "first report"  # scaffold a starter report.json
+./harness-deck register /path/to/project   # add a project root to the config
 ./harness-deck vapid         # generate the VAPID keypair for phone push (one-time)
 ./harness-deck version       # print build metadata
 ```

@@ -85,6 +85,12 @@ integration — which lives in `chezmoi-config`, not this repo.
   tokens in headings render as colored status pills. `.roadmap-md` gets
   more breathing room around H2/H3 with a subtle bottom border on H2 so
   wave/phase sections feel structured.
+- **CLI: `new` + `register` subcommands** _(done — 2026-05-25)_ —
+  `harness-deck new --title T` scaffolds a starter report.json with
+  sensible defaults (auto id, draft status, prose placeholder).
+  `harness-deck register <path>` atomically adds a project root to
+  the config's `projects` array; `--remove` removes it. Both use the
+  shared atomic-write pattern and preserve unknown config fields.
 
 ## Later / out of scope
 

@@ -54,7 +54,13 @@ What exists:
   browser, with a server-status pill and per-device subscription state.
   Inbox rows have a hover-revealed ✕ close action; the report page top bar
   carries ✕ close / ↺ reopen / ⌦ delete (delete confirms natively).
-- **`cmd/harness-deck`** — `validate`, `render`, `serve`, `vapid`, `version`.
+- **`cmd/harness-deck`** — `validate`, `render`, `serve`, `new`,
+  `register`, `vapid`, `version`. `new` scaffolds a starter report.json
+  (id auto = `YYYYMMDD-HHMMSS`, status `draft`, prose placeholder
+  block; `--in-repo` writes to `<repo>/.harness/<id>/` instead of the
+  central reports dir). `register` atomically adds/removes a project
+  root from the config's `projects` array, preserving every other
+  field (forward-compat with unknown future config keys).
 - **`CONTRACT.md`** — the agent-facing report spec.
 - **`CLAUDE.md`** — repo guidance for Claude Code (architecture, the
   zero-dependency constraint, the four-places block-type checklist).
