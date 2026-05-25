@@ -20,6 +20,10 @@ var (
 	reItalic = regexp.MustCompile(`\*([^*]+)\*`)
 	reBullet = regexp.MustCompile(`^[-*] +`)
 	reQuote  = regexp.MustCompile(`^> ?`)
+	// reTask matches the GitHub task-list prefix: after the bullet's `- ` has
+	// been stripped, the remaining content starts with `[x] `, `[X] `, or
+	// `[ ] `. Group 1 captures the inside ("x", "X", or " ").
+	reTask = regexp.MustCompile(`^\[([ xX])\]\s+`)
 	// reLink matches `[text](url)` after HTML escape, so brackets in text are
 	// preserved literally. Text is non-greedy, URL stops at `)`.
 	reLink = regexp.MustCompile(`\[([^\]]+)\]\(([^)\s]+)\)`)
@@ -30,6 +34,12 @@ var (
 	// reTableSep matches the dashes-and-pipes row that separates a table
 	// header from its body, e.g. `| --- | :--: | --: |`.
 	reTableSep = regexp.MustCompile(`^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$`)
+	// reHRule matches a horizontal rule: three or more `-`, `*`, or `_` on
+	// a line by themselves (with optional inner spaces).
+	reHRule = regexp.MustCompile(`^[-*_](\s*[-*_]){2,}\s*$`)
+	// reStatus matches the trailing `(DONE)`, `(WIP)`, `(planned)`, etc.
+	// pattern roadmap headings use. Group 1 is the inner word(s).
+	reStatus = regexp.MustCompile(`\s*\(([A-Za-z][A-Za-z0-9 -]*)\)\s*$`)
 )
 
 // inlineMarkdown escapes HTML then applies inline marks. The replacement tags
@@ -108,19 +118,44 @@ func renderMarkdown(s string) template.HTML {
 				i++
 			}
 			out.WriteString(fencedCodeHTML(lang, strings.Join(code, "\n")))
+		case reHRule.MatchString(line):
+			out.WriteString("<hr />")
+			i++
 		case headingLevel(line) > 0:
 			lvl := headingLevel(line)
 			text := strings.TrimSpace(strings.TrimLeft(line, "#"))
-			fmt.Fprintf(&out, "<h%d>%s</h%d>", lvl, inlineMarkdown(text), lvl)
+			fmt.Fprintf(&out, "<h%d>%s</h%d>", lvl, headingHTML(text), lvl)
 			i++
 		case reBullet.MatchString(line):
-			out.WriteString("<ul>")
-			for i < len(lines) {
+			// First pass classifies the entire run — if every bullet in the
+			// run carries a task-list prefix, we render a task list with the
+			// `.task-list` class so CSS can drop the bullet marker; otherwise
+			// it's a plain <ul>. Mixed bullets fall through to <ul> and the
+			// items still get .task-list-item styling where applicable.
+			runStart := i
+			allTasks := true
+			for j := i; j < len(lines); j++ {
+				cur := strings.TrimSpace(lines[j])
+				if !reBullet.MatchString(cur) {
+					break
+				}
+				body := reBullet.ReplaceAllString(cur, "")
+				if !reTask.MatchString(body) {
+					allTasks = false
+				}
+			}
+			cls := ""
+			if allTasks {
+				cls = ` class="task-list"`
+			}
+			out.WriteString("<ul" + cls + ">")
+			for i = runStart; i < len(lines); {
 				cur := strings.TrimSpace(lines[i])
 				if !reBullet.MatchString(cur) {
 					break
 				}
-				out.WriteString("<li>" + inlineMarkdown(reBullet.ReplaceAllString(cur, "")) + "</li>")
+				body := reBullet.ReplaceAllString(cur, "")
+				out.WriteString(taskListItem(body))
 				i++
 			}
 			out.WriteString("</ul>")
@@ -166,7 +201,7 @@ func renderMarkdown(s string) template.HTML {
 			var para []string
 			for i < len(lines) {
 				cur := strings.TrimSpace(lines[i])
-				if cur == "" || headingLevel(cur) > 0 || reBullet.MatchString(cur) || reQuote.MatchString(cur) {
+				if cur == "" || headingLevel(cur) > 0 || reBullet.MatchString(cur) || reQuote.MatchString(cur) || reHRule.MatchString(cur) {
 					break
 				}
 				if ok, _ := isFence(lines[i]); ok {
@@ -182,6 +217,51 @@ func renderMarkdown(s string) template.HTML {
 		}
 	}
 	return template.HTML(out.String())
+}
+
+// taskListItem renders one <li>, recognizing the GitHub task-list
+// prefix `[x]`/`[X]`/`[ ]`. Checked items get .done, unchecked .open;
+// both swap the default disc bullet for a styled checkbox glyph via
+// CSS (the glyph itself is content here so screen readers announce
+// the state).
+func taskListItem(body string) string {
+	if m := reTask.FindStringSubmatch(body); m != nil {
+		state := m[1]
+		text := body[len(m[0]):]
+		cls := "open"
+		glyph := "☐"
+		if state == "x" || state == "X" {
+			cls = "done"
+			glyph = "☑"
+		}
+		return `<li class="task-list-item ` + cls + `"><span class="checkbox" aria-hidden="true">` + glyph + `</span> ` + inlineMarkdown(text) + `</li>`
+	}
+	return "<li>" + inlineMarkdown(body) + "</li>"
+}
+
+// headingHTML runs inline marks over heading text and additionally
+// pulls a trailing `(DONE)`/`(WIP)`/`(planned)` token into a styled
+// status pill so roadmap headings get a recognizable visual badge.
+func headingHTML(text string) string {
+	if m := reStatus.FindStringSubmatch(text); m != nil {
+		base := text[:len(text)-len(m[0])]
+		label := strings.TrimSpace(m[1])
+		lower := strings.ToLower(label)
+		cls := "neutral"
+		switch lower {
+		case "done", "shipped", "complete", "completed":
+			cls = "done"
+		case "wip", "in progress", "in-progress", "now":
+			cls = "wip"
+		case "planned", "next", "later", "todo":
+			cls = "planned"
+		case "blocked", "stuck", "wait", "waiting":
+			cls = "blocked"
+		}
+		return inlineMarkdown(base) +
+			` <span class="status-pill ` + cls + `">` + inlineMarkdown(label) + `</span>`
+	}
+	return inlineMarkdown(text)
 }
 
 // isTableHeader returns true if lines[i] is a header row and lines[i+1]

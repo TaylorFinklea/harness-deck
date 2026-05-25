@@ -77,6 +77,14 @@ integration — which lives in `chezmoi-config`, not this repo.
   links (`[text](url)` inline + `<https://…>` autolinks) added to the
   in-house Markdown renderer. Style ride-along in deck.css; CONTRACT.md
   Markdown vocabulary updated. Stdlib-only — still zero external deps.
+  Sample report at `~/.harness/reports/acme/markdown-demo/report.json`.
+- **Roadmap polish** _(done — 2026-05-25)_ — GitHub task lists
+  (`- [x]` / `- [ ]`) render with green/yellow checkbox glyphs and
+  dimmed-completed body text; `---` horizontal rules become section
+  dividers; trailing `(DONE)` / `(WIP)` / `(planned)` / `(blocked)`
+  tokens in headings render as colored status pills. `.roadmap-md` gets
+  more breathing room around H2/H3 with a subtle bottom border on H2 so
+  wave/phase sections feel structured.
 
 ## Later / out of scope
 

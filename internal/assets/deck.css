@@ -363,3 +363,84 @@ blockquote a:hover,
   border-bottom-style: solid;
   color: var(--tn-blue);
 }
+
+/* === Roadmap polish ===
+   Task lists, horizontal rules, and status pills used in .docs/ai/roadmap.md
+   plus any other rendered-Markdown surface. Roadmap text was visually flat —
+   monochrome bullets with literal `[x]` characters — this gives it real
+   visual hierarchy without breaking the terminal aesthetic. */
+
+/* Task list — drop the disc bullet, the checkbox glyph stands in. */
+ul.task-list {
+  list-style: none;
+  padding-left: 0;
+}
+ul.task-list .task-list-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+  margin-bottom: 2px;
+}
+.task-list-item .checkbox {
+  font-size: 14px;
+  line-height: 1;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+.task-list-item.done .checkbox { color: var(--tn-green); }
+.task-list-item.done {
+  color: var(--tn-comment);
+}
+.task-list-item.done > *:not(.checkbox) {
+  /* Body text dims; code/link/etc retain color via more-specific rules. */
+  opacity: 0.72;
+}
+.task-list-item.open .checkbox { color: var(--tn-yellow); }
+.task-list-item.open {
+  color: var(--tn-fg);
+}
+
+/* Status pill — `(DONE)`/`(WIP)`/`(planned)` trailing tokens in headings. */
+.status-pill {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 2px;
+  vertical-align: middle;
+  background: var(--tn-bg-highlight);
+  color: var(--tn-fg-dark);
+}
+.status-pill.done    { background: rgba(158, 206, 106, 0.18); color: var(--tn-green); }
+.status-pill.wip     { background: rgba(125, 207, 255, 0.18); color: var(--tn-cyan); }
+.status-pill.planned { background: rgba(224, 175, 104, 0.18); color: var(--tn-yellow); }
+.status-pill.blocked { background: rgba(247, 118, 142, 0.18); color: var(--tn-red); }
+.status-pill.neutral { background: var(--tn-bg-highlight); color: var(--tn-fg-dark); }
+
+/* Horizontal rule — used as a section divider in roadmap.md. The
+   default <hr> is a 100%-wide 1px line; we want something quieter and
+   wave-aligned with the rest of the terminal palette. */
+hr {
+  border: none;
+  border-top: 1px dotted var(--tn-bg-highlight);
+  margin: 18px 0;
+}
+
+/* Roadmap view bumps: more breathing room around headings and a
+   subtle separator below h2 so wave/phase sections feel structured. */
+.roadmap-md h1 { font-size: 18px; margin-top: 8px; }
+.roadmap-md h2 {
+  margin-top: 22px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--tn-bg-highlight);
+}
+.roadmap-md h3 { margin-top: 16px; color: var(--tn-fg); font-size: 13px; }
+.roadmap-md h2 + ul, .roadmap-md h3 + ul { margin-top: 6px; }

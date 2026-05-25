@@ -151,6 +151,59 @@ func TestMarkdownBlockquote(t *testing.T) {
 	}
 }
 
+// TestMarkdownTaskList covers GitHub task lists: a run of `- [x] …` /
+// `- [ ] …` bullets renders with a .task-list class on the <ul>, and
+// each <li> gains .task-list-item.done or .open plus a checkbox glyph.
+func TestMarkdownTaskList(t *testing.T) {
+	src := "- [x] shipped item\n- [ ] open item\n- [X] also done"
+	out := string(Markdown(src))
+	for _, want := range []string{
+		`<ul class="task-list">`,
+		`<li class="task-list-item done">`,
+		`<li class="task-list-item open">`,
+		`<span class="checkbox" aria-hidden="true">☑</span>`,
+		`<span class="checkbox" aria-hidden="true">☐</span>`,
+		`shipped item`,
+		`open item`,
+		`also done`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
+// TestMarkdownHRule confirms `---` (or `***`) on its own line emits <hr>.
+func TestMarkdownHRule(t *testing.T) {
+	src := "Before.\n\n---\n\nAfter."
+	out := string(Markdown(src))
+	for _, want := range []string{`<p>Before.</p>`, `<hr />`, `<p>After.</p>`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
+// TestMarkdownHeadingStatusPill confirms trailing `(DONE)` / `(WIP)` /
+// `(planned)` etc. tokens become a styled .status-pill inside the
+// heading.
+func TestMarkdownHeadingStatusPill(t *testing.T) {
+	src := "## M16: Feed Management (DONE)\n## M17: Web app (WIP)\n## M18: Theme switch (planned)"
+	out := string(Markdown(src))
+	for _, want := range []string{
+		`<span class="status-pill done">DONE</span>`,
+		`<span class="status-pill wip">WIP</span>`,
+		`<span class="status-pill planned">planned</span>`,
+		`M16: Feed Management`,
+		`M17: Web app`,
+		`M18: Theme switch`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("Markdown output missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
 // TestMarkdownLinks covers inline `[text](url)` links and `<https://…>`
 // autolinks. Both should yield <a href="…"> with rel="noopener".
 func TestMarkdownLinks(t *testing.T) {
