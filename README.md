@@ -66,7 +66,9 @@ flowchart TD
   of typed blocks. The renderer owns all HTML/CSS, so every report looks
   consistent and old reports restyle when the renderer changes. A raw-`html`
   block is the escape hatch for UI the vocabulary doesn't cover yet. See
-  [`CONTRACT.md`](CONTRACT.md).
+  [`CONTRACT.md`](CONTRACT.md) for the full schema, or
+  [`docs/PUBLISHING.md`](docs/PUBLISHING.md) for a walkthrough aimed at tools
+  that want to publish into the dashboard.
 - **Visual design:** the "v1 TUI dashboard" — terminal chrome, sidebar tree +
   table of contents + run metadata, stacked content panels, vim navigation,
   Tokyo Night theme.

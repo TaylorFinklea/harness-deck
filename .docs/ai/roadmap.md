@@ -106,11 +106,49 @@ integration — which lives in `chezmoi-config`, not this repo.
   preamble script applies the saved preference before render to avoid
   flash-of-wrong-theme.
 
+## Next up — extend usefulness (2026-05-26)
+
+Selected together as the next four leverage points. The MVP loop is done;
+these turn harness-deck from "renders agent output" into "live ops pane +
+retrospective + multi-channel notifier."
+
+- **MCP report-builder server** — an MCP server that wraps the file
+  contract so harnesses with MCP support can emit reports via tool
+  calls instead of writing JSON directly. Explicitly **optional**: the
+  file path stays the canonical, durable interface (`CONTRACT.md`).
+  MCP is a thin convenience layer that translates tool calls into the
+  same file writes a harness would have done by hand. Same atomic-write
+  + validate pipeline underneath.
+- **Live in-flight telemetry** — extend the manifest with an optional
+  `live` field (or a typed `live` block): current step, elapsed,
+  token/$ usage, last-update timestamp. Dashboard renders an active
+  pulse + progress indicator for runs whose `status: in-progress` and
+  whose `live.updated` is recent. Turns the dashboard into a live ops
+  pane, not just a result viewer.
+- **Per-project run history** — a per-project timeline view: every
+  report under a project, ordered by `created`, with the user's
+  responses inline. Currently the inbox is a flat list optimized for
+  triage; the project-timeline is the retrospective surface. Reuses
+  the existing store; mostly a view + a few queries.
+- **Notification fan-out** — destinations beyond Web Push: Slack /
+  Discord webhooks, generic POST webhook, optional email. Plug into
+  the existing watcher → push delivery path. Per-destination on/off in
+  the settings view; payload shape mirrors the existing push payload so
+  one delivery driver hands off to a list of senders.
+
+Also on the table (lower priority — not picked yet but logged):
+
+- **Report templates** — `harness-deck new --template audit | review |
+  progress | decision | idea` scaffolds opinionated starters with the
+  right block shapes pre-filled. Pairs with `docs/PUBLISHING.md`.
+- **Search filters + saved searches** — Cmd+K filters by project /
+  status / kind / block-type / time range; saved searches pin as
+  tabs in the in-app tab strip.
+
 ## Later / out of scope
 
 - Harness-side integration (hooks/skill so harnesses emit manifests and pick up
   responses) — lives in `chezmoi-config`, separate task.
-- Optional MCP report-builder server.
 - v1a/v1b/v1c visual refinements (v1 original only for now).
 - Multi-user / auth / cloud sync — local single-user only.
 

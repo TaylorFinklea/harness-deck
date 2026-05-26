@@ -13,3 +13,4 @@
 # os / editor
 .DS_Store
 *.swp
+.playwright-mcp/

@@ -158,20 +158,41 @@ flash-of-wrong-theme.
 Manual test fixtures live in `/tmp/hd-test/` (config + sample reports):
 `HARNESS_DECK_CONFIG=/tmp/hd-test/config.json harness-deck serve`.
 
+Apple Push 403 fix shipped as `v0.1.19`: Apple's push service rejects
+mailto VAPID `sub` claims that don't resolve to a real public TLD
+(`mailto:harness-deck@localhost` → 403). Switched to the repo URL —
+Apple validates URL syntax, not reachability, so no operator PII is
+leaked and the form is universally accepted (FCM + Mozilla Autopush
+already worked silently). Confirmed end-to-end on a real iPhone over
+the tailnet HTTPS pipeline.
+
+PNG PWA icons + `docs/PUBLISHING.md` shipped on `main` (post-v0.1.19,
+unreleased): prerendered hd.svg → 180/192/512/1024 PNG via
+`rsvg-convert`, embedded under `internal/assets/`, served at
+`/icon-{size}.png`, manifest + apple-touch-icon switched over;
+service-worker cache bumped to `harness-deck-v2`. Superseded the
+earlier "no PNG variants" decision — see decisions.md. PUBLISHING.md
+is the on-ramp for external publishers (60-second smoke test, MVP
+manifest, the four blocks that cover 90% of reports). Linked from
+README + CONTRACT.
+
 ## Next
 
-Phase 6 — harness-side integration — lives in `chezmoi-config`, not here: thin
-hooks/skill so Claude Code / Pi Mono / OpenCode emit manifests and read
-`responses.json`, plus an optional MCP report-builder. Not started.
+**Next roadmap wave (selected 2026-05-26)** — see roadmap.md:
 
-Possible follow-ups in this repo: `harness-deck register <path>` and `new`
-(scaffold) subcommands; richer Markdown (tables, links, blockquotes);
-prerendered PNG PWA icons (currently SVG-only — may render rough on
-older iOS home screens); auto-renew for Tailscale TLS certs.
+- **MCP report-builder server** (optional — file contract stays canonical)
+- **Live in-flight telemetry** (`live` field/block → live ops pane)
+- **Per-project run history** (retrospective timeline view)
+- **Notification fan-out** (Slack/Discord/webhook beyond Web Push)
+
+Parking lot (not picked but logged): report templates
+(`new --template <name>`), search filters + saved searches.
+
+Phase 6 — harness-side integration — still lives in `chezmoi-config`,
+not here. Hooks for Claude Code / Codex / OpenCode / Pi Mono landed
+there during the v0.1.x cycle.
 
 ## Blockers / open questions
 
-- None. Mobile PWA + push need real-device testing: Tailscale connect from
-  phone, `tailscale cert` + cfg, install to home screen, enable
-  notifications in /settings, trigger an ask, confirm the lock-screen
-  push and the deep-link.
+- None. The next-wave items above are unblocked; pick whichever is
+  most useful to start.

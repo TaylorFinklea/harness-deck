@@ -4,6 +4,11 @@ This is the spec a harness (Claude Code, Pi Mono, OpenCode, …) follows to
 publish a report to harness-deck. A report is a single JSON file; harness-deck
 renders it into a consistent themed page and aggregates it into the dashboard.
 
+> New here? [`docs/PUBLISHING.md`](docs/PUBLISHING.md) is the gentler
+> walkthrough — minimum viable manifest, the 60-second smoke test, and the
+> handful of blocks that cover 90% of reports. This file is the exhaustive
+> reference.
+
 ## Where to write the file
 
 Write `report.json` into a run directory, in **either** location:

@@ -91,6 +91,10 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
 	mux.HandleFunc("GET /service-worker.js", s.handleServiceWorker)
 	mux.HandleFunc("GET /icon.svg", s.handleIcon)
+	mux.HandleFunc("GET /icon-180.png", s.handleIconPNG(assets.IconPNG180))
+	mux.HandleFunc("GET /icon-192.png", s.handleIconPNG(assets.IconPNG192))
+	mux.HandleFunc("GET /icon-512.png", s.handleIconPNG(assets.IconPNG512))
+	mux.HandleFunc("GET /icon-1024.png", s.handleIconPNG(assets.IconPNG1024))
 	s.mux = mux
 	return s, nil
 }
@@ -179,6 +183,17 @@ func (s *Server) handleIcon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	_, _ = w.Write([]byte(assets.FaviconSVG))
+}
+
+// handleIconPNG returns a closure that serves a single prerendered PNG icon.
+// Each size gets its own route so the manifest can declare exact dimensions,
+// and so iOS / Android caches can fetch the closest match without resampling.
+func (s *Server) handleIconPNG(payload []byte) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		_, _ = w.Write(payload)
+	}
 }
 
 // handleReports returns the report index as JSON. The watcher keeps the store

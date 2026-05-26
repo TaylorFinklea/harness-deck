@@ -6,8 +6,10 @@
 //   2. Receive Web Push events and surface them as system notifications.
 //   3. Open the relevant report when the user taps a notification.
 
-const CACHE = 'harness-deck-v1';
-const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
+// Bump CACHE name whenever the precached shell list changes — old SWs
+// will purge their prior cache on activate.
+const CACHE = 'harness-deck-v2';
+const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -63,8 +65,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(payload.title || 'harness-deck', {
       body: payload.body || '',
       tag: payload.tag,
-      icon: '/icon.svg',
-      badge: '/icon.svg',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
       data: { url: payload.url || '/' },
     })
   );

@@ -190,3 +190,44 @@ The settings view (5th aggregator view, key `5`) is the single
 phone-relevant control surface today. Asking the server for status and
 asking the browser for its `PushSubscription` are independent calls;
 the view renders synchronously, then async-fills the two cells.
+
+## 2026-05-26 — Prerendered PNG icons after all
+
+Superseded the earlier "no PNG variants" decision. iOS Safari's PWA
+install + lock-screen notification path renders SVG inconsistently
+across versions, and real-device testing on iPhone showed the
+home-screen icon looking soft. `rsvg-convert` is a one-shot CLI used
+at icon-source-change time — not a runtime dependency, not a build
+toolchain — so the original objection (toolchain creep) doesn't apply.
+Generated 180/192/512/1024 PNGs are committed to `internal/assets/`,
+embedded via `go:embed`, served at `/icon-{size}.png`. Total payload
+~27 KB. The SVG stays as a fallback (favicon, last entry in
+`manifest.webmanifest`), so nothing regresses for clients that
+preferred it.
+
+## 2026-05-26 — Next roadmap wave: ops pane + retrospective + fan-out
+
+After the MVP + post-MVP polish (search, theme, mobile, push,
+markdown, …) landed end-to-end on a real iPhone, four next-wave items
+got picked together: MCP report-builder server, live in-flight
+telemetry, per-project run history, notification fan-out. See
+`roadmap.md` for the full list.
+
+The MCP server is explicitly **optional** — the file contract
+(`CONTRACT.md`) stays the canonical interface. MCP wraps the same file
+writes; a harness without MCP support keeps working unchanged. This
+keeps the "no live socket coupling required" property of the original
+authoring decision (2026-05-20) intact while removing friction for
+harnesses that already speak MCP.
+
+## 2026-05-26 — docs/PUBLISHING.md on-ramp
+
+`CONTRACT.md` is the exhaustive reference and stays that way.
+`docs/PUBLISHING.md` is the new on-ramp for an external publisher —
+60-second smoke test, central vs per-project choice, minimum viable
+manifest, the four blocks that cover 90% of reports, response-loop
+read-back, and the recommended polish (atomic writes, validate in CI,
+prefer typed blocks over `html`). Linked from `README.md` and the
+top of `CONTRACT.md`. The motivating force was the cowork project
+asking how to publish — "read CONTRACT.md" works, but the gradient
+was too steep.

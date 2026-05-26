@@ -51,6 +51,24 @@ var RespondJS string
 //go:embed hd.svg
 var FaviconSVG string
 
+// Prerendered PNG icons for PWA installs. iOS rasterizes apple-touch-icon SVGs
+// inconsistently across versions; Android's home-screen launcher likewise
+// prefers a real bitmap. We bake 180/192/512/1024 — 180 covers
+// apple-touch-icon, 192/512 are the Web App Manifest standard pair, 1024 is
+// future-proofing for larger maskable surfaces.
+//
+//go:embed hd-180.png
+var IconPNG180 []byte
+
+//go:embed hd-192.png
+var IconPNG192 []byte
+
+//go:embed hd-512.png
+var IconPNG512 []byte
+
+//go:embed hd-1024.png
+var IconPNG1024 []byte
+
 //go:embed manifest.webmanifest
 var ManifestJSON string
 
