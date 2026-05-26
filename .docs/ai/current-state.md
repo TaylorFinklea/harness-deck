@@ -143,7 +143,7 @@ generic map so unknown fields stay preserved.
 Cross-report search shipped as `v0.1.15`: `GET /api/search?q=` scores
 metadata + block body content for every non-archived entry, returns
 top 20 with snippet markers (`[[match]]`) the frontend renders as
-`<mark>` spans. `search.js` is a Cmd+P / Ctrl+P palette overlay
+`<mark>` spans. `search.js` is a Cmd+K / Ctrl+K palette overlay
 (debounced live-fetch, ↑/↓ navigate, Enter opens via HDTabs, Esc
 closes). Titlebar gets a `?` button for touch users.
 

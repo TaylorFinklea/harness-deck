@@ -95,7 +95,7 @@ integration — which lives in `chezmoi-config`, not this repo.
   walks all non-archived entries, scores metadata + block body content
   (case-insensitive substring), returns top 20 matches with a snippet
   around the first body hit (markers around the match for client-side
-  `<mark>` highlighting). Frontend: `search.js` adds a Cmd+P / Ctrl+P
+  `<mark>` highlighting). Frontend: `search.js` adds a Cmd+K / Ctrl+K
   palette overlay (debounced live-fetch, ↑/↓ navigate, Enter opens via
   HDTabs, Esc closes). Titlebar gets a `🔎` button for touch users.
 - **Theme switch + light mode** _(done — 2026-05-25)_ — added Tokyo Night

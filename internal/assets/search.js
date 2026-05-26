@@ -1,7 +1,11 @@
-// Search palette. Triggered by Cmd+P (Mac) / Ctrl+P (other), or the
+// Search palette. Triggered by Cmd+K (Mac) / Ctrl+K (other), or the
 // `/api/search` route directly. Live-queries the server as the user
 // types — every keystroke after a 120ms debounce hits the endpoint and
 // renders the top matches. ↑/↓ to navigate, Enter to open, Esc closes.
+//
+// Cmd+P is reserved by macOS Safari (and every other browser) for the
+// print dialog, so we use Cmd+K — the de-facto standard for global
+// search across modern apps (Linear, Notion, GitHub, Slack, Stripe).
 //
 // Loaded on every page (aggregator shell + report pages) so the user
 // can jump between reports from anywhere without going back to the
@@ -239,14 +243,11 @@
     }
   }
 
-  // Global trigger: Cmd+P (Mac) / Ctrl+P (other). Use lowercase 'p'
-  // alongside 'P' so Shift doesn't accidentally disqualify the match.
+  // Global trigger: Cmd+K (Mac) / Ctrl+K (other). Lowercase + capital
+  // covered so Shift doesn't disqualify the match.
   document.addEventListener("keydown", function (e) {
-    var trigger = (e.metaKey || e.ctrlKey) && (e.key === "p" || e.key === "P");
+    var trigger = (e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K");
     if (!trigger) return;
-    // Don't hijack the print dialog if user is in a text field — though
-    // most users will accept Cmd+P → search, the polite default is to
-    // let inputs keep their default. Vim-nav prompt input excluded too.
     var t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
     e.preventDefault();

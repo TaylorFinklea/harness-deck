@@ -446,7 +446,7 @@ hr {
 .roadmap-md h2 + ul, .roadmap-md h3 + ul { margin-top: 6px; }
 
 /* === Search palette ===
-   Cmd+P / Ctrl+P opens a floating overlay over the page; the .search-card
+   Cmd+K / Ctrl+K opens a floating overlay over the page; the .search-card
    is centered, dim everything else. Live results render below the input.
    Tokyo Night palette; matches the vim-nav help overlay visual weight. */
 #search-palette {
@@ -559,7 +559,7 @@ hr {
   .search-card { max-width: 100%; max-height: 85vh; }
 }
 
-/* Titlebar search button — always-visible companion to Cmd+P for touch
+/* Titlebar search button — always-visible companion to Cmd+K for touch
    users who don't have a physical keyboard. The magnifying-glass glyph
    is just unicode '?' (heavy magnifier) so we stay font-free. */
 .title-search-btn {

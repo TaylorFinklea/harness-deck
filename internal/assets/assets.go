@@ -98,5 +98,5 @@ var SearchJSInline = strings.ReplaceAll(SearchJS, "</script", `<\/script`)
 // ReportJS is the script bundle inlined into a rendered report page: vim
 // navigation, the response handler, the mobile drawer + service worker
 // registration, the in-app tab strip, the keyboard triage helper, the
-// SSE-driven live-reload watcher, and the Cmd+P search palette.
+// SSE-driven live-reload watcher, and the Cmd+K search palette.
 var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + SearchJSInline
