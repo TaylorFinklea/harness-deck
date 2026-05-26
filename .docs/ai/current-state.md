@@ -122,10 +122,38 @@ gesture for forcing a reload. `mobile.js` adds a touch-based PTR gated
 on standalone (no native-PTR double trigger), damped rubber-band pull
 with 70px threshold, 120ms confirmation flash before reload.
 
-Richer Markdown (commit pending): tables, blockquotes, and links
+Richer Markdown shipped as `v0.1.12`: tables, blockquotes, and links
 (inline `[text](url)` + `<https://…>` autolinks) added to
 `internal/render/markdown.go`. CSS additions to deck.css; CONTRACT.md
 Markdown vocabulary updated. Still stdlib-only.
+
+Roadmap polish shipped as `v0.1.13`: GitHub task lists (`- [x]` /
+`- [ ]`) render with green/yellow checkbox glyphs and dimmed-completed
+text; `---` horizontal rules become section dividers; trailing
+`(DONE)` / `(WIP)` / `(planned)` / `(blocked)` tokens in headings
+become colored status pills.
+
+`new` + `register` subcommands shipped as `v0.1.14`. `harness-deck new
+--title T` scaffolds a starter report.json (auto id, draft status,
+prose placeholder; --in-repo writes under <repo>/.harness/; --force
+overwrites). `harness-deck register <path>` atomically adds/removes a
+project root from the config's `projects` array; reads+writes as a
+generic map so unknown fields stay preserved.
+
+Cross-report search shipped as `v0.1.15`: `GET /api/search?q=` scores
+metadata + block body content for every non-archived entry, returns
+top 20 with snippet markers (`[[match]]`) the frontend renders as
+`<mark>` spans. `search.js` is a Cmd+P / Ctrl+P palette overlay
+(debounced live-fetch, ↑/↓ navigate, Enter opens via HDTabs, Esc
+closes). Titlebar gets a `?` button for touch users.
+
+Theme switch + light mode shipped as `v0.1.16`: Tokyo Night Day
+palette added as CSS variable overrides under both `@media
+(prefers-color-scheme: light)` and `[data-theme="light"]`. Three-way
+settings picker (system / dark / light) persists choice to
+`localStorage('harness-deck:theme')`. A tiny inline preamble script
+applies the saved preference before render so there's no
+flash-of-wrong-theme.
 
 Manual test fixtures live in `/tmp/hd-test/` (config + sample reports):
 `HARNESS_DECK_CONFIG=/tmp/hd-test/config.json harness-deck serve`.
