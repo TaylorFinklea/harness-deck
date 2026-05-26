@@ -75,6 +75,16 @@
   align-self: center;
 }
 .inbox-item .dot.answered { background: var(--tn-blue); }
+/* live: the row carries in-flight telemetry whose `updated` is within
+   the live window (see aggregator.js LIVE_WINDOW_MS). The dot pulses;
+   the row gets a subtle background tint. */
+.inbox-item.live { background: rgba(158, 206, 106, 0.04); }
+.inbox-item .dot.live {
+  background: var(--tn-green);
+  box-shadow: 0 0 0 0 rgba(158, 206, 106, 0.6);
+  animation: hd-live-pulse 1.4s ease-out infinite;
+}
+.inbox-item .live-mini { color: var(--tn-green); font-size: 11px; }
 .inbox-item .main .title { color: var(--tn-fg); }
 .inbox-item .main .sub {
   color: var(--tn-comment);

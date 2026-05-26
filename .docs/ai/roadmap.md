@@ -112,19 +112,22 @@ Selected together as the next four leverage points. The MVP loop is done;
 these turn harness-deck from "renders agent output" into "live ops pane +
 retrospective + multi-channel notifier."
 
-- **MCP report-builder server** — an MCP server that wraps the file
-  contract so harnesses with MCP support can emit reports via tool
-  calls instead of writing JSON directly. Explicitly **optional**: the
-  file path stays the canonical, durable interface (`CONTRACT.md`).
-  MCP is a thin convenience layer that translates tool calls into the
-  same file writes a harness would have done by hand. Same atomic-write
-  + validate pipeline underneath.
-- **Live in-flight telemetry** — extend the manifest with an optional
-  `live` field (or a typed `live` block): current step, elapsed,
-  token/$ usage, last-update timestamp. Dashboard renders an active
-  pulse + progress indicator for runs whose `status: in-progress` and
-  whose `live.updated` is recent. Turns the dashboard into a live ops
-  pane, not just a result viewer.
+- **MCP report-builder server** _(done — 2026-05-26)_ — stdio JSON-RPC
+  server (`harness-deck mcp`), six tools: `publish_report`,
+  `validate_report`, `get_responses`, `list_reports`, `update_status`,
+  `update_live`. Wraps the same atomic-write path the file contract
+  uses; harnesses without MCP support keep working unchanged. Wired
+  in `internal/mcp/`, stdlib only. Documented in `docs/PUBLISHING.md`
+  as the optional path; `CONTRACT.md` stays the canonical reference.
+- **Live in-flight telemetry** _(done — 2026-05-26)_ — optional `live`
+  field on the manifest (`updated`, `step`, `elapsed_ms`, `tokens`,
+  `cost_usd`, `progress`). Report page renders a pulsing green banner
+  above the open-asks list while `updated` is within 60 seconds, then
+  switches to a muted "stale" state (data stays — only the pulse
+  stops). The inbox dot pulses for the same window. The MCP
+  `update_live` tool merges telemetry into the manifest without
+  rewriting unrelated fields — cheap to call every few seconds during
+  a run.
 - **Per-project run history** _(done — 2026-05-26)_ — every report
   under a project, newest-first, with the user's responses inlined
   beneath each run. `/api/projects` grew a `history` field of

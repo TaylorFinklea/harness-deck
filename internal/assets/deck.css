@@ -148,6 +148,89 @@
    Author's narrative order is preserved below; this banner is just a
    high-contrast index. Shrinks naturally as items are answered (the
    server re-renders the page on response). */
+/* In-flight telemetry banner. Above .open-asks because a working run is
+   strictly more interesting than its (eventual) ask list. The pulse +
+   "working" label stops when the data goes stale; the data stays so a
+   user can see the last reported state, not just a blank. */
+.live-banner {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--tn-green);
+  background: rgba(158, 206, 106, 0.06);
+  border-radius: 3px;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.live-banner.stale {
+  border-color: var(--tn-comment);
+  background: transparent;
+  opacity: 0.7;
+}
+.live-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--tn-green);
+  box-shadow: 0 0 0 0 rgba(158, 206, 106, 0.6);
+  animation: hd-live-pulse 1.4s ease-out infinite;
+}
+.live-banner.stale .live-pulse {
+  animation: none;
+  background: var(--tn-comment);
+  box-shadow: none;
+}
+@keyframes hd-live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(158, 206, 106, 0.55); }
+  70%  { box-shadow: 0 0 0 9px rgba(158, 206, 106, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(158, 206, 106, 0); }
+}
+.live-body { min-width: 0; }
+.live-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--tn-fg);
+}
+.live-state {
+  color: var(--tn-green);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.live-banner.stale .live-state { color: var(--tn-comment); }
+.live-step { color: var(--tn-fg-dark); }
+.live-stats {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--tn-comment);
+}
+.live-stats b { color: var(--tn-fg); font-weight: 500; }
+.live-progress .bar {
+  display: inline-block;
+  vertical-align: middle;
+  width: 120px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--tn-bg-highlight);
+  overflow: hidden;
+}
+.live-progress .bar .fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--tn-green);
+  transition: width 0.3s ease-out;
+}
+.live-since { margin-left: auto; color: var(--tn-fg-gutter); }
+
 .open-asks {
   margin: 0 0 18px;
   padding: 10px 14px;

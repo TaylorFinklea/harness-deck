@@ -39,6 +39,11 @@ type Entry struct {
 	Path        string    `json:"-"`        // report.json path
 	ModTime     time.Time `json:"-"`        // report.json modification time
 	RespModTime time.Time `json:"-"`        // responses.json modification time, zero if absent
+	// Live carries in-flight telemetry from the manifest's optional
+	// `live` field. The index keeps it shallow so inbox-rendering decisions
+	// (pulse vs. static, "X in flight" counts) don't need to re-read the
+	// full manifest. nil means the report has no live block.
+	Live *manifest.LiveStatus `json:"live,omitempty"`
 }
 
 // Sig returns a stable per-entry fingerprint. Changes whenever the
@@ -182,8 +187,8 @@ func loadEntry(path, source string) (Entry, error) {
 		Project: rep.Project, Run: rep.ID, Harness: rep.Harness, Agent: rep.Agent,
 		Title: rep.Title, Kind: rep.Kind, Status: rep.Status, Created: rep.Created,
 		Verdict: rep.Verdict, Source: source, Blocks: len(rep.Blocks),
-		Archived: rep.Archived,
-		Dir:      filepath.Dir(path), Path: path,
+		Archived: rep.Archived, Live: rep.Live,
+		Dir: filepath.Dir(path), Path: path,
 	}
 	if fi, statErr := os.Stat(path); statErr == nil {
 		e.ModTime = fi.ModTime()

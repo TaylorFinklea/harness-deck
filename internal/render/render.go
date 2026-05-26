@@ -66,9 +66,15 @@ type pageView struct {
 	OpenAsks []openAsk
 	Blocks   []template.HTML // pre-rendered block panels
 	Sig      string          // server-side fingerprint for live-reload diffing
-	CSS      template.CSS
-	JS       template.JS
-	Favicon  template.URL
+	// Live is the manifest's optional in-flight telemetry, surfaced as a
+	// banner above the open-asks list. Nil means the report has no live
+	// data and the banner is hidden. The freshness check ("live" vs
+	// "stale") happens client-side off Updated so the indicator stays
+	// honest as the page stays open.
+	Live    *manifest.LiveStatus
+	CSS     template.CSS
+	JS      template.JS
+	Favicon template.URL
 }
 
 // openAsk is one unanswered interactive block surfaced in the pinned
@@ -111,6 +117,7 @@ func (r *Renderer) buildPage(rep *manifest.Report, responses map[string]respond.
 			Meta:    bannerMeta(rep),
 		},
 		Run:     runMeta(rep),
+		Live:    rep.Live,
 		CSS:     template.CSS(assets.ReportCSS),
 		JS:      template.JS(assets.ReportJS),
 		Favicon: template.URL(assets.FaviconDataURI),

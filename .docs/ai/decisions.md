@@ -220,6 +220,54 @@ keeps the "no live socket coupling required" property of the original
 authoring decision (2026-05-20) intact while removing friction for
 harnesses that already speak MCP.
 
+## 2026-05-26 — MCP transport: stdio JSON-RPC, not HTTP
+
+MCP supports stdio and Streamable HTTP. Picked stdio for harness-deck's
+server because:
+
+- Simplest implementation (newline-delimited JSON-RPC; no Content-Length
+  framing, no SSE, no auth layer).
+- Standard MCP pattern — every major client (Claude Code, Claude
+  Desktop, VS Code Copilot Chat) speaks stdio.
+- Decoupled from the dashboard process. `harness-deck mcp` works
+  whether or not `harness-deck serve` is running; the dashboard picks
+  the file up via its 2s watcher.
+- Zero external deps (stdlib `encoding/json` + the existing manifest /
+  respond / store packages).
+
+Stdout is reserved for protocol; diagnostics route to stderr (`log` is
+reconfigured in `cmd/harness-deck/mcp.go` before handoff). A stray
+`fmt.Println` to stdout would corrupt the JSON-RPC stream.
+
+The six tools wrap the same atomic-write + validate path the file
+contract uses. The file contract (`CONTRACT.md`) stays canonical —
+`update_status` and `update_live` round-trip the manifest through
+`map[string]any` so any field they don't know about (a future block
+type, a future top-level extension) survives the rewrite.
+
+## 2026-05-26 — Live telemetry: top-level field, not a block
+
+`live` is metadata about the run (current step, elapsed, tokens, cost,
+progress), not content the renderer should position among the blocks.
+Made it an optional top-level field on `Report`. Rejected alternative:
+a typed `live` block — would have made the schema list-positional
+(where in the blocks array does it belong?) and would have changed
+every render every tick.
+
+Freshness ("live" vs "stale") is computed client-side. The server emits
+the `updated` ISO timestamp; a small inline script (`live-banner.js`)
+re-evaluates every second so the indicator stays honest while the page
+stays open. The live window is 60 seconds — long enough to absorb
+network blips and short manifest-rewrite races, short enough that a
+truly hung harness goes stale fast. Stale state keeps the last
+reported data visible; only the pulse + the "working" label change.
+
+The `update_live` MCP tool uses pointer-typed args (`*string`, `*int64`,
+`*float64`) to distinguish "client didn't send this field" from "client
+sent zero" — so a harness can push just `step` + `tokens` without
+clobbering an unrelated cost field. The merge happens through
+`map[string]any` round-trip, same pattern as `update_status`.
+
 ## 2026-05-26 — Per-project history is "all runs," not "all kinds"
 
 The projects view already had `Reports []store.Entry` for `kind:

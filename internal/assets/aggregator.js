@@ -97,6 +97,16 @@
     return el('div', { class: 'empty' }, kids);
   }
 
+  /* isLive — true when a report has telemetry whose `updated` timestamp
+     is within the live window. Same 60s window the report-page banner
+     uses so the inbox dot and the banner go stale together. */
+  var LIVE_WINDOW_MS = 60 * 1000;
+  function isLive(r) {
+    if (!r.live || !r.live.updated) return false;
+    var t = Date.parse(r.live.updated);
+    return isFinite(t) && (Date.now() - t) < LIVE_WINDOW_MS;
+  }
+
   /* itemRow — one navigable report row, used by inbox / overview / latest. */
   function itemRow(r) {
     var sub = [el('span', { class: 'proj', text: r.project }), ' · ' + r.harness];
@@ -106,8 +116,14 @@
       aside.push(el('br'));
       aside.push(el('span', { class: 'asks', text: r.open_asks + ' open' }));
     }
-    return el('div', { class: 'inbox-item', data: { url: reportURL(r) } }, [
-      el('span', { class: 'dot ' + r.status }),
+    var live = isLive(r);
+    if (live && r.live.step) {
+      sub.push(el('br'));
+      sub.push(el('span', { class: 'live-mini', text: '● ' + r.live.step }));
+    }
+    var rowCls = 'inbox-item' + (live ? ' live' : '');
+    return el('div', { class: rowCls, data: { url: reportURL(r) } }, [
+      el('span', { class: 'dot ' + r.status + (live ? ' live' : '') }),
       el('div', { class: 'main' }, [
         el('div', { class: 'title', text: r.title || r.run }),
         el('div', { class: 'sub' }, sub)

@@ -96,6 +96,25 @@
       </div>
     </div>
 
+    {{if .Live}}
+    <div class="live-banner" id="live-banner" data-updated="{{.Live.Updated}}">
+      <div class="live-pulse" aria-hidden="true"></div>
+      <div class="live-body">
+        <div class="live-head">
+          <span class="live-state" data-live-state>working</span>
+          {{with .Live.Step}}<span class="live-step">· {{.}}</span>{{end}}
+        </div>
+        <div class="live-stats">
+          {{if .Live.ElapsedMs}}<span class="live-stat" data-live-elapsed="{{.Live.ElapsedMs}}">elapsed —</span>{{end}}
+          {{if .Live.Tokens}}<span class="live-stat">tokens <b>{{.Live.Tokens}}</b></span>{{end}}
+          {{with .Live.CostUSD}}<span class="live-stat">cost <b>{{.}}</b></span>{{end}}
+          {{if .Live.Progress}}<span class="live-stat live-progress" data-live-progress="{{.Live.Progress}}"><span class="bar"><span class="fill"></span></span></span>{{end}}
+          <span class="live-stat live-since" data-live-since>just now</span>
+        </div>
+      </div>
+    </div>
+    {{end}}
+
     {{if .OpenAsks}}
     <div class="open-asks" id="open-asks">
       <div class="open-asks-head">

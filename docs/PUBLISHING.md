@@ -235,6 +235,56 @@ For a non-trivial report that exercises ~10 block types, see
 That file is the renderer's reference fixture and is kept current with
 the manifest schema.
 
+## Optional: publish via MCP instead of file writes
+
+The file path described above is the canonical, durable contract. If your
+harness already speaks **Model Context Protocol** (MCP), you can call
+harness-deck's tools instead of writing `report.json` yourself — they
+end up doing exactly the same atomic file writes.
+
+Wire it up once. With Claude Code:
+
+```sh
+claude mcp add harness-deck -- harness-deck mcp
+```
+
+That registers `harness-deck` as a stdio MCP server (`harness-deck mcp`
+is a subcommand of the same binary). Available tools:
+
+| tool | purpose |
+|---|---|
+| `publish_report` | atomic-write a full manifest, validating first |
+| `validate_report` | validate without writing |
+| `update_status` | flip status (draft / awaiting-review / answered / done) |
+| `update_live` | push in-flight telemetry (step, elapsed, tokens, …) without rewriting the full manifest |
+| `get_responses` | read responses.json for a run |
+| `list_reports` | the inbox-style index |
+
+Use this when it's a lower-friction path for your harness. Use the file
+path when you want zero coupling, when you want to publish to a remote
+machine that mounts the reports dir, or when MCP isn't available.
+
+## Surfacing live progress
+
+For long-running operations, populate the optional `live` field in your
+manifest. The dashboard pulses a banner above the report and a dot in
+the inbox while `live.updated` is within the last 60 seconds:
+
+```jsonc
+"live": {
+  "updated":    "2026-05-26T10:42:10Z",
+  "step":       "running tests · pkg/parser",
+  "elapsed_ms": 42000,
+  "tokens":     14230,
+  "cost_usd":   "0.42",
+  "progress":   0.63
+}
+```
+
+The MCP `update_live` tool is the cheap way to push these updates every
+few seconds; it merges into the manifest's `live` field without
+rewriting other fields.
+
 ## Getting unstuck
 
 - `harness-deck validate <file>` — strict schema check.

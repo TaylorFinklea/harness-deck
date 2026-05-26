@@ -180,8 +180,18 @@ README + CONTRACT.
 
 **Next roadmap wave (selected 2026-05-26)** — see roadmap.md:
 
-- **MCP report-builder server** (optional — file contract stays canonical)
-- **Live in-flight telemetry** (`live` field/block → live ops pane)
+- **MCP report-builder server** _(done — 2026-05-26)_ — stdio JSON-RPC
+  server (`harness-deck mcp`) wrapping the file contract. Six tools:
+  `publish_report`, `validate_report`, `get_responses`, `list_reports`,
+  `update_status`, `update_live`. File contract stays canonical — MCP
+  delegates to the same atomic-write path. `internal/mcp/` package,
+  stdlib only.
+- **Live in-flight telemetry** _(done — 2026-05-26)_ — optional `live`
+  field on the manifest (`{updated, step, elapsed_ms, tokens, cost_usd,
+  progress}`). Report page renders a pulsing banner above the open-asks
+  list while `updated` is within 60 seconds; the inbox dot pulses for
+  the same window. `update_live` MCP tool merges telemetry without
+  rewriting unrelated fields — cheap to call every few seconds.
 - **Per-project run history** _(done — 2026-05-26)_ — every run for a
   project, newest-first, with responses inlined. `/api/projects` grew a
   `history []historyRun` field per project; `viewProjects()` renders a
@@ -190,7 +200,8 @@ README + CONTRACT.
   `1fr` foot-gun (`minmax(0, 1fr)` + `.content { min-width: 0 }`) so
   wide markdown / code can't push the content column past the viewport;
   same fix that mobile got, now applied to desktop too.
-- **Notification fan-out** (Slack/Discord/webhook beyond Web Push)
+- **Notification fan-out** (Slack/Discord/webhook beyond Web Push) —
+  next up.
 
 Parking lot (not picked but logged): report templates
 (`new --template <name>`), search filters + saved searches.

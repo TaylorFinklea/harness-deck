@@ -30,8 +30,28 @@ type Report struct {
 	// default view but leaves report.json + responses.json untouched on
 	// disk. Distinct from Status so archiving an awaiting-review report
 	// does not lose its open-ask state when restored.
-	Archived bool    `json:"archived,omitempty"`
-	Blocks   []Block `json:"blocks"`
+	Archived bool `json:"archived,omitempty"`
+	// Live carries optional in-flight telemetry: the harness updates the
+	// fields while a run is active so the dashboard shows a pulse, the
+	// current step, elapsed time, tokens, etc. The renderer treats Live
+	// as "live" only when Updated is within liveWindow of now; older data
+	// still displays but as static, not pulsing.
+	Live   *LiveStatus `json:"live,omitempty"`
+	Blocks []Block     `json:"blocks"`
+}
+
+// LiveStatus is the in-flight telemetry attached to an active run. Every
+// field except Updated is optional — a harness can publish just the step
+// label, or just token count, or any combination. Cost is a string to
+// preserve whatever precision the harness chose (cents, mills, whatever)
+// without introducing float-rounding surprises.
+type LiveStatus struct {
+	Updated   string  `json:"updated"`              // RFC3339 — required if Live is set
+	Step      string  `json:"step,omitempty"`       // short human description of the current step
+	ElapsedMs int64   `json:"elapsed_ms,omitempty"` // milliseconds since the run started
+	Tokens    int64   `json:"tokens,omitempty"`     // cumulative token count
+	CostUSD   string  `json:"cost_usd,omitempty"`   // free-form dollar string ("0.42", "$1.84")
+	Progress  float64 `json:"progress,omitempty"`   // 0..1 progress fraction (optional)
 }
 
 // KV is an ordered key/value pair. Manifests use an ordered list rather than a

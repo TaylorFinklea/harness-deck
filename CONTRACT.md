@@ -43,6 +43,31 @@ Validate before publishing: `harness-deck validate path/to/report.json`.
 
 A report with `kind: "roadmap"` also appears in the dashboard's roadmap view.
 
+### Optional: `live` — in-flight telemetry
+
+An active harness can publish a `live` block to surface real-time progress
+on the report page (a pulsing banner) and in the inbox (a pulsing dot
+with the current step). Every field except `updated` is optional.
+
+```jsonc
+{
+  // ... other top-level fields ...
+  "live": {
+    "updated":    "2026-05-26T10:42:10Z", // required when `live` is set
+    "step":       "running tests · pkg/parser",
+    "elapsed_ms": 42000,                  // since the run started
+    "tokens":     14230,                  // cumulative
+    "cost_usd":   "0.42",                 // string for precision
+    "progress":   0.63                    // 0..1 fraction
+  }
+}
+```
+
+The dashboard treats a run as **live** when `live.updated` is within the
+last 60 seconds; older reports still show their last reported state but
+the pulse stops. Re-write the manifest (or call the MCP `update_live`
+tool) every few seconds while the run is active.
+
 ## Content blocks
 
 `blocks` is an ordered list. Every block has a `type`; most accept an optional
