@@ -223,6 +223,10 @@ func (s *Server) deliverPush(payload push.Payload) {
 }
 
 // defaultPushSubject is the contact embedded in the VAPID JWT's "sub"
-// claim. For a local tool there is no real contact, so a stable
-// placeholder is preferable to leaking the operator's identity.
-const defaultPushSubject = "mailto:harness-deck@localhost"
+// claim per RFC 8292. Apple's Push Service is the strictest validator
+// of this field — it rejects with HTTP 403 when the sub is a mailto:
+// without a real public TLD ("mailto:harness-deck@localhost" fails,
+// for example). The repo URL form is universally accepted: Apple
+// only checks URL syntax, not reachability, so no live endpoint is
+// needed and we still leak no operator PII.
+const defaultPushSubject = "https://github.com/TaylorFinklea/harness-deck"
