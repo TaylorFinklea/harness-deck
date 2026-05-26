@@ -124,7 +124,12 @@ func (s *Server) Serve() error {
 	go s.watch(pollInterval)
 	addr := fmt.Sprintf("%s:%d", s.cfg.Bind, s.cfg.Port)
 	if s.cfg.TLS.Enabled() {
-		return http.ListenAndServeTLS(addr, s.cfg.TLS.Cert, s.cfg.TLS.Key, s.mux)
+		// Expand ~ in cert/key paths so config files can use the standard
+		// shorthand (e.g. "~/.config/tailscale-certs/host.crt").
+		return http.ListenAndServeTLS(addr,
+			config.Expand(s.cfg.TLS.Cert),
+			config.Expand(s.cfg.TLS.Key),
+			s.mux)
 	}
 	return http.ListenAndServe(addr, s.mux)
 }
