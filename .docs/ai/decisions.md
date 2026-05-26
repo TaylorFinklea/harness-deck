@@ -220,6 +220,37 @@ keeps the "no live socket coupling required" property of the original
 authoring decision (2026-05-20) intact while removing friction for
 harnesses that already speak MCP.
 
+## 2026-05-26 — Per-project history is "all runs," not "all kinds"
+
+The projects view already had `Reports []store.Entry` for `kind:
+roadmap` reports — "the plan." Rather than overload that field to
+include every kind, added a parallel `History []historyRun` field
+that lists every run (any kind, including archived) for the project,
+newest first, with `responses.json` inlined per run. Two distinct
+fields keeps the original semantics intact and lets the frontend
+render two visually distinct sections ("reports" = the plan,
+"history" = the timeline).
+
+Responses are inlined server-side rather than fetched per-run by the
+frontend because the watcher already touches every `responses.json`
+into the store fingerprint — they're warm in the kernel page cache.
+The alternative (a per-project endpoint the frontend hits on demand)
+was rejected: the projects view is the natural location, and a
+second round-trip per project on every render would be slower than
+the current single bulk read.
+
+## 2026-05-26 — Desktop `.layout` got the same `minmax(0, 1fr)` fix
+
+The mobile polish round (`v0.1.9`) fixed a CSS Grid foot-gun where
+plain `1fr` resolves to `minmax(auto, 1fr)`, letting a wide descendant
+inflate the track past the viewport. That fix was only applied at the
+720px breakpoint. On desktop, `.layout` was still `grid-template-columns:
+240px 1fr` — same bug, just invisible because a wide-enough monitor
+hid it. Playwright at 1280px viewport revealed `.content` rendering at
+4346px wide. Extended the fix to desktop: `240px minmax(0, 1fr)` plus
+`.content { min-width: 0 }`. Same logic, durable across viewport
+widths now.
+
 ## 2026-05-26 — docs/PUBLISHING.md on-ramp
 
 `CONTRACT.md` is the exhaustive reference and stays that way.

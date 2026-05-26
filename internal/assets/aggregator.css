@@ -170,6 +170,93 @@
 }
 .proj-sec:first-child { margin-top: 0; }
 
+/* --- projects view: history timeline ---
+   Retrospective surface: each run is a clickable header row plus inline
+   response chips so the project panel doubles as "what we decided here." */
+.history { display: flex; flex-direction: column; }
+.hist-row {
+  border-top: 1px dotted var(--tn-bg-highlight);
+  padding: 8px 0;
+}
+.hist-row:first-child { border-top: none; padding-top: 4px; }
+.hist-head {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.hist-head:hover .hist-title { color: var(--tn-blue); }
+.hist-head .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--tn-comment);
+  justify-self: center;
+}
+.hist-head .dot.awaiting-review { background: var(--tn-yellow); }
+.hist-head .dot.answered { background: var(--tn-blue); }
+.hist-head .dot.done { background: var(--tn-green); }
+.hist-title {
+  color: var(--tn-fg);
+  font-size: 13px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hist-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--tn-comment);
+  white-space: nowrap;
+}
+.hist-meta .hist-time { color: var(--tn-fg-gutter); }
+.hist-meta .hist-kind { color: var(--tn-cyan); }
+.hist-meta .hist-harness { color: var(--tn-comment); }
+.hist-meta .hist-flag {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--tn-bg-highlight);
+}
+.hist-meta .hist-flag.asks { color: var(--tn-magenta); }
+.hist-meta .hist-flag.archived { color: var(--tn-fg-gutter); }
+
+.hist-resps {
+  margin-top: 6px;
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hist-resp {
+  font-size: 12px;
+  color: var(--tn-comment);
+  line-height: 1.5;
+}
+.hist-resp .r-block { color: var(--tn-fg-gutter); }
+.hist-resp .r-arrow { color: var(--tn-fg-gutter); }
+.hist-resp .r-value {
+  color: var(--tn-green);
+  font-weight: 500;
+}
+.hist-resp .r-note { color: var(--tn-fg-dark); font-style: italic; }
+.hist-resp .r-at { color: var(--tn-fg-gutter); }
+
+/* Mobile: history rows reflow — meta drops below the title rather than
+   competing for a narrow row, and indentation on response chips shrinks. */
+@media (max-width: 720px) {
+  .hist-head {
+    grid-template-columns: 10px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+  .hist-meta {
+    grid-column: 2;
+    flex-wrap: wrap;
+  }
+  .hist-resps { margin-left: 12px; }
+}
+
 /* Archive-view actions — restore + permanent delete. The row is the
    same itemRow used everywhere; we just append a side-by-side button
    pair. */

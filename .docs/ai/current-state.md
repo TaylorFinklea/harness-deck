@@ -182,7 +182,14 @@ README + CONTRACT.
 
 - **MCP report-builder server** (optional — file contract stays canonical)
 - **Live in-flight telemetry** (`live` field/block → live ops pane)
-- **Per-project run history** (retrospective timeline view)
+- **Per-project run history** _(done — 2026-05-26)_ — every run for a
+  project, newest-first, with responses inlined. `/api/projects` grew a
+  `history []historyRun` field per project; `viewProjects()` renders a
+  "history" subsection with status dot + title + meta + chip-style
+  responses (`block → value · time`). Also fixed the desktop `.layout`
+  `1fr` foot-gun (`minmax(0, 1fr)` + `.content { min-width: 0 }`) so
+  wide markdown / code can't push the content column past the viewport;
+  same fix that mobile got, now applied to desktop too.
 - **Notification fan-out** (Slack/Discord/webhook beyond Web Push)
 
 Parking lot (not picked but logged): report templates

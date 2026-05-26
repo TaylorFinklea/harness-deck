@@ -323,11 +323,52 @@
           ' docs for this project']));
       }
       (p.reports || []).forEach(function (r) { body.push(itemRow(r)); });
+      var hist = p.history || [];
+      if (hist.length) {
+        body.push(el('div', { class: 'proj-sec', text: 'history' }));
+        body.push(el('div', { class: 'history' }, hist.map(historyRow)));
+      }
       var n = (p.reports || []).length;
       var right = n ? pill(n + ' roadmap report' + (n === 1 ? '' : 's')) : null;
       nodes.push(panel(p.project, right, body));
     });
     return nodes;
+  }
+
+  /* historyRow — one run in the project-history timeline. Unlike itemRow
+     (which is triage-focused: close button, link to report), this row is a
+     retrospective surface: the answers the user recorded show inline so the
+     project panel doubles as a record of what was decided. */
+  function historyRow(r) {
+    var meta = [el('span', { class: 'hist-time', text: shortTime(r.created) })];
+    if (r.kind) meta.push(el('span', { class: 'hist-kind', text: r.kind }));
+    if (r.harness) meta.push(el('span', { class: 'hist-harness', text: r.harness }));
+    if (r.archived) meta.push(el('span', { class: 'hist-flag archived', text: 'archived' }));
+    if (r.open_asks > 0) meta.push(el('span', { class: 'hist-flag asks', text: r.open_asks + ' open' }));
+
+    var head = el('div', { class: 'hist-head', data: { url: reportURL(r) } }, [
+      el('span', { class: 'dot ' + r.status }),
+      el('div', { class: 'hist-title', text: r.title || r.run }),
+      el('div', { class: 'hist-meta' }, meta)
+    ]);
+
+    var kids = [head];
+    var resps = r.responses || [];
+    if (resps.length) {
+      kids.push(el('div', { class: 'hist-resps' }, resps.map(function (a) {
+        var bits = [
+          el('span', { class: 'r-block', text: a.block }),
+          el('span', { class: 'r-arrow', text: ' → ' }),
+          el('span', { class: 'r-value', text: a.value || '—' })
+        ];
+        if (a.note) {
+          bits.push(el('span', { class: 'r-note', text: ' · ' + a.note }));
+        }
+        if (a.at) bits.push(el('span', { class: 'r-at', text: ' · ' + shortTime(a.at) }));
+        return el('div', { class: 'hist-resp' }, bits);
+      })));
+    }
+    return el('div', { class: 'hist-row' }, kids);
   }
 
   /* viewSettings — the 5th view, single user-visible setting today:

@@ -70,9 +70,15 @@
   /* ---------- main layout ---------- */
   .layout {
     display: grid;
-    grid-template-columns: 240px 1fr;
+    /* minmax(0, 1fr) so a wide descendant (a long code block, a wide
+       markdown table) can't push the content column past the viewport.
+       Plain `1fr` resolves to `minmax(auto, 1fr)`, which lets the
+       intrinsic min-content of children inflate the track. Same fix as
+       the mobile breakpoint at 720px. */
+    grid-template-columns: 240px minmax(0, 1fr);
     min-height: calc(100vh - 60px - 32px);
   }
+  .content { min-width: 0; }
   .sidebar {
     background: var(--tn-bg-dark);
     border-right: 1px solid var(--tn-bg-highlight);

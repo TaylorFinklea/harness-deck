@@ -125,11 +125,18 @@ retrospective + multi-channel notifier."
   pulse + progress indicator for runs whose `status: in-progress` and
   whose `live.updated` is recent. Turns the dashboard into a live ops
   pane, not just a result viewer.
-- **Per-project run history** — a per-project timeline view: every
-  report under a project, ordered by `created`, with the user's
-  responses inline. Currently the inbox is a flat list optimized for
-  triage; the project-timeline is the retrospective surface. Reuses
-  the existing store; mostly a view + a few queries.
+- **Per-project run history** _(done — 2026-05-26)_ — every report
+  under a project, newest-first, with the user's responses inlined
+  beneath each run. `/api/projects` grew a `history` field of
+  `historyRun` records (entry summary + inlined `responses.json`).
+  `viewProjects()` renders a "history" subsection per project: status
+  dot + title + meta on the right (time / kind / harness / archived /
+  open-asks pills) + response chips (`block → value · timestamp ·
+  optional note`). The flat inbox stays the triage surface; the
+  per-project timeline is the retrospective surface. Ride-along
+  fix: extended the `minmax(0, 1fr)` grid-track defense to the
+  desktop `.layout` (was only at the 720px breakpoint), so wide
+  markdown / code can't push the content column past the viewport.
 - **Notification fan-out** — destinations beyond Web Push: Slack /
   Discord webhooks, generic POST webhook, optional email. Plug into
   the existing watcher → push delivery path. Per-destination on/off in
