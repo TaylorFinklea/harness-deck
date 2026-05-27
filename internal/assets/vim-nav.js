@@ -37,7 +37,7 @@
     scope: null,
   };
 
-  let mode = 'NORMAL';        // NORMAL | COMMAND | SEARCH
+  let mode = 'NORMAL';        // NORMAL | INSERT | COMMAND | SEARCH
   let buffer = '';            // operator pending (g, etc.)
   let lastFind = '';
   let matches = [];
@@ -566,6 +566,30 @@
       document.head.appendChild(s);
     }
     document.addEventListener('keydown', onKey);
+
+    // INSERT mode tracking: any focused text input flips the statusline to
+    // INSERT so the user can see when their keys are typing rather than
+    // navigating. The vim-nav prompts (id starts with 'vim-prompt') manage
+    // their own modes (SEARCH / COMMAND); we skip them here to avoid
+    // overwriting their state.
+    const isVimPromptInput = (el) =>
+      !!el && (el.id === 'vim-prompt-input' || (el.closest && el.closest('#vim-prompt')));
+    const isTextEditable = (el) =>
+      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    document.addEventListener('focusin', (e) => {
+      if (isVimPromptInput(e.target)) return;
+      if (isTextEditable(e.target)) setMode('INSERT');
+    });
+    document.addEventListener('focusout', (e) => {
+      if (isVimPromptInput(e.target)) return;
+      if (!isTextEditable(e.target)) return;
+      // Slight defer so a focus-shift between two inputs (tab between
+      // fields) doesn't briefly flicker to NORMAL.
+      setTimeout(() => {
+        if (!isTextEditable(document.activeElement)) setMode('NORMAL');
+      }, 0);
+    });
+
     setMode('NORMAL');
     return NS;
   };

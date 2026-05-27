@@ -78,6 +78,15 @@
 /* live: the row carries in-flight telemetry whose `updated` is within
    the live window (see aggregator.js LIVE_WINDOW_MS). The dot pulses;
    the row gets a subtle background tint. */
+/* The vim-cursor focused row (v0.2.0 phase 1). Distinct from :hover
+   because keyboard cursor persists between events while hover is
+   transient. The left-border accent + cyan title makes the cursor
+   pop without competing visually with the status dot. */
+.inbox-item.focused {
+  background: rgba(122, 162, 247, 0.10);
+  box-shadow: inset 3px 0 0 var(--tn-blue);
+}
+.inbox-item.focused .main .title { color: var(--tn-cyan); }
 .inbox-item.live { background: rgba(158, 206, 106, 0.04); }
 .inbox-item .dot.live {
   background: var(--tn-green);

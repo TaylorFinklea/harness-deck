@@ -122,7 +122,7 @@
       sub.push(el('span', { class: 'live-mini', text: '● ' + r.live.step }));
     }
     var rowCls = 'inbox-item' + (live ? ' live' : '');
-    return el('div', { class: rowCls, data: { url: reportURL(r) } }, [
+    return el('div', { class: rowCls, data: { url: reportURL(r), key: rowKey(r) } }, [
       el('span', { class: 'dot ' + r.status + (live ? ' live' : '') }),
       el('div', { class: 'main' }, [
         el('div', { class: 'title', text: r.title || r.run }),
@@ -135,6 +135,149 @@
         data: { project: r.project, run: r.run }
       }, ['✕'])
     ]);
+  }
+
+  /* --- inbox cursor (v0.2.0 phase 1) ---
+     Vim-style focused-row state for keyboard triage. The cursor is a
+     report-id ("project\x00run"), not a row index — so archive / close
+     / sort changes don't slide it onto the wrong row. Restored across
+     refreshes via sessionStorage so the muscle memory survives a
+     reload mid-triage. */
+  var focusedKey = null;
+  var ddArmedAt = 0; // timestamp of the first `d` in a `dd` sequence
+
+  /* rowKey builds the stable id for one inbox row. Uses NUL as the
+     separator because project + run never contain it. */
+  function rowKey(r) { return r.project + '\x00' + r.run; }
+
+  /* visibleRows is the list the cursor traverses on the current view.
+     Mirrors the filter each view applies in renderContent — keeps the
+     cursor in sync with what the user sees. Views without a row list
+     (overview / projects / settings) return an empty array; key
+     handlers fall through to vim-nav scroll. */
+  function visibleRows() {
+    switch (currentView) {
+      case 'inbox':
+        return activeReports().filter(function (r) {
+          return r.status === 'awaiting-review' || r.open_asks > 0;
+        });
+      case 'archive':
+        return archivedReports();
+      case 'latest':
+        return activeReports().slice(0, 1);
+      case 'overview':
+        // recent activity panel — first six active reports
+        return activeReports().slice(0, 6);
+      default:
+        return [];
+    }
+  }
+
+  /* ensureFocused snaps focusedKey to the first visible row when the
+     current target no longer exists in this view (archived, answered,
+     filtered out). Returning null means "no rows to focus." */
+  function ensureFocused() {
+    var rows = visibleRows();
+    if (!rows.length) { focusedKey = null; return null; }
+    var found = rows.find(function (r) { return rowKey(r) === focusedKey; });
+    if (!found) {
+      focusedKey = rowKey(rows[0]);
+      found = rows[0];
+    }
+    persistFocus();
+    return found;
+  }
+
+  /* applyFocusHighlight toggles the .focused class on the row whose
+     data-key matches focusedKey. JS-side equality match because data-key
+     contains a NUL separator and CSS attribute selectors don't accept
+     control characters. Cheap O(rows) DOM walk; called on every render
+     + every cursor move. */
+  function applyFocusHighlight() {
+    document.querySelectorAll('.inbox-item.focused').forEach(function (el) {
+      el.classList.remove('focused');
+    });
+    if (!focusedKey) return;
+    var rows = document.querySelectorAll('.inbox-item[data-key]');
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].dataset.key === focusedKey) {
+        rows[i].classList.add('focused');
+        scrollFocusedIntoView(rows[i]);
+        return;
+      }
+    }
+  }
+
+  /* scrollFocusedIntoView keeps the cursor on screen without scrolling
+     the whole page to the row's top — uses 'nearest' so j/k feel
+     responsive instead of jumpy. */
+  function scrollFocusedIntoView(el) {
+    var rect = el.getBoundingClientRect();
+    var winH = window.innerHeight;
+    if (rect.top < 80 || rect.bottom > winH - 40) {
+      el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    }
+  }
+
+  /* moveCursor advances focusedKey by delta within visibleRows. Clamps
+     at the ends rather than wrapping — wrap would lose the user when
+     a long list scrolls past where they expected. */
+  function moveCursor(delta) {
+    var rows = visibleRows();
+    if (!rows.length) return;
+    var current = ensureFocused();
+    var idx = current ? rows.findIndex(function (r) { return rowKey(r) === focusedKey; }) : 0;
+    var next = Math.max(0, Math.min(rows.length - 1, idx + delta));
+    focusedKey = rowKey(rows[next]);
+    persistFocus();
+    applyFocusHighlight();
+  }
+
+  /* moveCursorTo jumps to top or bottom of the list — bound to gg / G. */
+  function moveCursorTo(where) {
+    var rows = visibleRows();
+    if (!rows.length) return;
+    focusedKey = rowKey(rows[where === 'top' ? 0 : rows.length - 1]);
+    persistFocus();
+    applyFocusHighlight();
+  }
+
+  /* openFocused navigates to the report page for the focused row. The
+     :hover row never wins over the focused row — once you've moved the
+     cursor by keyboard you stay in keyboard mode. */
+  function openFocused() {
+    var row = ensureFocused();
+    if (row) window.location.href = reportURL(row);
+  }
+
+  /* actOnFocused dispatches close / archive / delete against the
+     focused row. Uses the existing report-action endpoints so behavior
+     stays identical to the mouse-driven buttons. After mutation the
+     refresh() re-renders and ensureFocused snaps to the next row. */
+  function actOnFocused(action) {
+    var row = ensureFocused();
+    if (!row) return;
+    if (action === 'close') return closeReport(row.project, row.run);
+    if (action === 'archive') {
+      return reportAction(row.project, row.run, row.archived ? 'unarchive' : 'archive', 'POST');
+    }
+    if (action === 'delete') {
+      if (!confirm('Delete "' + (row.title || row.run) + '"? This removes the run directory from disk.')) return;
+      return reportAction(row.project, row.run, '', 'DELETE');
+    }
+  }
+
+  /* persistFocus / restoreFocus — sessionStorage so the cursor
+     survives F5 mid-triage. View-scoped so each view has its own last
+     position. */
+  function persistFocus() {
+    try { sessionStorage.setItem('hd:focus:' + currentView, focusedKey || ''); } catch (_) {}
+  }
+  function restoreFocus() {
+    try {
+      var v = sessionStorage.getItem('hd:focus:' + currentView);
+      if (v) focusedKey = v;
+    } catch (_) {}
   }
 
   /* --- sidebar tree --- */
@@ -732,6 +875,7 @@
   }
 
   function showView(id) {
+    var changed = currentView !== id;
     currentView = id;
     document.querySelectorAll('.view').forEach(function (v) {
       v.classList.toggle('active', v.id === 'view-' + id);
@@ -739,6 +883,14 @@
     document.querySelectorAll('.view-tab').forEach(function (t) {
       t.classList.toggle('active', t.dataset.view === id);
     });
+    if (changed) {
+      // Each view has its own remembered cursor position; reload it
+      // when the user switches in.
+      focusedKey = null;
+      restoreFocus();
+      ensureFocused();
+      applyFocusHighlight();
+    }
   }
 
   /* refreshAsksCount surfaces the aggregate open-asks count as a chip in
@@ -766,6 +918,11 @@
     renderContent();
     showView(currentView);
     refreshAsksCount();
+    // Cursor-state lives across renders. ensureFocused snaps to a valid
+    // row if the previous one got filtered out, then the highlight
+    // gets painted on the freshly-built DOM.
+    ensureFocused();
+    applyFocusHighlight();
   }
 
   /* one delegated click handler for every navigable row */
@@ -885,6 +1042,40 @@
     var v = VIEWS.find(function (x) { return x.key === e.key; });
     if (v) { showView(v.id); e.preventDefault(); }
   });
+
+  /* Inbox cursor key handler — capture phase so we intercept j/k
+     before vim-nav's page-scroll binding fires. Only owns those keys
+     when there's actually a row list to navigate; otherwise lets the
+     event bubble through to vim-nav. */
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
+    if (!visibleRows().length) return; // current view doesn't have a row list
+    // Modifier keys belong to the browser / OS — don't intercept.
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    function consume() { e.preventDefault(); e.stopImmediatePropagation(); }
+
+    switch (e.key) {
+      case 'j': moveCursor(+1); consume(); return;
+      case 'k': moveCursor(-1); consume(); return;
+      case 'G': moveCursorTo('bottom'); consume(); return;
+      case 'Enter':
+      case 'o': openFocused(); consume(); return;
+      case 'a': actOnFocused('archive'); consume(); return;
+      case 'x': actOnFocused('close'); consume(); return;
+      case 'd':
+        if (Date.now() - ddArmedAt < 500) {
+          ddArmedAt = 0;
+          actOnFocused('delete');
+        } else {
+          ddArmedAt = Date.now();
+        }
+        consume();
+        return;
+    }
+  }, true);
 
   /* closeReport marks a report done server-side, then re-syncs the list. */
   function closeReport(project, run) {
