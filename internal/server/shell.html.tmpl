@@ -35,6 +35,7 @@
     <button class="menu-button" type="button" aria-label="Toggle navigation">☰</button>
     <div class="dots"><span></span><span></span><span></span></div>
     <div class="title"><b>harness-deck</b> · dashboard<span id="title-asks" class="title-asks"></span></div>
+    <button id="titlebar-settings" class="title-search-btn" type="button" aria-label="Settings" title="settings">⚙</button>
     <button class="title-search-btn" type="button" aria-label="Search reports" onclick="HDSearch && HDSearch.open()">?</button>
     <div class="clock" id="clock">--:--:--</div>
   </div>
@@ -42,11 +43,11 @@
     <div class="tab active"><span class="num">~</span> dashboard</div>
   </div>
   <div class="keyhints vim-no-search">
-    <span><kbd>1</kbd>–<kbd>6</kbd> views</span>
+    <span><kbd>j</kbd><kbd>k</kbd> row</span>
+    <span><kbd>Enter</kbd> open</span>
+    <span><kbd>a</kbd> archive</span>
+    <span><kbd>x</kbd> close</span>
     <span><kbd>⌘K</kbd> search</span>
-    <span><kbd>j</kbd><kbd>k</kbd> scroll</span>
-    <span><kbd>]</kbd><kbd>[</kbd> section</span>
-    <span><kbd>/</kbd> search</span>
     <span><kbd>:</kbd> command</span>
     <span><kbd>?</kbd> help</span>
   </div>

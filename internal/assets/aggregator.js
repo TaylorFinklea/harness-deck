@@ -7,13 +7,15 @@
 (function () {
   'use strict';
 
+  /* v0.2.0 IA: two top-level views.
+       - inbox: actionable now (awaiting + open-asks); archive is a filter, not a view
+       - projects: long-term / strategic per-project surface
+     Settings becomes an overlay (`,s` in phase 3; gear button on the
+     titlebar in phase 2 for mouse access). Old "overview / latest /
+     archive / settings" tabs are folded — see migrateLegacyURL(). */
   var VIEWS = [
-    { id: 'inbox', key: '1', label: 'inbox' },
-    { id: 'overview', key: '2', label: 'overview' },
-    { id: 'latest', key: '3', label: 'latest' },
-    { id: 'projects', key: '4', label: 'projects' },
-    { id: 'settings', key: '5', label: 'settings' },
-    { id: 'archive', key: '6', label: 'archive' }
+    { id: 'inbox', label: 'inbox' },
+    { id: 'projects', label: 'projects' }
   ];
 
   /* activeReports — non-archived only. Every default view operates on
@@ -30,6 +32,11 @@
   var currentView = 'inbox';
   var trackedOpen = false;     // is the "tracked projects" panel expanded?
   var draggedName = null;      // project name currently being dragged, or null
+  /* archiveFilter: when true the inbox shows archived reports instead
+     of active ones. Replaces the old standalone archive view. The 'a'
+     keybinding (toggle archive) still works in either mode — it just
+     means "archive" in one and "unarchive" in the other. */
+  var archiveFilter = false;
 
   /* el builds a DOM node. attrs: {class, text, data:{...}, <attr>:<val>}.
      kids: array of nodes or strings (strings become safe text nodes). */
@@ -152,25 +159,14 @@
 
   /* visibleRows is the list the cursor traverses on the current view.
      Mirrors the filter each view applies in renderContent — keeps the
-     cursor in sync with what the user sees. Views without a row list
-     (overview / projects / settings) return an empty array; key
-     handlers fall through to vim-nav scroll. */
+     cursor in sync with what the user sees. Projects view has no row
+     list; the cursor falls through to vim-nav scroll there. */
   function visibleRows() {
-    switch (currentView) {
-      case 'inbox':
-        return activeReports().filter(function (r) {
-          return r.status === 'awaiting-review' || r.open_asks > 0;
-        });
-      case 'archive':
-        return archivedReports();
-      case 'latest':
-        return activeReports().slice(0, 1);
-      case 'overview':
-        // recent activity panel — first six active reports
-        return activeReports().slice(0, 6);
-      default:
-        return [];
-    }
+    if (currentView !== 'inbox') return [];
+    if (archiveFilter) return archivedReports();
+    return activeReports().filter(function (r) {
+      return r.status === 'awaiting-review' || r.open_asks > 0;
+    });
   }
 
   /* ensureFocused snaps focusedKey to the first visible row when the
@@ -331,89 +327,84 @@
   }
 
   /* --- home views --- each returns an array of nodes --- */
+
+  /* metricChip — one cell in an operational metric strip. value is the
+     bold number; label is the small caption beside it. When chip.onClick
+     is set, the chip becomes a navigable filter pre-set. */
+  function metricChip(value, label, opts) {
+    opts = opts || {};
+    var attrs = { class: 'metric-chip' + (opts.active ? ' active' : '') + (opts.click ? ' clickable' : '') };
+    if (opts.click) attrs.data = { action: opts.click };
+    return el('div', attrs, [
+      el('span', { class: 'value', text: String(value) }),
+      el('span', { class: 'label', text: label })
+    ]);
+  }
+
+  function metricStrip(chips) {
+    return el('div', { class: 'metric-strip' }, chips);
+  }
+
+  /* createdInLast24h — true when a report's `created` (RFC3339) is
+     within the last 24 hours of now. Defensive about parse failures
+     (an unparseable timestamp is treated as old). */
+  function createdInLast24h(iso) {
+    if (!iso) return false;
+    var t = Date.parse(iso);
+    return isFinite(t) && (Date.now() - t) < 24 * 60 * 60 * 1000;
+  }
+
   function viewInbox() {
-    var items = activeReports().filter(function (r) {
+    if (archiveFilter) return viewInboxArchived();
+    var active = activeReports();
+    var items = active.filter(function (r) {
       return r.status === 'awaiting-review' || r.open_asks > 0;
     });
+    var openAsks = active.reduce(function (s, r) { return s + (r.open_asks || 0); }, 0);
+    var inFlight = active.filter(isLive).length;
+    var today = active.filter(function (r) { return createdInLast24h(r.created); }).length;
+    var archivedCount = archivedReports().length;
+
+    var strip = metricStrip([
+      metricChip(items.length, 'awaiting'),
+      metricChip(openAsks, 'open asks'),
+      metricChip(inFlight, 'in-flight'),
+      metricChip(today, 'today'),
+      metricChip(archivedCount, 'archived', { click: 'toggle-archive' })
+    ]);
+
     var body = items.length
       ? items.map(itemRow)
       : [emptyState([el('b', { text: 'nothing needs you.' }), el('br'),
         'no reports are awaiting review.'])];
     var right = items.length ? pill(items.length + ' awaiting', 'warn') : null;
-    return [panel('inbox — needs you', right, body)];
+    return [strip, panel('inbox — needs you', right, body)];
   }
 
-  function viewOverview() {
-    var rs = activeReports();
-    var st = rs.reduce(function (m, r) { m[r.status || '—'] = (m[r.status || '—'] || 0) + 1; return m; }, {});
-    var projectsSeen = {};
-    rs.forEach(function (r) { projectsSeen[r.project] = true; });
-    var cells = [
-      ['reports', rs.length],
-      ['awaiting review', st['awaiting-review'] || 0],
-      ['answered', st['answered'] || 0],
-      ['projects', Object.keys(projectsSeen).length]
-    ];
-    var grid = el('div', { class: 'metric-grid' }, cells.map(function (c) {
-      return el('div', { class: 'metric' }, [
-        el('div', { class: 'label', text: c[0] }),
-        el('div', { class: 'value', text: String(c[1]) })
-      ]);
-    }));
-    var overview = el('section', { class: 'panel', 'data-vim-section': '' }, [
-      el('div', { class: 'panel-head' }, [
-        el('span', { class: 'sigil', text: '§' }), ' ',
-        el('span', { class: 'title-text', text: 'overview' })
-      ]),
-      grid
-    ]);
-    var recent = rs.length
-      ? rs.slice(0, 6).map(itemRow)
-      : [emptyState(['no reports yet'])];
-    return [overview, panel('recent activity', null, recent)];
-  }
-
-  function viewLatest() {
-    var rs = activeReports();
-    if (!rs.length) {
-      return [panel('latest', null, [emptyState(['no reports yet'])])];
-    }
-    var r = rs[0];
-    return [panel('latest report', pill(r.status), [itemRow(r)])];
-  }
-
-  /* viewArchive — archived reports listed newest-first with restore and
-     hard-delete buttons. Empty state offers the "tip: archive instead of
-     delete" pointer so users discover the safer flow. */
-  function viewArchive() {
+  /* viewInboxArchived — the archive filter version of viewInbox. Same
+     strip, but the action chip says "back to inbox" instead, the panel
+     title reads "archive", and the row list is the archived set. */
+  function viewInboxArchived() {
     var rs = archivedReports();
+    var active = activeReports();
+    var openAsks = active.reduce(function (s, r) { return s + (r.open_asks || 0); }, 0);
+
+    var strip = metricStrip([
+      metricChip(active.filter(function (r) { return r.status === 'awaiting-review' || r.open_asks > 0; }).length, 'awaiting'),
+      metricChip(openAsks, 'open asks'),
+      metricChip(active.filter(isLive).length, 'in-flight'),
+      metricChip(active.filter(function (r) { return createdInLast24h(r.created); }).length, 'today'),
+      metricChip(rs.length, 'archived', { click: 'toggle-archive', active: true })
+    ]);
+
     if (!rs.length) {
-      return [panel('archive', null, [emptyState([
+      return [strip, panel('archive — empty', null, [emptyState([
         'nothing archived. ',
         el('b', { text: 'tip:' }),
-        ' use the 📦 archive button on a report instead of ⌦ delete to keep its files around in case you need them.'
+        ' archive instead of delete to keep a report\'s files around in case you need them.'
       ])])];
     }
-    var rows = rs.map(function (r) {
-      var actions = el('div', { class: 'archive-actions' }, [
-        el('button', {
-          type: 'button',
-          class: 'archive-restore',
-          data: { project: r.project, run: r.run },
-          text: '↺ restore'
-        }),
-        el('button', {
-          type: 'button',
-          class: 'archive-delete danger',
-          data: { project: r.project, run: r.run },
-          text: '⌦ delete'
-        })
-      ]);
-      var row = itemRow(r);
-      row.appendChild(actions);
-      return row;
-    });
-    return [panel('archive', pill(rs.length + ' archived'), rows)];
+    return [strip, panel('archive', pill(rs.length + ' archived'), rs.map(itemRow))];
   }
 
   /* projectToggleRow — one discovered project with a drag handle and a
@@ -439,6 +430,28 @@
     var projects = data.projects || [];
     var onCount = discovered.filter(function (d) { return d.enabled; }).length;
     var nodes = [];
+
+    /* metric strip: at-a-glance state across all tracked projects.
+       "updated this week" counts projects whose history has any entry
+       created in the last 7 days; "with asks" counts projects whose
+       roadmap reports or history entries carry open asks. Latest is
+       the most-recent any-kind report's project name. */
+    var latestReport = (data.reports || []).slice().sort(function (a, b) {
+      return (b.created || '').localeCompare(a.created || '');
+    })[0];
+    var weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    function projectIsFresh(p) {
+      return (p.history || []).some(function (h) { return Date.parse(h.created) > weekAgo; });
+    }
+    function projectHasAsks(p) {
+      return (p.history || []).some(function (h) { return h.open_asks > 0; });
+    }
+    nodes.push(metricStrip([
+      metricChip(projects.length, 'projects'),
+      metricChip(projects.filter(projectIsFresh).length, 'updated this week'),
+      metricChip(projects.filter(projectHasAsks).length, 'with asks'),
+      metricChip(latestReport ? latestReport.project : '—', 'latest update')
+    ]));
 
     /* collapsible "tracked projects" settings panel */
     var head = el('div', { class: 'panel-head tracked-head' }, [
@@ -530,7 +543,41 @@
     return el('div', { class: 'hist-row' }, kids);
   }
 
-  /* viewSettings — the 5th view, single user-visible setting today:
+  /* Settings overlay (v0.2.0): the same content viewSettings() builds,
+     but rendered into a modal instead of a top-level view. The function
+     stays here so we can also point an inline-link from elsewhere if
+     ever needed; openSettingsOverlay() drives the modal lifecycle.
+
+     openSettingsOverlay creates the DOM lazily on first open so it
+     never costs paint time for users who never trigger it. */
+  function openSettingsOverlay() {
+    var existing = document.getElementById('settings-overlay');
+    if (existing) {
+      existing.style.display = 'flex';
+      return;
+    }
+    var body = el('div', { class: 'settings-modal-body' }, viewSettings());
+    var modal = el('div', { class: 'settings-modal' }, [
+      el('div', { class: 'settings-modal-head' }, [
+        el('div', { class: 'settings-modal-title', text: 'settings' }),
+        el('button', { type: 'button', class: 'settings-modal-close', title: 'close (Esc)' }, ['✕'])
+      ]),
+      body
+    ]);
+    var overlay = el('div', { id: 'settings-overlay', class: 'settings-overlay' }, [modal]);
+    document.body.appendChild(overlay);
+  }
+  function closeSettingsOverlay() {
+    var o = document.getElementById('settings-overlay');
+    if (o) o.style.display = 'none';
+  }
+  function toggleSettingsOverlay() {
+    var o = document.getElementById('settings-overlay');
+    if (o && o.style.display !== 'none') closeSettingsOverlay();
+    else openSettingsOverlay();
+  }
+
+  /*
      phone push notifications. The whole view renders synchronously with
      placeholder copy, then async fetches (server status, browser
      subscription state) overwrite the relevant cells via id refs. */
@@ -858,13 +905,14 @@
     return out;
   }
 
-  var BUILDERS = { inbox: viewInbox, overview: viewOverview, latest: viewLatest, projects: viewProjects, settings: viewSettings, archive: viewArchive };
+  /* BUILDERS maps view id → builder function. v0.2.0 keeps just the
+     two top-level views; viewSettings is now rendered into a modal
+     overlay (settingsOverlayBody) instead. */
+  var BUILDERS = { inbox: viewInbox, projects: viewProjects };
 
   function renderContent() {
     var tabs = el('div', { class: 'view-tabs' }, VIEWS.map(function (v) {
-      return el('div', { class: 'view-tab', data: { view: v.id } }, [
-        el('span', { class: 'k', text: v.key }), v.label
-      ]);
+      return el('div', { class: 'view-tab', data: { view: v.id } }, [v.label]);
     }));
     var nodes = [tabs];
     VIEWS.forEach(function (v) {
@@ -954,6 +1002,26 @@
     if (e.target.id === 'push-off') { disablePushHere(); return; }
     var themeBtn = e.target.closest('.theme-btn');
     if (themeBtn) { setTheme(themeBtn.dataset.theme); return; }
+    var chip = e.target.closest('.metric-chip.clickable');
+    if (chip) {
+      e.stopPropagation();
+      if (chip.dataset.action === 'toggle-archive') {
+        archiveFilter = !archiveFilter;
+        focusedKey = null; // archive set is disjoint from active set
+        try { sessionStorage.removeItem('hd:focus:inbox'); } catch (_) {}
+        render();
+      }
+      return;
+    }
+    if (e.target.closest('#titlebar-settings')) {
+      e.stopPropagation();
+      openSettingsOverlay();
+      return;
+    }
+    if (e.target.closest('.settings-modal-close') || e.target.classList.contains('settings-overlay')) {
+      closeSettingsOverlay();
+      return;
+    }
     var testBtn = e.target.closest('.dest-test');
     if (testBtn) { e.stopPropagation(); testDestination(testBtn.dataset.name); return; }
     var removeBtn = e.target.closest('.dest-remove');
@@ -1156,7 +1224,44 @@
     es.addEventListener('change', function () { refresh(); });
   }
 
-  window.HarnessDeck = { reload: refresh };
+  /* migrateLegacyURL — old `?v=overview|latest|archive|settings`
+     URLs now map onto the v0.2.0 IA. Settings becomes the overlay;
+     archive becomes the filter; overview/latest just redirect to
+     inbox. Rewrites the URL via history.replaceState so refreshes
+     don't keep re-triggering the migration. */
+  function migrateLegacyURL() {
+    var params = new URLSearchParams(window.location.search);
+    var v = params.get('v');
+    var openSettings = false;
+    var enableArchive = params.get('archive') === '1';
+    if (v === 'archive') { enableArchive = true; params.delete('v'); }
+    else if (v === 'settings') { openSettings = true; params.delete('v'); }
+    else if (v === 'overview' || v === 'latest') { params.delete('v'); }
+    else if (v === 'inbox' || v === 'projects') { /* still valid */ }
+    if (enableArchive) {
+      archiveFilter = true;
+      params.set('archive', '1');
+    }
+    if (params.get('settings') === '1') openSettings = true;
+    var search = params.toString();
+    history.replaceState(null, '', window.location.pathname + (search ? '?' + search : ''));
+    if (openSettings) setTimeout(openSettingsOverlay, 0);
+  }
+
+  /* Esc closes the settings overlay when it's the topmost layer. The
+     vim-nav Esc handler runs too but only resets its own prompt state;
+     no conflict. */
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var o = document.getElementById('settings-overlay');
+    if (o && o.style.display !== 'none') {
+      closeSettingsOverlay();
+      e.preventDefault();
+    }
+  });
+
+  window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
+  migrateLegacyURL();
   refresh();
   connectEvents();
 })();
