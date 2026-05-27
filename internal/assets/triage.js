@@ -33,6 +33,25 @@
     return panel.querySelector('.hd-input');
   }
 
+  /* activeBtnIdx — which response button on the focused panel is the
+     "current" choice. h / l walk it left / right; Enter clicks it.
+     Resets to 0 every time focus moves to a different panel. Tracked
+     here (closure) rather than in the DOM so re-renders don't lose it. */
+  var activeBtnIdx = 0;
+
+  function setActiveBtn(panel, idx) {
+    if (!panel) return;
+    var btns = buttons(panel);
+    if (!btns.length) return;
+    // Clamp without wrap — wrap on a 2-option ask feels disorienting;
+    // explicit bounds make h/l visibly stop at the ends.
+    idx = Math.max(0, Math.min(btns.length - 1, idx));
+    activeBtnIdx = idx;
+    btns.forEach(function (b, i) {
+      b.classList.toggle('hd-btn-active', i === idx);
+    });
+  }
+
   function setFocus(panel) {
     document.querySelectorAll('.panel.ask-focused').forEach(function (p) {
       p.classList.remove('ask-focused');
@@ -42,8 +61,11 @@
     });
     if (!panel) return;
     panel.classList.add('ask-focused');
-    var b = buttons(panel)[0];
-    if (b) b.classList.add('hd-btn-active');
+    // Reset the highlighted choice to the first button whenever the
+    // focused panel changes — muscle memory expects "Tab to next ask,
+    // start at option 1."
+    activeBtnIdx = 0;
+    setActiveBtn(panel, 0);
     // Scroll the focused panel into view without yanking the page if
     // it's already on-screen. The 40px top inset matches vim-nav's
     // jumpTo offset so headings/sections feel consistent.
@@ -110,8 +132,8 @@
   }
 
   // submitFocused — Enter behavior. If the focused ask has a text
-  // input, submit its current value. Otherwise click the highlighted
-  // (first) button.
+  // input AND it's currently focused, submit its value. Otherwise
+  // click the highlighted button (the one h/l left active).
   function submitFocused() {
     var p = focusedPanel();
     if (!p) return;
@@ -122,7 +144,7 @@
       return;
     }
     var btns = buttons(p);
-    if (btns.length) clickButton(p, btns[0]);
+    if (btns.length) clickButton(p, btns[activeBtnIdx] || btns[0]);
   }
 
   function focusInput() {
@@ -162,6 +184,22 @@
         if (!unansweredBlocks().length) return;
         moveFocus(e.shiftKey ? -1 : 1);
         e.preventDefault();
+        return;
+      }
+      case 'h': {
+        var p = focusedPanel();
+        if (p && buttons(p).length > 1) {
+          setActiveBtn(p, activeBtnIdx - 1);
+          e.preventDefault();
+        }
+        return;
+      }
+      case 'l': {
+        var p2 = focusedPanel();
+        if (p2 && buttons(p2).length > 1) {
+          setActiveBtn(p2, activeBtnIdx + 1);
+          e.preventDefault();
+        }
         return;
       }
       case 'Escape': {
