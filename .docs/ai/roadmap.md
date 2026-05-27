@@ -157,8 +157,16 @@ Also on the table (lower priority — not picked yet but logged):
   progress | decision | idea` scaffolds opinionated starters with the
   right block shapes pre-filled. Pairs with `docs/PUBLISHING.md`.
 - **Search filters + saved searches** — Cmd+K filters by project /
-  status / kind / block-type / time range; saved searches pin as
-  tabs in the in-app tab strip.
+  status / kind / block-type / time range; saved searches pin to
+  the sidebar's PINNED section (now that tabs are gone).
+- **lark-plug-hdeck — response writing** — shipped 2026-05-27 as
+  read-only (Inbox / All / In Flight pickers, open in $BROWSER).
+  Could grow yes/no inline responses but choice / text need real
+  picker-mode UX design. Defer until a week of read-only usage.
+- **herdr ↔ harness-deck active integration** — passive integration
+  already works (agents in herdr panes publish per CONTRACT.md).
+  Active surface (herdr pane status mirroring open-asks) requires
+  a herdr extension; wait until used in anger.
 
 ## Later / out of scope
 
