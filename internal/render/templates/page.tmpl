@@ -37,9 +37,10 @@
     <div class="title"><b>harness-deck</b> · {{.Report.Project}} · agent {{with .Report.Agent}}{{.}}{{else}}{{$.Report.Harness}}{{end}}</div>
     <div class="clock" id="clock">--:--:--</div>
   </div>
-  <div class="tabbar">
-    <div class="tab active"><span class="num">1</span> {{.Report.Title}}</div>
+  <div class="actionbar">
+    <div class="actionbar-title vim-no-search">{{.Report.Title}}</div>
     <div class="report-actions vim-no-search">
+      <button id="hd-pin-btn" type="button" title="pin to sidebar (p)" data-pinned="false">📌 pin<span class="hd-hint">p</span></button>
       {{if eq .Report.Status "done"}}
         <button onclick="hdReopen()" title="reopen (back to inbox)">↺ reopen<span class="hd-hint">r</span></button>
       {{else}}
@@ -219,11 +220,23 @@
   document.addEventListener('scroll', updatePos, { passive: true });
   updatePos();
   VimNav.init({ statusEl: '#status', onMode: (m) => { modeEl.textContent = '▌ ' + m; } });
-  // Pin the report we just landed on into the tab strip (covers direct
-  // bookmarks, push-notification deep-links, and browser back/forward).
-  if (window.HDTabs) {
-    HDTabs.ensureCurrent(HD_REPORT.title || HD_REPORT.run);
-    HDTabs.render();
+  // Reflect the current pin state on the pin button (📌 / ★).
+  if (window.HDPins) {
+    var pinBtn = document.getElementById('hd-pin-btn');
+    var refreshPinBtn = function () {
+      if (!pinBtn) return;
+      var on = HDPins.isPinned(HD_REPORT.project, HD_REPORT.run);
+      pinBtn.dataset.pinned = on ? 'true' : 'false';
+      pinBtn.replaceChildren(
+        document.createTextNode(on ? '★ pinned' : '📌 pin'),
+        Object.assign(document.createElement('span'), { className: 'hd-hint', textContent: 'p' })
+      );
+    };
+    refreshPinBtn();
+    pinBtn && pinBtn.addEventListener('click', function () {
+      HDPins.toggle(HD_REPORT.project, HD_REPORT.run, HD_REPORT.title || HD_REPORT.run);
+      refreshPinBtn();
+    });
   }
 </script>
 </body>

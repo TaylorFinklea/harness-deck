@@ -281,7 +281,21 @@
     } catch (_) {}
   }
 
-  /* --- sidebar tree --- */
+  /* --- sidebar tree ---
+     Two stacked sections: PINNED (the user's curated quick-jump list,
+     keyed by digit 1-9 minus the dashboard) on top, REPORTS (the full
+     project-grouped tree) below. Pinned items show as a flat list —
+     no project grouping — because that's what makes 1..9 map cleanly
+     to "the item at position N." */
+  function pinnedItems() { return (window.HDPins && HDPins.load()) || []; }
+  function isPinned(r) {
+    return window.HDPins && HDPins.isPinned(r.project, r.run);
+  }
+  function togglePin(r) {
+    if (!window.HDPins || !r) return;
+    HDPins.toggle(r.project, r.run, r.title || r.run);
+  }
+
   function renderTree() {
     var byProj = {};
     activeReports().forEach(function (r) {
@@ -309,17 +323,47 @@
         el('span', { class: 'count', text: String(byProj[p].length) })
       ]));
       byProj[p].forEach(function (r) {
-        tree.appendChild(el('div', { class: 'row run', data: { url: reportURL(r) } }, [
+        var rowKids = [
           el('span', { class: 'st ' + r.status }),
           el('span', { class: 'label', text: r.title || r.run }),
           el('span', { class: 'hbadge', text: r.harness })
-        ]));
+        ];
+        if (isPinned(r)) {
+          rowKids.unshift(el('span', { class: 'pin-glyph', text: '★', title: 'pinned' }));
+        }
+        tree.appendChild(el('div', { class: 'row run' + (isPinned(r) ? ' is-pinned' : ''), data: { url: reportURL(r) } }, rowKids));
       });
     });
 
-    var sections = [el('div', { class: 'sidebar-section' }, [
+    /* PINNED section — flat list of the user's manually-pinned reports.
+       Each row is a navigable .row.run (same shape as the main tree),
+       so tree-focus j/k walks them naturally. The leading digit chip
+       teaches the 2-9 shortcut. Section is hidden when no pins. */
+    var pins = pinnedItems();
+    var pinnedTree = null;
+    if (pins.length) {
+      pinnedTree = el('div', { class: 'tree pinned-tree' });
+      pins.forEach(function (p, i) {
+        pinnedTree.appendChild(el('div', {
+          class: 'row run pinned', data: { url: reportURL(p) }
+        }, [
+          el('span', { class: 'pin-num', text: String(i + 2) }),
+          el('span', { class: 'label', text: p.title || p.run }),
+          el('span', { class: 'hbadge', text: p.project })
+        ]));
+      });
+    }
+
+    var sections = [];
+    if (pinnedTree) {
+      sections.push(el('div', { class: 'sidebar-section' }, [
+        el('div', { class: 'sidebar-title', text: 'pinned · p' }), pinnedTree
+      ]));
+    }
+    sections.push(el('div', { class: 'sidebar-section' }, [
       el('div', { class: 'sidebar-title', text: 'reports' }), tree
-    ])];
+    ]));
+
     if (data.errors && data.errors.length) {
       var errs = el('div', { class: 'scan-errs' },
         data.errors.map(function (e) { return el('div', { text: e }); }));
@@ -616,6 +660,7 @@
       ['o', 'same as Enter'],
       ['a', 'archive (or unarchive in archive view)'],
       ['x', 'close (mark done)'],
+      ['p', 'pin / unpin (sidebar PINNED section)'],
       [['d', 'd'], 'delete (with confirm)'],
     ]));
     sections.push(helpSection('jumps (g-prefix)', [
@@ -632,9 +677,12 @@
       [['Space', 't'], 'cycle theme (system → dark → light)'],
       [['Space', '?'], 'this help (alias for ?)'],
     ]));
-    sections.push(helpSection('tabs (digits)', [
+    sections.push(helpSection('pins (digits)', [
+      [['p'], 'pin / unpin the focused / current report'],
       [['1'], 'go to dashboard'],
-      [['2', '–', '9'], 'go to in-app tab N (pinned reports)'],
+      [['2', '–', '9'], 'go to pinned report at position N−1'],
+      [['g', 't'], 'cycle to next pin (g T reverses)'],
+      [['g', 'x'], 'unpin the current report'],
     ]));
     sections.push(helpSection('commands (: prompt)', [
       [':inbox / :projects', 'jump to a view'],
@@ -1280,6 +1328,18 @@
     if (row && row.dataset.url) window.location.href = row.dataset.url;
   }
 
+  function pinTreeFocused() {
+    // The tree-active row's data-url is /r/<project>/<run>; pull both
+    // parts back out and look up the report record for its title.
+    var key = treeActiveKey;
+    if (!key) return;
+    var parts = key.split('\x00');
+    if (parts.length !== 2) return;
+    var rec = (data.reports || []).find(function (r) { return r.project === parts[0] && r.run === parts[1]; });
+    var title = rec ? (rec.title || rec.run) : parts[1];
+    if (window.HDPins) HDPins.toggle(parts[0], parts[1], title);
+  }
+
   function enterTreeFocus() {
     treeFocused = true;
     var rows = treeRows();
@@ -1375,6 +1435,7 @@
         case 'k': moveTreeCursor(-1); consume(); return;
         case 'Enter':
         case 'o': openTreeFocused(); consume(); return;
+        case 'p': pinTreeFocused(); consume(); return;
         case 'Escape': exitTreeFocus(); consume(); return;
       }
       // Pass other keys (including Space for the leader) through so
@@ -1401,6 +1462,12 @@
       case 'o': openFocused(); consume(); return;
       case 'a': actOnFocused('archive'); consume(); return;
       case 'x': actOnFocused('close'); consume(); return;
+      case 'p':
+        // Pin/unpin the inbox-focused row.
+        var fr = ensureFocused();
+        if (fr) togglePin(fr);
+        consume();
+        return;
       case 'd':
         if (Date.now() - ddArmedAt < 500) {
           ddArmedAt = 0;
@@ -1560,11 +1627,27 @@
     VimNav.addCommand('archive', function () { showView('inbox'); archiveFilter = !archiveFilter; render(); }, 'toggle archive filter on inbox');
     VimNav.addCommand('settings', function () { openSettingsOverlay(); }, 'open the settings overlay');
     VimNav.addCommand('cheat', function () { openHelpOverlay(); }, 'open the keymap cheat sheet');
+    VimNav.addCommand('pin', function () {
+      var r = ensureFocused() || (treeFocused && (function () {
+        var key = (treeActiveKey || '').split('\x00');
+        return key.length === 2 ? (data.reports || []).find(function (x) { return x.project === key[0] && x.run === key[1]; }) : null;
+      })());
+      if (r) togglePin(r);
+    }, 'pin or unpin the focused report');
     VimNav.addCommand('theme', function (arg) {
       if (arg === 'dark' || arg === 'light' || arg === 'system') setTheme(arg);
       else cycleTheme();
     }, 'cycle theme (or: theme dark/light/system)');
   }
+
+  /* HDPinsChanged is fired by tabs.js whenever the pins list mutates
+     (toggle / pin / unpin). Re-render the tree so the PINNED section
+     and the in-tree ★ markers stay in sync without a full data
+     refresh. */
+  window.HDPinsChanged = function () {
+    renderTree();
+    paintTreeFocus();
+  };
 
   window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
   migrateLegacyURL();

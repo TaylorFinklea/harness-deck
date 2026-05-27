@@ -42,30 +42,29 @@
   .titlebar .title b { color: var(--tn-fg-dark); font-weight: 500; }
   .titlebar .clock { color: var(--tn-comment); font-variant-numeric: tabular-nums; }
 
-  .tabbar {
+  /* Action bar on report pages: report title on the left, action
+     buttons (pin / close / archive / delete) on the right. Replaces
+     the v0.1.x tab strip; the dashboard has no actionbar at all
+     (its action surface is the inbox cursor + Space-e tree). */
+  .actionbar {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 16px;
     background: var(--tn-bg-darker);
     border-bottom: 1px solid #0b0c11;
-    overflow-x: auto;
+    min-height: 38px;
   }
-  .tab {
-    padding: 8px 16px;
-    font-size: 12px;
-    color: var(--tn-comment);
-    background: transparent;
-    border-right: 1px solid #0b0c11;
-    cursor: pointer;
-    display: flex; align-items: center; gap: 8px;
-    white-space: nowrap;
-  }
-  .tab .num { color: var(--tn-fg-gutter); font-size: 10px; }
-  .tab .dirty { color: var(--tn-yellow); }
-  .tab.active {
-    background: var(--tn-bg);
+  .actionbar-title {
     color: var(--tn-fg);
-    box-shadow: inset 0 2px 0 var(--tn-blue);
+    font-size: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
   }
-  .tab:hover:not(.active) { color: var(--tn-fg-dark); }
 
   /* ---------- main layout ---------- */
   .layout {
@@ -108,6 +107,34 @@
     cursor: pointer;
   }
   .tree .row:hover { background: var(--tn-bg-highlight); }
+  /* Pinned section in the sidebar. Each pin row carries a leading
+     digit chip teaching the 2-9 shortcut + the project as a faint
+     badge on the right. Visually distinct enough from the main tree
+     that the two sections don't blur together. */
+  .pinned-tree { margin-bottom: 4px; }
+  .pinned-tree .row.run {
+    padding-left: 4px;
+  }
+  .pin-num {
+    display: inline-block;
+    min-width: 14px;
+    text-align: center;
+    margin-right: 4px;
+    padding: 0 4px;
+    background: var(--tn-bg-highlight);
+    color: var(--tn-cyan);
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .pin-glyph {
+    color: var(--tn-yellow);
+    margin-right: 4px;
+    font-size: 10px;
+  }
+  .row.run.is-pinned .label { color: var(--tn-fg); }
+
   /* Tree-explorer focus mode (Space-e). When active, the sidebar gets
      a visible focus ring + the highlighted row shows a left-border
      accent. Mirrors the inbox cursor's visual vocabulary. */

@@ -1,17 +1,19 @@
-// In-app tab strip. Open report URLs are persisted in localStorage so
-// they survive reloads and appear on every page (the aggregator shell
-// and every rendered report). Switching tabs is real navigation —
-// avoids the iframe/state-isolation mess and lets each report keep its
-// own vim-nav, scroll position, and SSE connection.
+// Pin manager. Replaces the v0.1.x in-app tab strip with a manual-pin
+// model: you press `p` on a report (or row, or tree-active item) to
+// keep it on the sidebar's PINNED section; press `p` again to unpin.
+// Nothing auto-pins anymore — opening a report is a transient act.
 //
-// State shape (`harness-deck:tabs` in localStorage):
+// State shape (`harness-deck:pins` in localStorage):
 //   [ { project, run, title } , ... ]
 //
-// The dashboard pseudo-tab is rendered first and is never in storage;
-// it is implicit.
+// Same fields as the old tabs state so existing consumers (search,
+// digit shortcuts) keep working with minimal rename. The renderer of
+// the PINNED section itself lives in aggregator.js (dashboard only);
+// this module owns the persisted state, the toggle verb, and the
+// report-page navigation chords (q / g d / g i / g p / g a / g t / g T).
 (function () {
-  var STORAGE_KEY = 'harness-deck:tabs';
-  var MAX_TABS = 12; // soft cap so the strip stays readable
+  var STORAGE_KEY = 'harness-deck:pins';
+  var MAX_PINS = 9; // matches the digit-shortcut range (1=dashboard, 2-9=pins)
 
   function load() {
     try {
@@ -21,17 +23,21 @@
       return Array.isArray(arr) ? arr : [];
     } catch (_) { return []; }
   }
-  function save(tabs) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs)); } catch (_) {}
+  function save(pins) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pins)); } catch (_) {}
+    // Tell the dashboard's tree renderer to repaint if it's listening
+    // (the aggregator IIFE wires this up). Cheap synchronous notify;
+    // no module dependency in this direction.
+    if (typeof window !== 'undefined' && window.HDPinsChanged) window.HDPinsChanged();
   }
 
-  function reportURL(t) {
-    return '/r/' + encodeURIComponent(t.project) + '/' + encodeURIComponent(t.run);
+  function reportURL(p) {
+    return '/r/' + encodeURIComponent(p.project) + '/' + encodeURIComponent(p.run);
   }
 
-  function indexOf(tabs, project, run) {
-    for (var i = 0; i < tabs.length; i++) {
-      if (tabs[i].project === project && tabs[i].run === run) return i;
+  function indexOf(pins, project, run) {
+    for (var i = 0; i < pins.length; i++) {
+      if (pins[i].project === project && pins[i].run === run) return i;
     }
     return -1;
   }
@@ -42,110 +48,56 @@
     return { project: decodeURIComponent(m[1]), run: decodeURIComponent(m[2]) };
   }
 
-  function openTab(project, run, title) {
-    var tabs = load();
-    var i = indexOf(tabs, project, run);
-    var entry = { project: project, run: run, title: title || run };
-    if (i >= 0) {
-      tabs[i] = entry;
-    } else {
-      tabs.push(entry);
-      while (tabs.length > MAX_TABS) tabs.shift();
-    }
-    save(tabs);
-    location.href = reportURL(entry);
+  function pin(project, run, title) {
+    var pins = load();
+    if (indexOf(pins, project, run) >= 0) return false; // already pinned
+    pins.push({ project: project, run: run, title: title || run });
+    while (pins.length > MAX_PINS) pins.shift();
+    save(pins);
+    return true;
   }
 
-  function closeTab(project, run) {
-    var tabs = load();
-    var i = indexOf(tabs, project, run);
-    if (i < 0) return;
-    tabs.splice(i, 1);
-    save(tabs);
-    var here = currentRoute();
-    if (here && here.project === project && here.run === run) {
-      var prev = tabs[Math.max(0, i - 1)];
-      location.href = prev ? reportURL(prev) : '/';
-    } else {
-      renderTabs();
-    }
+  function unpin(project, run) {
+    var pins = load();
+    var i = indexOf(pins, project, run);
+    if (i < 0) return false;
+    pins.splice(i, 1);
+    save(pins);
+    return true;
   }
 
-  function ensureCurrentInTabs(titleHint) {
-    var here = currentRoute();
-    if (!here) return;
-    var tabs = load();
-    if (indexOf(tabs, here.project, here.run) >= 0) return;
-    tabs.push({ project: here.project, run: here.run, title: titleHint || here.run });
-    while (tabs.length > MAX_TABS) tabs.shift();
-    save(tabs);
+  function toggle(project, run, title) {
+    if (isPinned(project, run)) { unpin(project, run); return false; }
+    pin(project, run, title);
+    return true;
   }
 
-  function renderTabs() {
-    var bar = document.querySelector('.tabbar');
-    if (!bar) return;
-    var here = currentRoute();
-    var tabs = load();
-
-    var keep = bar.querySelector('.report-actions');
-    bar.replaceChildren();
-
-    var dash = document.createElement('a');
-    dash.className = 'tab' + (here ? '' : ' active');
-    dash.href = '/';
-    var dashNum = document.createElement('span'); dashNum.className = 'num'; dashNum.textContent = '~';
-    dash.append(dashNum, document.createTextNode(' dashboard'));
-    bar.appendChild(dash);
-
-    tabs.forEach(function (t, i) {
-      var a = document.createElement('a');
-      a.href = reportURL(t);
-      a.className = 'tab';
-      if (here && here.project === t.project && here.run === t.run) {
-        a.className += ' active';
-      }
-      var n = document.createElement('span'); n.className = 'num'; n.textContent = String(i + 1);
-      var label = document.createElement('span'); label.className = 'label'; label.textContent = t.title || t.run;
-      var x = document.createElement('button');
-      x.type = 'button';
-      x.className = 'tab-close';
-      x.setAttribute('aria-label', 'Close tab');
-      x.textContent = '×';
-      x.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        closeTab(t.project, t.run);
-      });
-      a.append(n, document.createTextNode(' '), label, x);
-      bar.appendChild(a);
-    });
-
-    if (keep) bar.appendChild(keep);
+  function isPinned(project, run) {
+    return indexOf(load(), project, run) >= 0;
   }
 
-  document.addEventListener('click', function (e) {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button) return;
-    var row = e.target.closest && e.target.closest('[data-url]');
-    if (!row) return;
-    var url = row.dataset.url || '';
-    var m = /^\/r\/([^\/]+)\/([^\/?#]+)/.exec(url);
-    if (!m) return;
-    e.preventDefault();
-    var title = '';
-    var lbl = row.querySelector('.title, .label');
-    if (lbl) title = lbl.textContent.trim();
-    openTab(decodeURIComponent(m[1]), decodeURIComponent(m[2]), title);
-  });
-
-  function activeIndex(tabs) {
-    var here = currentRoute();
-    if (!here) return -1;
-    return indexOf(tabs, here.project, here.run);
+  // open navigates to a report without pinning it. Mouse + Cmd+K
+  // results call this so opening doesn't add noise to the pin list.
+  function openReport(project, run) {
+    location.href = reportURL({ project: project, run: run });
   }
-  /* g-prefix navigation. Lives in tabs.js (not aggregator.js) so both
-     the dashboard AND every rendered report page get the same vocabulary
-     — aggregator.js only ships with the dashboard shell. The 1500ms
-     window matches the aggregator's chord timeout for consistency. */
+
+  // Migration: a v0.1.x install will have `harness-deck:tabs` in
+  // localStorage. The shape is identical, just renamed; move the
+  // value across once, then forget the old key.
+  (function migrate() {
+    try {
+      if (localStorage.getItem(STORAGE_KEY)) return; // already migrated
+      var legacy = localStorage.getItem('harness-deck:tabs');
+      if (!legacy) return;
+      localStorage.setItem(STORAGE_KEY, legacy);
+      localStorage.removeItem('harness-deck:tabs');
+    } catch (_) {}
+  })();
+
+  /* g-prefix navigation. Lives here (not aggregator.js) so both the
+     dashboard AND every rendered report page get the same vocabulary.
+     The 1500ms window matches the aggregator's chord timeout. */
   var pendingG = false;
   var pendingGTimer = 0;
   function armG() {
@@ -160,43 +112,64 @@
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    var tabs = load();
+    var pins = load();
     var here = currentRoute();
 
-    /* `q` quits the current report and returns to the dashboard. Vim
-       convention; cheap to reach with the home row. Tab stays open in
-       the strip so the user can come back via `g t` or a digit. Only
-       active on report pages (here !== null). */
+    // q quits the current report back to the dashboard. Vim convention.
     if (e.key === 'q' && here && !pendingG) {
       location.href = '/';
       e.preventDefault();
       return;
     }
 
+    // `p` toggles pin on the current report. Aggregator handles `p`
+    // for inbox + tree contexts (different active-item sources); on a
+    // report page the current route IS the target.
+    if (e.key === 'p' && here && !pendingG) {
+      var title = (window.HD_REPORT && HD_REPORT.title) || '';
+      toggle(here.project, here.run, title);
+      e.preventDefault();
+      return;
+    }
+
+    // Digits 1-9 jump to the Nth pinned report; 1 is reserved for the
+    // dashboard so 2-9 pick pins[0..7]. Report pages own digits 1-9
+    // for option-picking inside an ask, so check the focused-ask
+    // class first; the aggregator's own dashboard handler is in a
+    // separate file and stops the event before we see it there.
+    if (e.key >= '1' && e.key <= '9' && !pendingG) {
+      // Don't fight triage when an ask is focused — it owns digits.
+      if (document.querySelector('.panel.ask-focused')) return;
+      var n = parseInt(e.key, 10);
+      if (n === 1) { location.href = '/'; e.preventDefault(); return; }
+      var hit = pins[n - 2];
+      if (hit) { location.href = reportURL(hit); e.preventDefault(); return; }
+      return;
+    }
+
     if (e.key === 'g') { armG(); return; }
     if (!pendingG) return;
 
-    // Chord completions — every one navigates somewhere, so we always
-    // disarm + preventDefault after dispatch.
     switch (e.key) {
       case 't':
+        // Cycle to the next pin. With no pins, this is a no-op
+        // (instead of bouncing to dashboard like the old tabs did,
+        // which felt magical).
         disarmG();
-        if (!tabs.length) { location.href = '/'; e.preventDefault(); return; }
-        var iN = activeIndex(tabs);
-        location.href = reportURL(tabs[(iN + 1) % tabs.length]);
+        if (!pins.length) { e.preventDefault(); return; }
+        var iN = here ? indexOf(pins, here.project, here.run) : -1;
+        location.href = reportURL(pins[(iN + 1 + pins.length) % pins.length]);
         e.preventDefault();
         return;
       case 'T':
         disarmG();
-        if (!tabs.length) { location.href = '/'; e.preventDefault(); return; }
-        var iP = activeIndex(tabs);
-        location.href = reportURL(tabs[(iP - 1 + tabs.length) % tabs.length]);
+        if (!pins.length) { e.preventDefault(); return; }
+        var iP = here ? indexOf(pins, here.project, here.run) : -1;
+        location.href = reportURL(pins[(iP - 1 + pins.length) % pins.length]);
         e.preventDefault();
         return;
       case 'd':
       case 'h':
-        // g d / g h — go home (dashboard). `gd` is vim-ish "go-to
-        // definition" reuse; `gh` is the obvious mnemonic.
         disarmG();
         location.href = '/';
         e.preventDefault();
@@ -217,26 +190,29 @@
         e.preventDefault();
         return;
       case 'x':
-        // g x — close the current in-app tab and navigate to the
-        // previous one (or the dashboard if this was the only tab).
+        // g x — unpin the current report (the new "close tab"). The
+        // page itself stays; only the sidebar entry goes.
         disarmG();
-        if (here) closeTab(here.project, here.run);
-        else location.href = '/';
+        if (here) unpin(here.project, here.run);
         e.preventDefault();
         return;
     }
   });
 
-  window.HDTabs = {
-    open: openTab,
-    close: closeTab,
-    ensureCurrent: ensureCurrentInTabs,
-    render: renderTabs,
+  // Public API. HDTabs name retained so external callers (search.js)
+  // keep working; the verb is documented as pin/unpin going forward.
+  window.HDPins = {
+    load: load,
+    pin: pin,
+    unpin: unpin,
+    toggle: toggle,
+    isPinned: isPinned,
+    open: openReport,
   };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderTabs);
-  } else {
-    renderTabs();
-  }
+  // Backward-compat shim. search.js calls HDTabs.open() to navigate to
+  // a result — same semantics as openReport(). Drop after the next
+  // tag if no one else picks it up.
+  window.HDTabs = {
+    open: function (project, run) { openReport(project, run); },
+  };
 })();
