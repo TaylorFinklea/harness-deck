@@ -617,7 +617,9 @@
       [['g', 'i'], 'go to inbox'],
       [['g', 'p'], 'go to projects'],
       [['g', 'a'], 'go to inbox + archive filter on'],
-      [['g', 't'], 'cycle to next in-app tab'],
+      [['g', 'd'], 'go to dashboard (alias: g h, q on a report)'],
+      [['g', 't'], 'cycle to next in-app tab (g T reverses)'],
+      [['g', 'x'], 'close the current in-app tab'],
     ]));
     sections.push(helpSection('leader (Space)', [
       [['Space', 's'], 'open settings'],
@@ -1414,12 +1416,27 @@
     if (v === 'archive') { enableArchive = true; params.delete('v'); }
     else if (v === 'settings') { openSettings = true; params.delete('v'); }
     else if (v === 'overview' || v === 'latest') { params.delete('v'); }
-    else if (v === 'inbox' || v === 'projects') { /* still valid */ }
+    else if (v === 'projects') {
+      // Land on the projects view — applied via currentView before the
+      // first render so we don't briefly flash inbox.
+      currentView = 'projects';
+      params.delete('v');
+    }
+    else if (v === 'inbox') {
+      currentView = 'inbox';
+      params.delete('v');
+    }
     if (enableArchive) {
       archiveFilter = true;
-      params.set('archive', '1');
+      // Once consumed the param is purely cosmetic; drop it from the URL
+      // so a refresh after the user un-toggles archive doesn't snap them
+      // back in.
+      params.delete('archive');
     }
-    if (params.get('settings') === '1') openSettings = true;
+    if (params.get('settings') === '1') {
+      openSettings = true;
+      params.delete('settings');
+    }
     var search = params.toString();
     history.replaceState(null, '', window.location.pathname + (search ? '?' + search : ''));
     if (openSettings) setTimeout(openSettingsOverlay, 0);

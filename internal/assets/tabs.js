@@ -142,29 +142,88 @@
     if (!here) return -1;
     return indexOf(tabs, here.project, here.run);
   }
+  /* g-prefix navigation. Lives in tabs.js (not aggregator.js) so both
+     the dashboard AND every rendered report page get the same vocabulary
+     — aggregator.js only ships with the dashboard shell. The 1500ms
+     window matches the aggregator's chord timeout for consistency. */
   var pendingG = false;
+  var pendingGTimer = 0;
+  function armG() {
+    pendingG = true;
+    if (pendingGTimer) clearTimeout(pendingGTimer);
+    pendingGTimer = setTimeout(function () { pendingG = false; }, 1500);
+  }
+  function disarmG() { pendingG = false; if (pendingGTimer) clearTimeout(pendingGTimer); }
+
   document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     var tabs = load();
+    var here = currentRoute();
 
-    if (e.key === 'g') { pendingG = true; setTimeout(function () { pendingG = false; }, 700); return; }
-    if (pendingG && e.key === 't') {
-      pendingG = false;
-      if (!tabs.length) { location.href = '/'; return; }
-      var i = activeIndex(tabs);
-      var next = tabs[(i + 1) % tabs.length];
-      location.href = reportURL(next);
+    /* `q` quits the current report and returns to the dashboard. Vim
+       convention; cheap to reach with the home row. Tab stays open in
+       the strip so the user can come back via `g t` or a digit. Only
+       active on report pages (here !== null). */
+    if (e.key === 'q' && here && !pendingG) {
+      location.href = '/';
       e.preventDefault();
+      return;
     }
-    if (pendingG && e.key === 'T') {
-      pendingG = false;
-      if (!tabs.length) { location.href = '/'; return; }
-      var i2 = activeIndex(tabs);
-      var prev = tabs[(i2 - 1 + tabs.length) % tabs.length];
-      location.href = reportURL(prev);
-      e.preventDefault();
+
+    if (e.key === 'g') { armG(); return; }
+    if (!pendingG) return;
+
+    // Chord completions — every one navigates somewhere, so we always
+    // disarm + preventDefault after dispatch.
+    switch (e.key) {
+      case 't':
+        disarmG();
+        if (!tabs.length) { location.href = '/'; e.preventDefault(); return; }
+        var iN = activeIndex(tabs);
+        location.href = reportURL(tabs[(iN + 1) % tabs.length]);
+        e.preventDefault();
+        return;
+      case 'T':
+        disarmG();
+        if (!tabs.length) { location.href = '/'; e.preventDefault(); return; }
+        var iP = activeIndex(tabs);
+        location.href = reportURL(tabs[(iP - 1 + tabs.length) % tabs.length]);
+        e.preventDefault();
+        return;
+      case 'd':
+      case 'h':
+        // g d / g h — go home (dashboard). `gd` is vim-ish "go-to
+        // definition" reuse; `gh` is the obvious mnemonic.
+        disarmG();
+        location.href = '/';
+        e.preventDefault();
+        return;
+      case 'i':
+        disarmG();
+        location.href = '/?v=inbox';
+        e.preventDefault();
+        return;
+      case 'p':
+        disarmG();
+        location.href = '/?v=projects';
+        e.preventDefault();
+        return;
+      case 'a':
+        disarmG();
+        location.href = '/?archive=1';
+        e.preventDefault();
+        return;
+      case 'x':
+        // g x — close the current in-app tab and navigate to the
+        // previous one (or the dashboard if this was the only tab).
+        disarmG();
+        if (here) closeTab(here.project, here.run);
+        else location.href = '/';
+        e.preventDefault();
+        return;
     }
   });
 
