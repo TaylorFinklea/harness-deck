@@ -37,6 +37,11 @@
      keybinding (toggle archive) still works in either mode — it just
      means "archive" in one and "unarchive" in the other. */
   var archiveFilter = false;
+  /* treeFocused: Space-e toggles the sidebar tree into a NeoVim-style
+     file-explorer mode. While focused, j/k walks visible report rows
+     and Enter opens the active one. Esc or Space-e exits. */
+  var treeFocused = false;
+  var treeActiveKey = null;
 
   /* el builds a DOM node. attrs: {class, text, data:{...}, <attr>:<val>}.
      kids: array of nodes or strings (strings become safe text nodes). */
@@ -622,6 +627,7 @@
       [['g', 'x'], 'close the current in-app tab'],
     ]));
     sections.push(helpSection('leader (Space)', [
+      [['Space', 'e'], 'focus the sidebar tree (toggle)'],
       [['Space', 's'], 'open settings'],
       [['Space', 't'], 'cycle theme (system → dark → light)'],
       [['Space', '?'], 'this help (alias for ?)'],
@@ -1051,6 +1057,9 @@
     // gets painted on the freshly-built DOM.
     ensureFocused();
     applyFocusHighlight();
+    // Tree-focus state survives renders too — repaint after the new
+    // tree DOM is in place.
+    paintTreeFocus();
   }
 
   /* one delegated click handler for every navigable row */
@@ -1214,6 +1223,72 @@
     if (c) chordTimeoutId = setTimeout(function () { pendingChord = ''; }, 1500);
   }
 
+  /* --- tree-explorer focus (Space-e) ---
+     Mirrors a NeoVim file-tree workflow: the sidebar becomes the
+     keyboard-focused surface, j/k walks visible report rows, Enter
+     opens the active one (real navigation), Space-e or Esc returns
+     focus to the main content. The "active row" survives renders by
+     report id (same pattern as the inbox cursor). */
+  function treeRows() {
+    return Array.prototype.slice.call(document.querySelectorAll('#tree .row.run'));
+  }
+
+  function treeKeyOf(row) {
+    var url = row.dataset.url || '';
+    // /r/<project>/<run> — same join as rowKey() but parsed back out
+    // of the href so we don't need an inverse mapping.
+    var m = /^\/r\/([^\/]+)\/([^\/?#]+)/.exec(url);
+    if (!m) return '';
+    return decodeURIComponent(m[1]) + '\x00' + decodeURIComponent(m[2]);
+  }
+
+  function paintTreeFocus() {
+    var tree = document.querySelector('#tree .tree');
+    if (!tree) return;
+    tree.classList.toggle('tree-focused', treeFocused);
+    document.querySelectorAll('#tree .row.tree-active').forEach(function (r) {
+      r.classList.remove('tree-active');
+    });
+    if (!treeFocused) return;
+    var rows = treeRows();
+    if (!rows.length) return;
+    // Snap to the first row if our remembered key disappeared.
+    var match = rows.find(function (r) { return treeKeyOf(r) === treeActiveKey; });
+    if (!match) {
+      match = rows[0];
+      treeActiveKey = treeKeyOf(match);
+    }
+    match.classList.add('tree-active');
+    var rect = match.getBoundingClientRect();
+    if (rect.top < 80 || rect.bottom > window.innerHeight - 40) {
+      match.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    }
+  }
+
+  function moveTreeCursor(delta) {
+    var rows = treeRows();
+    if (!rows.length) return;
+    var idx = rows.findIndex(function (r) { return treeKeyOf(r) === treeActiveKey; });
+    if (idx < 0) idx = 0;
+    var next = Math.max(0, Math.min(rows.length - 1, idx + delta));
+    treeActiveKey = treeKeyOf(rows[next]);
+    paintTreeFocus();
+  }
+
+  function openTreeFocused() {
+    var row = treeRows().find(function (r) { return treeKeyOf(r) === treeActiveKey; });
+    if (row && row.dataset.url) window.location.href = row.dataset.url;
+  }
+
+  function enterTreeFocus() {
+    treeFocused = true;
+    var rows = treeRows();
+    if (rows.length && !treeActiveKey) treeActiveKey = treeKeyOf(rows[0]);
+    paintTreeFocus();
+  }
+  function exitTreeFocus() { treeFocused = false; paintTreeFocus(); }
+  function toggleTreeFocus() { if (treeFocused) exitTreeFocus(); else enterTreeFocus(); }
+
   /* cycleTheme — Space+t shortcut. Walks system → dark → light → system,
      touching the same localStorage key the picker uses so persistence
      stays consistent. */
@@ -1264,6 +1339,7 @@
       switch (e.key) {
         case 's': toggleSettingsOverlay(); consume(); return;
         case 't': cycleTheme(); consume(); return;
+        case 'e': toggleTreeFocus(); consume(); return;
         case '?': openHelpOverlay(); consume(); return;
         case 'Escape': consume(); return; // cancel
       }
@@ -1290,6 +1366,19 @@
       // Unknown chord — drop silently, swallow the key.
       consume();
       return;
+    }
+
+    // --- tree focus mode owns j/k/Enter/Esc when active ---
+    if (treeFocused) {
+      switch (e.key) {
+        case 'j': moveTreeCursor(+1); consume(); return;
+        case 'k': moveTreeCursor(-1); consume(); return;
+        case 'Enter':
+        case 'o': openTreeFocused(); consume(); return;
+        case 'Escape': exitTreeFocus(); consume(); return;
+      }
+      // Pass other keys (including Space for the leader) through so
+      // Space-e can toggle the tree off.
     }
 
     // --- single-key dispatch ---

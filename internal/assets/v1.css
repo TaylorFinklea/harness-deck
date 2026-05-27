@@ -108,6 +108,24 @@
     cursor: pointer;
   }
   .tree .row:hover { background: var(--tn-bg-highlight); }
+  /* Tree-explorer focus mode (Space-e). When active, the sidebar gets
+     a visible focus ring + the highlighted row shows a left-border
+     accent. Mirrors the inbox cursor's visual vocabulary. */
+  .sidebar:has(.tree.tree-focused) {
+    background: rgba(122, 162, 247, 0.04);
+  }
+  .tree.tree-focused {
+    outline: 1px solid var(--tn-blue);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  .tree .row.tree-active {
+    background: rgba(122, 162, 247, 0.15);
+    color: var(--tn-fg);
+    box-shadow: inset 2px 0 0 var(--tn-blue);
+  }
+  .tree .row.tree-active .label,
+  .tree .row.tree-active .dir { color: var(--tn-cyan); }
   .tree .row.active {
     background: var(--tn-bg-visual);
     color: var(--tn-fg);
