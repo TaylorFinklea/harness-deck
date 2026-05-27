@@ -154,7 +154,7 @@
 <div class="ask-controls">
 {{if eq $mode "choice"}}{{range $i, $opt := .Body.Options}}<button class="hd-btn hd-respond" data-block="{{$id}}" data-value="{{$opt}}">{{$opt}}<span class="hd-hint">{{add $i 1}}</span></button>{{end}}
 {{else if eq $mode "yesno"}}<button class="hd-btn hd-respond ok" data-block="{{$id}}" data-value="yes">yes<span class="hd-hint">y</span></button><button class="hd-btn hd-respond err" data-block="{{$id}}" data-value="no">no<span class="hd-hint">n</span></button>
-{{else}}<input class="hd-input" id="ask-input-{{$id}}" type="text" placeholder="type your answer…" /><button class="hd-btn hd-respond" data-block="{{$id}}" data-input="ask-input-{{$id}}">submit<span class="hd-hint">↵</span></button>{{end}}
+{{else}}<input class="hd-input ask-text-input" id="ask-input-{{$id}}" type="text" placeholder="hit Enter to start typing" data-placeholder-blur="hit Enter to start typing" data-placeholder-focus="Enter to submit · Esc to exit" /><button class="hd-btn hd-respond" data-block="{{$id}}" data-input="ask-input-{{$id}}">submit<span class="hd-hint">↵</span></button>{{end}}
 </div>
 {{- end}}
 </div>

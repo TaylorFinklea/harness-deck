@@ -276,6 +276,23 @@
     }
   });
 
+  /* Swap the text-input's placeholder based on focus so it tells the
+     user what to do in each mode:
+       blurred + active slot:  "hit Enter to start typing"
+       focused (INSERT):       "Enter to submit · Esc to exit"
+     Falls back to whatever the server-rendered placeholder was if the
+     data-placeholder-* attributes are missing (defensive). */
+  document.addEventListener('focusin', function (e) {
+    var t = e.target;
+    if (!t || !t.classList || !t.classList.contains('ask-text-input')) return;
+    if (t.dataset.placeholderFocus) t.placeholder = t.dataset.placeholderFocus;
+  });
+  document.addEventListener('focusout', function (e) {
+    var t = e.target;
+    if (!t || !t.classList || !t.classList.contains('ask-text-input')) return;
+    if (t.dataset.placeholderBlur) t.placeholder = t.dataset.placeholderBlur;
+  });
+
   // Clicking an open-asks banner link also sets focus on the linked
   // ask (in addition to scrolling to it via the # anchor).
   document.addEventListener('click', function (e) {
