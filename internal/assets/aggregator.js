@@ -1283,11 +1283,14 @@
 
   function treeKeyOf(row) {
     var url = row.dataset.url || '';
-    // /r/<project>/<run> — same join as rowKey() but parsed back out
-    // of the href so we don't need an inverse mapping.
     var m = /^\/r\/([^\/]+)\/([^\/?#]+)/.exec(url);
     if (!m) return '';
-    return decodeURIComponent(m[1]) + '\x00' + decodeURIComponent(m[2]);
+    // Section-scoped key so a pinned report's entry in the PINNED
+    // list and its appearance in the main project tree don't collide
+    // — findIndex would otherwise always snap to the pinned row and
+    // the cursor could never reach the deeper tree entry.
+    var section = row.classList.contains('pinned') ? 'p' : 't';
+    return section + ':' + decodeURIComponent(m[1]) + '\x00' + decodeURIComponent(m[2]);
   }
 
   function paintTreeFocus() {
@@ -1329,11 +1332,11 @@
   }
 
   function pinTreeFocused() {
-    // The tree-active row's data-url is /r/<project>/<run>; pull both
-    // parts back out and look up the report record for its title.
+    // treeActiveKey is now "<section>:<project>\x00<run>"; strip the
+    // 2-char prefix before splitting out project + run.
     var key = treeActiveKey;
-    if (!key) return;
-    var parts = key.split('\x00');
+    if (!key || key.length < 3) return;
+    var parts = key.slice(2).split('\x00');
     if (parts.length !== 2) return;
     var rec = (data.reports || []).find(function (r) { return r.project === parts[0] && r.run === parts[1]; });
     var title = rec ? (rec.title || rec.run) : parts[1];
@@ -1629,7 +1632,9 @@
     VimNav.addCommand('cheat', function () { openHelpOverlay(); }, 'open the keymap cheat sheet');
     VimNav.addCommand('pin', function () {
       var r = ensureFocused() || (treeFocused && (function () {
-        var key = (treeActiveKey || '').split('\x00');
+        var k = (treeActiveKey || '');
+        if (k.length < 3) return null;
+        var key = k.slice(2).split('\x00');
         return key.length === 2 ? (data.reports || []).find(function (x) { return x.project === key[0] && x.run === key[1]; }) : null;
       })());
       if (r) togglePin(r);
