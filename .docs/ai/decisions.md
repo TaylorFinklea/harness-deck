@@ -299,6 +299,92 @@ sent zero" — so a harness can push just `step` + `tokens` without
 clobbering an unrelated cost field. The merge happens through
 `map[string]any` round-trip, same pattern as `update_status`.
 
+## 2026-05-27 — Pins replace auto-tabs (manual, sidebar-resident)
+
+The v0.1.x in-app tab strip auto-pinned every opened report. Direct
+user feedback: "I don't like the tabs, they just aren't useful to
+me." Killed the tabbar; replaced with manual pinning surfaced in a
+dedicated PINNED section at the top of the sidebar tree.
+
+Three design choices, all locked after structured discovery:
+
+1. **Manual pin verb (`p`)** — nothing auto-pins. Opening a report
+   is transient; only an explicit `p` makes it stick. Inverts the
+   default — opt-in instead of opt-out. The pin list stays curated.
+2. **Dedicated section + ★ marker in the main tree** — pins show
+   as a flat list above REPORTS (no project nesting) so digit keys
+   map cleanly. The same report's appearance in the project tree
+   gets a ★ glyph for cross-section discoverability.
+3. **Digits 1-9 = pinned items** — 1 returns to dashboard, 2-9
+   jump to pinned report N-1. Chrome-tab muscle memory preserved.
+
+State persists in localStorage as `harness-deck:pins`. One-time
+migration from the old `harness-deck:tabs` key runs on first load
+of the new code (copy + delete legacy). API surface is
+`window.HDPins.{load,pin,unpin,toggle,isPinned,open}`; the
+`HDTabs.open()` shim stays so `search.js` keeps working.
+
+The duplicate-key gotcha worth remembering: a pinned report shows
+in BOTH the PINNED list AND its project subtree. Both `<div
+class="row run">` elements had identical `data-url`, so
+`treeKeyOf()` collapsed them into one key and tree-focus j/k could
+never reach the deeper twin past the pinned one. Fix: section-
+scoped keys (`p:` for pinned, `t:` for tree). Same lesson as the
+NUL-in-CSS-selector bug from v0.2.0 — when keys come from
+content, watch for content that collides across views.
+
+## 2026-05-27 — Vim-faithful keyboard model is opinionated about modes
+
+Product discovery surfaced "I keep having to re-learn shortcuts" as
+the dominant friction. Picked vim-faithful (modal, hjkl, g-prefix,
+Space-leader) over modern-app or hybrid. Trade-off: alien to
+non-vim users, but the target audience is vim-fluent power users —
+the discovery question that set this was explicit.
+
+Specific bindings landed:
+- j/k cursor on inbox rows + tree-focus (Space-e)
+- h/l walk choice options + text-input ↔ submit slot
+- digits 1-9 = pinned items (was: view switching, now g i / g p / g a)
+- a/x/dd row actions (matching dashboard ↔ report-page semantics)
+- p = pin / unpin (context: inbox row, tree-active, current report)
+- q on report = back to dashboard (vim convention)
+- Space leader (preventDefault on browser-scroll; INSERT mode
+  passes through)
+- g prefix (gi/gp/ga/gd/gh/gt/gT/gx/gg, 1500ms timeoutlen)
+
+The chord timeout (1500ms) came from Playwright friction during
+synthetic-event testing but landed at the right human value too —
+700ms was tight for deliberate Space-then-key pauses, 1500ms
+absorbs them without feeling laggy.
+
+## 2026-05-27 — lark-plug-hdeck as the larkline integration shape
+
+Separate repo (`~/git/lark-plug-hdeck/`, public on GitHub) rather
+than living inside the harness-deck or larkline trees. Mirrors how
+`lark.nvim` was extracted out of the larkline monorepo on
+2026-04-25.
+
+Read-only by design. The plugin GETs `/api/reports`, filters
+client-side, opens report URLs in `$BROWSER`. It does NOT POST to
+`/respond` or call the MCP server. The trade-off: response writing
+would fork the response UI between browser and terminal picker
+contexts. For yes/no it'd be cheap (alt actions). For choice and
+text it'd need real picker-mode design that doesn't yet exist.
+Defer until a week of read-only usage shows the gap.
+
+Configurable via `HARNESS_DECK_URL` env (defaults to
+`http://127.0.0.1:7420` which works for users with no TLS but
+fails for the TLS+tailnet setup — those need the env var). The
+plugin's HTTP layer is larkline's `lark.http.get`, which validates
+TLS; tailnet certs validate fine because Tailscale signs via Let's
+Encrypt.
+
+Indirect Neovim integration is free via `lark.nvim`: `:Lark` opens
+larkline in a floating terminal, picker dispatches like any other
+larkline command. A dedicated `hdeck.nvim` would only earn its
+keep with in-buffer rendering or LSP-style ask popups — neither
+needed today.
+
 ## 2026-05-26 — Per-project history is "all runs," not "all kinds"
 
 The projects view already had `Reports []store.Entry` for `kind:

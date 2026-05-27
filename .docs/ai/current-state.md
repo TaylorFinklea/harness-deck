@@ -176,10 +176,10 @@ is the on-ramp for external publishers (60-second smoke test, MVP
 manifest, the four blocks that cover 90% of reports). Linked from
 README + CONTRACT.
 
-**v0.2.0 cohesive redesign (in flight 2026-05-27)** — see
+**v0.2.0 cohesive redesign (shipped 2026-05-27)** — see
 `.docs/ai/v0.2.0-spec.md`. Driven by product discovery: heavy daily
-use, IA pain (6 tabs → 2), incoherent keyboard model. Shipped in
-three rcs:
+use, IA pain (6 tabs → 2), incoherent keyboard model. Three rcs +
+final:
 
 - **rc1 (v0.1.24-rc1)** — inbox cursor: focused-row state by report
   id, persisted across renders via sessionStorage; bindings
@@ -190,19 +190,81 @@ three rcs:
   projects); settings becomes a modal overlay (gear button in
   titlebar opens it); archive becomes a chip on the inbox metric
   strip; old URLs (?v=overview/latest/archive/settings) migrate via
-  history.replaceState. Each view gets an operational metric strip
-  (awaiting · open asks · in-flight · today · archived for inbox;
-  projects · updated this week · with asks · latest update for
-  projects).
+  history.replaceState. Each view gets an operational metric strip.
 - **v0.2.0** — keyboard chord system: Space leader (Space-s settings,
-  Space-t theme, Space-? cheat), g-prefix jumps (g-i inbox, g-p
-  projects, g-a archive, g-g top), 1–9 → in-app tab N (Chrome-style),
-  context-aware `?` help overlay listing every binding in six
-  sections (movement / row actions / jumps / leader / tabs /
-  commands). `:`-palette commands `:inbox`, `:projects`, `:archive`,
-  `:settings`, `:cheat`, `:theme` registered via the new
-  `VimNav.addCommand(name, fn, desc)` API. Chord timeout is 1500ms
-  matching vim's default `timeoutlen`.
+  Space-t theme, Space-e tree, Space-? cheat), g-prefix jumps,
+  context-aware `?` help overlay, `:`-palette commands. Chord
+  timeout 1500ms (vim `timeoutlen` default).
+
+**Post-v0.2.0 keyboard polish (2026-05-27)** — direct product-test
+feedback fixed inline, no version tags:
+
+- `q` / `g d` / `g x` on report pages (the "I can't escape this
+  report" gap from real triage).
+- `h` / `l` walk choice options; Enter clicks the highlighted one;
+  digits still pick directly. `activeBtnIdx` per panel.
+- Esc now reliably exits INSERT: vim-nav blurs any input on Esc
+  (was: only its own prompt input); triage allows Esc through the
+  NORMAL-mode guard. Two-stage: first Esc blurs input + keeps ask
+  focused, second defocuses ask.
+- Ghost shortcut hints (`hd-hint` chip) on every response button:
+  digits 1-9 on choice, `y`/`n` on yesno + approval + decision, `↵`
+  on text-submit. Discoverable bindings without a separate cheat
+  surface.
+- Text-input asks treat the input as the first navigable slot
+  (alongside submit button) — h/l walks between them, mode-aware
+  placeholder ("hit Enter to start typing" / "Enter to submit · Esc
+  to exit").
+- Report-page action buttons gained `x` close, `a` archive (toggles
+  with unarchive), `r` reopen, `dd` delete, all with ghost hints.
+  Bindings stand down when an ask is focused so triage shortcuts
+  own the keys then.
+- Mode-aware text-input placeholder swap on focusin/focusout via
+  `data-placeholder-blur` / `data-placeholder-focus` attributes.
+- Tree-explorer focus mode (`Space e`) — NeoVim file-tree workflow
+  on the sidebar. j/k walks visible report rows, Enter opens, Esc
+  or Space-e returns. Active-row state persists across SSE renders
+  by report id.
+- Section-scoped tree cursor key (`p:` / `t:` prefix) — fixes
+  duplicate-key bug where a pinned report's twin in the main tree
+  trapped the cursor on the pin row.
+
+**Pins replace auto-tabs (2026-05-27)** — user feedback: tabs grew
+noisy because every opened report auto-pinned. Killed the in-app
+tab strip entirely; replaced with manual pinning surfaced in the
+sidebar.
+
+- Dedicated PINNED section at top of sidebar (flat list, no
+  project grouping so 2-9 maps cleanly).
+- `p` toggles pin; works on inbox cursor, tree-active row, or the
+  current report page.
+- `1` = dashboard; `2`-`9` = pinned report N-1; `g t`/`g T` cycle
+  pins; `g x` unpins current report.
+- In-main-tree rows show `★` glyph + `.is-pinned` class when pinned.
+- Report page gets a `📌 pin [p]` button in the new `.actionbar`
+  (replaces tabbar). Button flips to `★ pinned`. Uses
+  `replaceChildren` + `createElement` (XSS-correct even for
+  hardcoded strings — the discipline matters).
+- storage migrated from `harness-deck:tabs` → `harness-deck:pins`
+  (one-time copy + delete old key on load).
+- `window.HDPinsChanged` global hook lets the aggregator repaint
+  the tree on every pin mutation without a full data refresh.
+- `HDTabs.open()` shim retained for `search.js` click-to-open;
+  canonical surface is now `window.HDPins.{load,pin,unpin,toggle,
+  isPinned,open}`.
+
+**lark-plug-hdeck (2026-05-27)** — separate repo at
+`~/git/lark-plug-hdeck/`, pushed to
+<https://github.com/TaylorFinklea/lark-plug-hdeck>. larkline plugin
+that surfaces harness-deck reports as a keyboard-driven picker.
+Three commands: Inbox (needs-you filter, prefetched + widget), All
+Reports (every non-archived, newest first), In Flight (live
+telemetry within 60s window). Reads `/api/reports`, opens reports
+in `$BROWSER`. Configurable via `HARNESS_DECK_URL` env var
+(defaults to `http://127.0.0.1:7420`; users with TLS set it to
+their tailnet hostname). Read-only by design — response writing
+lives in the browser where the response UI is. Free Neovim
+integration via `lark.nvim`: `:Lark` → "Harness Deck" → Inbox.
 
 ## Next
 
