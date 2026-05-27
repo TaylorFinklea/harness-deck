@@ -388,6 +388,31 @@
   color: var(--tn-fg);
   border-color: var(--tn-blue);
 }
+/* Inline keyboard hint inside a response button — e.g. "1"/"2"/"3" on
+   choice options, "y"/"n" on yesno, "↵" on the submit button. The hint
+   is a quiet ghost glyph in a rounded chip; it should *imply* the
+   shortcut without competing with the button label. */
+.hd-hint {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--tn-comment);
+  background: var(--tn-bg-highlight);
+  border-radius: 2px;
+  vertical-align: middle;
+  opacity: 0.8;
+}
+.hd-btn:hover:not(:disabled) .hd-hint,
+.hd-btn-active .hd-hint { color: var(--tn-cyan); opacity: 1; }
+/* Text-input asks: when the input is the highlighted navigable slot
+   (h/l-walked alongside the submit button), give it the same visual
+   pop the active button gets. */
+.hd-input.hd-item-active {
+  border-color: var(--tn-blue);
+  box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.18);
+}
 .hd-btn-firing {
   background: var(--tn-blue);
   color: var(--tn-bg);

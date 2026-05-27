@@ -33,22 +33,40 @@
     return panel.querySelector('.hd-input');
   }
 
-  /* activeBtnIdx — which response button on the focused panel is the
-     "current" choice. h / l walk it left / right; Enter clicks it.
-     Resets to 0 every time focus moves to a different panel. Tracked
-     here (closure) rather than in the DOM so re-renders don't lose it. */
-  var activeBtnIdx = 0;
+  /* activeItemIdx — which navigable slot on the focused panel is the
+     "current" choice. For most asks this walks the response buttons.
+     For text-mode asks the slot list is [input, submitButton] so h/l
+     bounces between "type" and "send." Enter resolves to "focus input"
+     or "click button" depending on which slot is active.
 
-  function setActiveBtn(panel, idx) {
-    if (!panel) return;
+     Tracked in closure (not DOM) so re-renders don't lose it. */
+  var activeItemIdx = 0;
+
+  // items returns the navigable slots for a panel. For a text-mode ask
+  // (input + single submit button) the input is slot 0 and the button
+  // is slot 1, so the natural arrival point is the input itself.
+  function items(panel) {
+    if (!panel) return [];
+    var inp = input(panel);
     var btns = buttons(panel);
-    if (!btns.length) return;
+    if (inp && btns.length === 1 && btns[0].dataset.input) {
+      return [inp, btns[0]];
+    }
+    return btns;
+  }
+
+  function setActiveItem(panel, idx) {
+    if (!panel) return;
+    var els = items(panel);
+    if (!els.length) return;
     // Clamp without wrap — wrap on a 2-option ask feels disorienting;
     // explicit bounds make h/l visibly stop at the ends.
-    idx = Math.max(0, Math.min(btns.length - 1, idx));
-    activeBtnIdx = idx;
-    btns.forEach(function (b, i) {
-      b.classList.toggle('hd-btn-active', i === idx);
+    idx = Math.max(0, Math.min(els.length - 1, idx));
+    activeItemIdx = idx;
+    els.forEach(function (e, i) {
+      var on = i === idx;
+      if (e.tagName === 'INPUT') e.classList.toggle('hd-item-active', on);
+      else e.classList.toggle('hd-btn-active', on);
     });
   }
 
@@ -61,11 +79,12 @@
     });
     if (!panel) return;
     panel.classList.add('ask-focused');
-    // Reset the highlighted choice to the first button whenever the
-    // focused panel changes — muscle memory expects "Tab to next ask,
-    // start at option 1."
-    activeBtnIdx = 0;
-    setActiveBtn(panel, 0);
+    // Reset the highlighted slot to the first whenever the focused
+    // panel changes. For a text-mode ask the first slot is the input
+    // itself, so the natural next action is `i` (or `Enter`) to start
+    // typing. For other modes it's option 1.
+    activeItemIdx = 0;
+    setActiveItem(panel, 0);
     // Scroll the focused panel into view without yanking the page if
     // it's already on-screen. The 40px top inset matches vim-nav's
     // jumpTo offset so headings/sections feel consistent.
@@ -131,9 +150,11 @@
     return false;
   }
 
-  // submitFocused — Enter behavior. If the focused ask has a text
-  // input AND it's currently focused, submit its value. Otherwise
-  // click the highlighted button (the one h/l left active).
+  // submitFocused — Enter behavior. Three paths:
+  //   1. Input is currently focused (INSERT mode):  submit the value.
+  //   2. Highlighted slot is the input (NORMAL):    focus the input,
+  //      enter INSERT — symmetric to `i`.
+  //   3. Highlighted slot is a button:              click it.
   function submitFocused() {
     var p = focusedPanel();
     if (!p) return;
@@ -143,8 +164,15 @@
       if (submitBtn) clickButton(p, submitBtn);
       return;
     }
-    var btns = buttons(p);
-    if (btns.length) clickButton(p, btns[activeBtnIdx] || btns[0]);
+    var els = items(p);
+    if (!els.length) return;
+    var el = els[activeItemIdx] || els[0];
+    if (el.tagName === 'INPUT') {
+      el.focus();
+      el.select();
+      return;
+    }
+    clickButton(p, el);
   }
 
   function focusInput() {
@@ -192,29 +220,40 @@
       }
       case 'h': {
         var p = focusedPanel();
-        if (p && buttons(p).length > 1) {
-          setActiveBtn(p, activeBtnIdx - 1);
+        if (p && items(p).length > 1) {
+          setActiveItem(p, activeItemIdx - 1);
           e.preventDefault();
         }
         return;
       }
       case 'l': {
         var p2 = focusedPanel();
-        if (p2 && buttons(p2).length > 1) {
-          setActiveBtn(p2, activeBtnIdx + 1);
+        if (p2 && items(p2).length > 1) {
+          setActiveItem(p2, activeItemIdx + 1);
           e.preventDefault();
         }
         return;
       }
       case 'Escape': {
-        // Blur input + clear focus highlight; second Esc is a no-op.
-        if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        // Two-stage Esc:
+        //   1. INSERT (input focused)  → blur the input, leave the ask
+        //      focused. The input remains the "active" slot so the
+        //      next l/Enter walks naturally to the submit button.
+        //      Mode flips back to NORMAL via the focusout listener.
+        //   2. NORMAL (no input focused) → defocus the ask entirely.
+        var inFocused = document.activeElement && document.activeElement.tagName === 'INPUT';
+        if (inFocused) {
           document.activeElement.blur();
+          // Don't clear ask-focused — first Esc just exits INSERT.
+          return;
         }
         var cur = focusedPanel();
         if (cur) cur.classList.remove('ask-focused');
         document.querySelectorAll('.hd-btn-active').forEach(function (b) {
           b.classList.remove('hd-btn-active');
+        });
+        document.querySelectorAll('.hd-item-active').forEach(function (b) {
+          b.classList.remove('hd-item-active');
         });
         return;
       }

@@ -152,9 +152,9 @@
 {{- else -}}
 {{$id := .Body.ID}}{{$mode := .Body.ResolvedMode}}
 <div class="ask-controls">
-{{if eq $mode "choice"}}{{range .Body.Options}}<button class="hd-btn hd-respond" data-block="{{$id}}" data-value="{{.}}">{{.}}</button>{{end}}
-{{else if eq $mode "yesno"}}<button class="hd-btn hd-respond ok" data-block="{{$id}}" data-value="yes">yes</button><button class="hd-btn hd-respond err" data-block="{{$id}}" data-value="no">no</button>
-{{else}}<input class="hd-input" id="ask-input-{{$id}}" type="text" placeholder="type your answer…" /><button class="hd-btn hd-respond" data-block="{{$id}}" data-input="ask-input-{{$id}}">submit</button>{{end}}
+{{if eq $mode "choice"}}{{range $i, $opt := .Body.Options}}<button class="hd-btn hd-respond" data-block="{{$id}}" data-value="{{$opt}}">{{$opt}}<span class="hd-hint">{{add $i 1}}</span></button>{{end}}
+{{else if eq $mode "yesno"}}<button class="hd-btn hd-respond ok" data-block="{{$id}}" data-value="yes">yes<span class="hd-hint">y</span></button><button class="hd-btn hd-respond err" data-block="{{$id}}" data-value="no">no<span class="hd-hint">n</span></button>
+{{else}}<input class="hd-input" id="ask-input-{{$id}}" type="text" placeholder="type your answer…" /><button class="hd-btn hd-respond" data-block="{{$id}}" data-input="ask-input-{{$id}}">submit<span class="hd-hint">↵</span></button>{{end}}
 </div>
 {{- end}}
 </div>
@@ -174,8 +174,8 @@
 <div class="ask-answered">▸ decided <b>{{.Answer.Value}}</b>{{with .Answer.At}} · {{.}}{{end}}</div>
 {{- else -}}
 <div class="ask-controls">
-<button class="hd-btn hd-respond" data-block="{{.Body.ID}}" data-value="{{.Body.A.Tag}}">choose {{.Body.A.Tag}} · {{.Body.A.Title}}</button>
-<button class="hd-btn hd-respond" data-block="{{.Body.ID}}" data-value="{{.Body.B.Tag}}">choose {{.Body.B.Tag}} · {{.Body.B.Title}}</button>
+<button class="hd-btn hd-respond" data-block="{{.Body.ID}}" data-value="{{.Body.A.Tag}}">choose {{.Body.A.Tag}} · {{.Body.A.Title}}<span class="hd-hint">1</span></button>
+<button class="hd-btn hd-respond" data-block="{{.Body.ID}}" data-value="{{.Body.B.Tag}}">choose {{.Body.B.Tag}} · {{.Body.B.Title}}<span class="hd-hint">2</span></button>
 </div>
 {{- end}}
 </div>
@@ -191,8 +191,8 @@
 <div class="ask-answered">▸ <b>{{.Answer.Value}}</b>{{with .Answer.At}} · {{.}}{{end}}</div>
 {{- else -}}
 <div class="ask-controls">
-<button class="hd-btn hd-respond ok" data-block="{{.Body.ID}}" data-value="approved">approve</button>
-<button class="hd-btn hd-respond err" data-block="{{.Body.ID}}" data-value="changes-requested">request changes</button>
+<button class="hd-btn hd-respond ok" data-block="{{.Body.ID}}" data-value="approved">approve<span class="hd-hint">y</span></button>
+<button class="hd-btn hd-respond err" data-block="{{.Body.ID}}" data-value="changes-requested">request changes<span class="hd-hint">n</span></button>
 </div>
 {{- end}}
 </div>
