@@ -473,15 +473,25 @@
 
   /* ---------- key handler ---------- */
   const onKey = (e) => {
-    // Ignore if user is typing in any input/textarea/contenteditable
+    // Ignore most keys when the user is typing in any input/textarea/
+    // contenteditable — except Esc, which universally drops out of
+    // INSERT. Without this, focusing an ask's text input traps the
+    // user (vim-nav doesn't fire because the target is an input;
+    // triage.js doesn't fire because mode is INSERT).
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
       if (e.key === 'Escape') {
-        if (t.id !== 'vim-prompt-input' && t.closest('#vim-prompt')) {
+        if (t.closest('#vim-prompt')) {
+          // vim-nav's own SEARCH / COMMAND prompt — drop the prompt.
           hidePrompt();
           setMode('NORMAL');
           buffer = '';
+        } else {
+          // Any other input: blur it. The focusout listener will then
+          // set mode back to NORMAL automatically.
+          t.blur();
         }
+        e.preventDefault();
       }
       return;
     }

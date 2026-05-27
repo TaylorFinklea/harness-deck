@@ -171,7 +171,11 @@
 
   document.addEventListener('keydown', function (e) {
     if (inIgnoredTarget(e)) return;
-    if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
+    // Esc always passes through the mode-check so it can clear the
+    // ask-focused highlight (and blur a focused input as a fallback).
+    // Without this, INSERT mode would lock triage out of its own Esc
+    // handler.
+    if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL' && e.key !== 'Escape') return;
 
     // Allow modifier-only keystrokes (Cmd+R, etc.) to pass through.
     if (e.ctrlKey || e.metaKey || e.altKey) return;
