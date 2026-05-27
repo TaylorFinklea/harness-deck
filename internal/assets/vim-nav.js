@@ -597,4 +597,14 @@
   NS.setMode = setMode;
   NS.flash = flash;
   NS.getMode = () => mode;
+  // addCommand lets later-loaded modules (the aggregator, in particular)
+  // wire `:foo`-style commands into the palette without having to
+  // restart the init handshake. Names are case-sensitive and unique;
+  // duplicates overwrite.
+  NS.addCommand = (name, fn, desc) => {
+    cfg.commands = cfg.commands || {};
+    cfg.commands[name] = fn;
+    cfg.descriptions = cfg.descriptions || {};
+    if (desc) cfg.descriptions[name] = desc;
+  };
 })();

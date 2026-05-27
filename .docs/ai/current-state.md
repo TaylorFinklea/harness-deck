@@ -176,6 +176,34 @@ is the on-ramp for external publishers (60-second smoke test, MVP
 manifest, the four blocks that cover 90% of reports). Linked from
 README + CONTRACT.
 
+**v0.2.0 cohesive redesign (in flight 2026-05-27)** — see
+`.docs/ai/v0.2.0-spec.md`. Driven by product discovery: heavy daily
+use, IA pain (6 tabs → 2), incoherent keyboard model. Shipped in
+three rcs:
+
+- **rc1 (v0.1.24-rc1)** — inbox cursor: focused-row state by report
+  id, persisted across renders via sessionStorage; bindings
+  j/k/Enter/o/a/x/dd; capture-phase keydown so vim-nav's page-scroll
+  doesn't fire alongside; INSERT mode tracking in vim-nav via
+  focusin/focusout so the statusline reflects when typing is active.
+- **rc2 (v0.1.24-rc2)** — IA collapse: 6 views → 2 (inbox +
+  projects); settings becomes a modal overlay (gear button in
+  titlebar opens it); archive becomes a chip on the inbox metric
+  strip; old URLs (?v=overview/latest/archive/settings) migrate via
+  history.replaceState. Each view gets an operational metric strip
+  (awaiting · open asks · in-flight · today · archived for inbox;
+  projects · updated this week · with asks · latest update for
+  projects).
+- **v0.2.0** — keyboard chord system: Space leader (Space-s settings,
+  Space-t theme, Space-? cheat), g-prefix jumps (g-i inbox, g-p
+  projects, g-a archive, g-g top), 1–9 → in-app tab N (Chrome-style),
+  context-aware `?` help overlay listing every binding in six
+  sections (movement / row actions / jumps / leader / tabs /
+  commands). `:`-palette commands `:inbox`, `:projects`, `:archive`,
+  `:settings`, `:cheat`, `:theme` registered via the new
+  `VimNav.addCommand(name, fn, desc)` API. Chord timeout is 1500ms
+  matching vim's default `timeoutlen`.
+
 ## Next
 
 **Next roadmap wave (selected 2026-05-26)** — see roadmap.md:

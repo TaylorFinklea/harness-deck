@@ -577,6 +577,84 @@
     else openSettingsOverlay();
   }
 
+  /* --- v0.2.0 phase 3: context-aware help overlay (?) ---
+     One sheet built once, shown over the dashboard. We don't try to
+     render different content per view — every section is always
+     visible and the user can scan for the one they need. The
+     overlay has the same dismiss vocabulary as settings (Esc, click
+     scrim, ✕ button). */
+  function helpSection(title, rows) {
+    return el('div', { class: 'help-section' }, [
+      el('div', { class: 'help-section-title', text: title }),
+      el('div', { class: 'help-rows' }, rows.map(function (row) {
+        return el('div', { class: 'help-row' }, [
+          el('div', { class: 'help-keys' }, (Array.isArray(row[0]) ? row[0] : [row[0]]).map(function (k) {
+            return el('kbd', { text: k });
+          })),
+          el('div', { class: 'help-desc', text: row[1] })
+        ]);
+      }))
+    ]);
+  }
+
+  function helpContent() {
+    var sections = [];
+    sections.push(helpSection('movement', [
+      [['j', 'k'], 'move cursor down / up on the inbox'],
+      ['G', 'jump to last row'],
+      [['g', 'g'], 'scroll to top of page'],
+      [['Tab'], 'next unanswered ask (on a report)'],
+      [['/', '⌘K'], 'page search · cross-report search'],
+    ]));
+    sections.push(helpSection('row actions (inbox)', [
+      [['Enter'], 'open the focused report'],
+      ['o', 'same as Enter'],
+      ['a', 'archive (or unarchive in archive view)'],
+      ['x', 'close (mark done)'],
+      [['d', 'd'], 'delete (with confirm)'],
+    ]));
+    sections.push(helpSection('jumps (g-prefix)', [
+      [['g', 'i'], 'go to inbox'],
+      [['g', 'p'], 'go to projects'],
+      [['g', 'a'], 'go to inbox + archive filter on'],
+      [['g', 't'], 'cycle to next in-app tab'],
+    ]));
+    sections.push(helpSection('leader (Space)', [
+      [['Space', 's'], 'open settings'],
+      [['Space', 't'], 'cycle theme (system → dark → light)'],
+      [['Space', '?'], 'this help (alias for ?)'],
+    ]));
+    sections.push(helpSection('tabs (digits)', [
+      [['1'], 'go to dashboard'],
+      [['2', '–', '9'], 'go to in-app tab N (pinned reports)'],
+    ]));
+    sections.push(helpSection('commands (: prompt)', [
+      [':inbox / :projects', 'jump to a view'],
+      [':archive', 'toggle archive filter'],
+      [':settings', 'open settings overlay'],
+      [':cheat', 'this help'],
+    ]));
+    return sections;
+  }
+
+  function openHelpOverlay() {
+    var existing = document.getElementById('help-overlay');
+    if (existing) { existing.style.display = 'flex'; return; }
+    var modal = el('div', { class: 'help-modal' }, [
+      el('div', { class: 'settings-modal-head' }, [
+        el('div', { class: 'settings-modal-title', text: 'harness-deck cheat sheet' }),
+        el('button', { type: 'button', class: 'settings-modal-close', title: 'close (Esc)' }, ['✕'])
+      ]),
+      el('div', { class: 'help-body' }, helpContent())
+    ]);
+    var overlay = el('div', { id: 'help-overlay', class: 'settings-overlay help-overlay' }, [modal]);
+    document.body.appendChild(overlay);
+  }
+  function closeHelpOverlay() {
+    var o = document.getElementById('help-overlay');
+    if (o) o.style.display = 'none';
+  }
+
   /*
      phone push notifications. The whole view renders synchronously with
      placeholder copy, then async fetches (server status, browser
@@ -1018,6 +1096,10 @@
       openSettingsOverlay();
       return;
     }
+    if (e.target.closest('.help-overlay .settings-modal-close') || e.target.classList.contains('help-overlay')) {
+      closeHelpOverlay();
+      return;
+    }
     if (e.target.closest('.settings-modal-close') || e.target.classList.contains('settings-overlay')) {
       closeSettingsOverlay();
       return;
@@ -1111,19 +1193,114 @@
     if (v) { showView(v.id); e.preventDefault(); }
   });
 
+  /* --- v0.2.0 phase 3: chord state machine ---
+     The dashboard supports two prefix chords:
+       Space (leader): Space + s/t/? → settings / theme / cheat
+       g       (jump): g + i/p/a/g → inbox / projects / archive / top
+     Pending chord clears automatically after 700ms so a stale half-
+     chord never poisons the next keystroke. We track this in capture
+     phase so vim-nav never sees the chord-prefix keys (its own gg /
+     space-scroll bindings would otherwise fire alongside). */
+  var pendingChord = '';
+  var chordTimeoutId = 0;
+  function setPendingChord(c) {
+    pendingChord = c;
+    if (chordTimeoutId) clearTimeout(chordTimeoutId);
+    // 1500ms matches vim's default `timeoutlen` — long enough for a
+    // deliberate two-key chord, short enough that a stale prefix from
+    // a misfire doesn't poison the next intentional keystroke.
+    if (c) chordTimeoutId = setTimeout(function () { pendingChord = ''; }, 1500);
+  }
+
+  /* cycleTheme — Space+t shortcut. Walks system → dark → light → system,
+     touching the same localStorage key the picker uses so persistence
+     stays consistent. */
+  function cycleTheme() {
+    var cur = (function () {
+      try { return localStorage.getItem('harness-deck:theme') || 'system'; }
+      catch (_) { return 'system'; }
+    })();
+    var next = cur === 'system' ? 'dark' : cur === 'dark' ? 'light' : 'system';
+    setTheme(next);
+  }
+
+  /* in-app tabs (1-9): switch to tab N when on the dashboard. In-report
+     contexts already bind digits to ask-option picking (triage.js); we
+     defer to that by skipping digits when window.HD_REPORT is set. */
+  function switchToTabN(n) {
+    if (window.HD_REPORT) return false; // report page owns digits
+    try {
+      var raw = localStorage.getItem('harness-deck:tabs');
+      var tabs = raw ? JSON.parse(raw) : [];
+      // Tab 1 is the dashboard itself (always present), tabs 2..N+1 are
+      // the pinned reports in order. So digit i picks index i-1 across
+      // the combined list (dashboard first).
+      var idx = n - 1;
+      if (idx === 0) { window.location.href = '/'; return true; }
+      var tab = tabs[idx - 1];
+      if (tab) { window.location.href = reportURL(tab); return true; }
+    } catch (_) {}
+    return false;
+  }
+
   /* Inbox cursor key handler — capture phase so we intercept j/k
-     before vim-nav's page-scroll binding fires. Only owns those keys
-     when there's actually a row list to navigate; otherwise lets the
-     event bubble through to vim-nav. */
+     before vim-nav's page-scroll binding fires. Also owns chord
+     prefixes (Space, g) and digit-to-tab routing. */
   document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
-    if (!visibleRows().length) return; // current view doesn't have a row list
     // Modifier keys belong to the browser / OS — don't intercept.
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
     function consume() { e.preventDefault(); e.stopImmediatePropagation(); }
+
+    // --- chord dispatch: a pending prefix (Space or g) consumes the
+    // current key as the chord completion. ---
+    if (pendingChord === ' ') {
+      setPendingChord('');
+      switch (e.key) {
+        case 's': toggleSettingsOverlay(); consume(); return;
+        case 't': cycleTheme(); consume(); return;
+        case '?': openHelpOverlay(); consume(); return;
+        case 'Escape': consume(); return; // cancel
+      }
+      // Any other key after Space: just consume; user can re-type.
+      consume();
+      return;
+    }
+    if (pendingChord === 'g') {
+      setPendingChord('');
+      switch (e.key) {
+        case 'i':
+          archiveFilter = false; render();
+          showView('inbox'); consume(); return;
+        case 'p':
+          showView('projects'); consume(); return;
+        case 'a':
+          showView('inbox');
+          archiveFilter = true; render();
+          consume(); return;
+        case 'g':
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          consume(); return;
+      }
+      // Unknown chord — drop silently, swallow the key.
+      consume();
+      return;
+    }
+
+    // --- single-key dispatch ---
+    // Digit → in-app tab N.
+    if (/^[1-9]$/.test(e.key)) {
+      if (switchToTabN(parseInt(e.key, 10))) { consume(); return; }
+    }
+    if (e.key === ' ') { setPendingChord(' '); consume(); return; }
+    if (e.key === 'g') { setPendingChord('g'); consume(); return; }
+    if (e.key === '?') { openHelpOverlay(); consume(); return; }
+
+    // Below: row actions, only meaningful when a row list is visible.
+    if (!visibleRows().length) return;
 
     switch (e.key) {
       case 'j': moveCursor(+1); consume(); return;
@@ -1253,6 +1430,12 @@
      no conflict. */
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
+    var help = document.getElementById('help-overlay');
+    if (help && help.style.display !== 'none') {
+      closeHelpOverlay();
+      e.preventDefault();
+      return;
+    }
     var o = document.getElementById('settings-overlay');
     if (o && o.style.display !== 'none') {
       closeSettingsOverlay();
@@ -1260,8 +1443,26 @@
     }
   });
 
+  /* Register `:`-prefixed commands with vim-nav so the command palette
+     (Tab-autocomplete prompt) can drive every overlay + view switch.
+     The names track the help overlay (`:cheat`) so users see a single
+     vocabulary. */
+  function registerCommands() {
+    if (!(window.VimNav && VimNav.addCommand)) return;
+    VimNav.addCommand('inbox', function () { archiveFilter = false; render(); showView('inbox'); }, 'go to inbox');
+    VimNav.addCommand('projects', function () { showView('projects'); }, 'go to projects');
+    VimNav.addCommand('archive', function () { showView('inbox'); archiveFilter = !archiveFilter; render(); }, 'toggle archive filter on inbox');
+    VimNav.addCommand('settings', function () { openSettingsOverlay(); }, 'open the settings overlay');
+    VimNav.addCommand('cheat', function () { openHelpOverlay(); }, 'open the keymap cheat sheet');
+    VimNav.addCommand('theme', function (arg) {
+      if (arg === 'dark' || arg === 'light' || arg === 'system') setTheme(arg);
+      else cycleTheme();
+    }, 'cycle theme (or: theme dark/light/system)');
+  }
+
   window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
   migrateLegacyURL();
+  registerCommands();
   refresh();
   connectEvents();
 })();
