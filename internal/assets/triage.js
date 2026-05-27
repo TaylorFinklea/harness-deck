@@ -258,7 +258,10 @@
         return;
       }
       case 'i':
-      case 'a':
+        // `i` focuses the text input on the current ask (enter INSERT).
+        // `a` used to be an alias here but now means "archive this
+        // report" page-wide (matches the inbox row binding); dropping
+        // the alias clears the conflict.
         if (focusInput()) e.preventDefault();
         return;
       case 'y':

@@ -41,16 +41,16 @@
     <div class="tab active"><span class="num">1</span> {{.Report.Title}}</div>
     <div class="report-actions vim-no-search">
       {{if eq .Report.Status "done"}}
-        <button onclick="hdReopen()" title="reopen (back to inbox)">↺ reopen</button>
+        <button onclick="hdReopen()" title="reopen (back to inbox)">↺ reopen<span class="hd-hint">r</span></button>
       {{else}}
-        <button onclick="hdClose()" title="close (mark done)">✕ close</button>
+        <button onclick="hdClose()" title="close (mark done)">✕ close<span class="hd-hint">x</span></button>
       {{end}}
       {{if .Report.Archived}}
-        <button onclick="hdUnarchive()" title="restore from archive">↺ unarchive</button>
+        <button onclick="hdUnarchive()" title="restore from archive">↺ unarchive<span class="hd-hint">a</span></button>
       {{else}}
-        <button onclick="hdArchive()" title="hide from default views (recoverable)">📦 archive</button>
+        <button onclick="hdArchive()" title="hide from default views (recoverable)">📦 archive<span class="hd-hint">a</span></button>
       {{end}}
-      <button onclick="hdDelete()" class="danger" title="delete the report file (permanent)">⌦ delete</button>
+      <button onclick="hdDelete()" class="danger" title="delete the report file (permanent)">⌦ delete<span class="hd-hint">dd</span></button>
     </div>
   </div>
   <div class="keyhints vim-no-search">
@@ -162,6 +162,46 @@
     if (!confirm('Permanently delete this report? This removes the run directory from disk. Archive instead if you might want it back.')) return;
     hdAction('', 'DELETE');
   }
+
+  /* Keyboard bindings for the report-level action buttons. Mirror the
+     inbox row actions (x close, a archive, dd delete) so muscle memory
+     transfers in both directions. Single-letter; the chord prefix is
+     reserved for navigation. */
+  (function () {
+    var ddArmed = 0;
+    document.addEventListener('keydown', function (e) {
+      var t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Defer to triage when the user is mid-ask: y/n/digits/h/l own
+      // the keys then, and a stray x/a here would be jarring.
+      if (document.querySelector('.panel.ask-focused')) return;
+      var done = {{if eq .Report.Status "done"}}true{{else}}false{{end}};
+      var archived = {{if .Report.Archived}}true{{else}}false{{end}};
+      switch (e.key) {
+        case 'x':
+          if (!done) { hdClose(); e.preventDefault(); }
+          return;
+        case 'r':
+          if (done) { hdReopen(); e.preventDefault(); }
+          return;
+        case 'a':
+          if (archived) hdUnarchive(); else hdArchive();
+          e.preventDefault();
+          return;
+        case 'd':
+          if (Date.now() - ddArmed < 500) {
+            ddArmed = 0;
+            hdDelete();
+          } else {
+            ddArmed = Date.now();
+          }
+          e.preventDefault();
+          return;
+      }
+    });
+  })();
 </script>
 <script>{{.JS}}</script>
 <script>
