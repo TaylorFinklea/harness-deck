@@ -200,8 +200,19 @@ README + CONTRACT.
   `1fr` foot-gun (`minmax(0, 1fr)` + `.content { min-width: 0 }`) so
   wide markdown / code can't push the content column past the viewport;
   same fix that mobile got, now applied to desktop too.
-- **Notification fan-out** (Slack/Discord/webhook beyond Web Push) —
-  next up.
+- **Notification fan-out** _(done — 2026-05-26)_ — Slack incoming
+  webhook, Discord webhook, and generic POST webhook destinations
+  configured under `notifications[]` in config.json. The 2s watcher
+  fires `notify.Fanout(...)` alongside Web Push for every newly-open
+  ask; per-destination optional `projects[]` allowlist filters routing.
+  Fire-and-forget with per-attempt log line, no retry. Settings view
+  gains a "notification destinations" panel with list/add/test/remove
+  CRUD via `/api/notifications/*` endpoints — atomic config rewrite
+  preserving unknown fields. URLs in the GET response are host-redacted
+  so webhook tokens don't echo. `public_url` config field controls the
+  link in chat (falls back to bind+port). Done across the v0.1.5 push
+  pipeline + the v0.1.21 history surface, this closes the "extend
+  usefulness" wave (MCP + live + history + fan-out).
 
 Parking lot (not picked but logged): report templates
 (`new --template <name>`), search filters + saved searches.

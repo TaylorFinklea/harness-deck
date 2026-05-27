@@ -413,6 +413,7 @@
 
     return [
       panel('phone notifications', null, body),
+      panel('notification destinations', null, [destinationsBody()]),
       panel('theme', null, [themePicker()]),
       panel('about', null, [
         el('div', null, [el('b', { text: 'tip: ' }),
@@ -420,6 +421,143 @@
       ])
     ];
   }
+
+  /* destinationsBody — renders the "notification destinations" settings
+     panel: a list of configured Slack / Discord / webhook endpoints with
+     per-row test + remove buttons, and an add form below. The list is
+     async-fetched after render so the panel itself is synchronous. */
+  function destinationsBody() {
+    var listEl = el('div', { id: 'dest-list' }, [
+      el('div', { class: 'sub', text: 'loading…' })
+    ]);
+    setTimeout(refreshDestinations, 0);
+    return el('div', null, [
+      listEl,
+      el('div', { class: 'sub', style: 'margin: 14px 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--tn-fg-gutter);', text: 'add destination' }),
+      destinationForm(),
+      el('div', { class: 'sub', style: 'margin-top: 12px;', text:
+        'Fan-out fires for every new ask alongside Web Push. Set public_url in config.json so the link in Slack/Discord resolves externally (defaults to bind+port, which is "0.0.0.0:7420" on open binds).'
+      })
+    ]);
+  }
+
+  /* destinationForm — the add-destination form. POSTs the four fields
+     to /api/notifications; on success, refreshes the list and resets. */
+  function destinationForm() {
+    return el('form', { id: 'dest-form', class: 'dest-form' }, [
+      el('div', { class: 'dest-form-row' }, [
+        el('select', { name: 'type', class: 'hd-input' }, [
+          el('option', { value: 'slack', text: 'slack' }),
+          el('option', { value: 'discord', text: 'discord' }),
+          el('option', { value: 'webhook', text: 'webhook' })
+        ]),
+        el('input', { name: 'name', class: 'hd-input', placeholder: 'name (e.g. team-alerts)', required: 'required' })
+      ]),
+      el('input', { name: 'url', class: 'hd-input', placeholder: 'https://hooks.slack.com/services/...', required: 'required' }),
+      el('input', { name: 'projects', class: 'hd-input', placeholder: 'projects allowlist (comma-separated, empty = all)' }),
+      el('div', { class: 'dest-form-actions' }, [
+        el('button', { type: 'submit', class: 'hd-btn' }, ['add destination'])
+      ])
+    ]);
+  }
+
+  /* refreshDestinations — pull the current list, render rows. Called
+     after add / delete so the UI matches server state. */
+  function refreshDestinations() {
+    var list = document.getElementById('dest-list');
+    if (!list) return;
+    fetch('/api/notifications').then(function (r) { return r.json(); }).then(function (data) {
+      var dests = data.destinations || [];
+      if (!dests.length) {
+        list.replaceChildren(el('div', { class: 'sub', text: 'no destinations configured.' }));
+        return;
+      }
+      list.replaceChildren.apply(list, dests.map(destinationRow));
+    }).catch(function (e) {
+      list.replaceChildren(el('div', { class: 'sub', text: 'failed to load: ' + e }));
+    });
+  }
+
+  /* destinationRow — one entry in the configured list. URL host only
+     (the server redacts secrets); test + remove buttons wire via data-
+     attributes to the delegated click handler. */
+  function destinationRow(d) {
+    var kids = [
+      el('div', { class: 'dest-main' }, [
+        el('div', null, [
+          el('b', { text: d.name }),
+          el('span', { class: 'sub', text: ' · ' + d.type + (d.url_host ? ' · ' + d.url_host : '') })
+        ])
+      ]),
+      el('div', { class: 'dest-actions' }, [
+        el('button', { type: 'button', class: 'hd-btn dest-test', data: { name: d.name } }, ['test']),
+        el('button', { type: 'button', class: 'hd-btn danger dest-remove', data: { name: d.name } }, ['remove'])
+      ])
+    ];
+    if (d.projects && d.projects.length) {
+      kids[0].appendChild(el('div', { class: 'sub', text: 'projects: ' + d.projects.join(', ') }));
+    }
+    return el('div', { class: 'dest-row' }, kids);
+  }
+
+  function addDestination(formData) {
+    var body = {
+      name: (formData.get('name') || '').trim(),
+      type: formData.get('type'),
+      url: (formData.get('url') || '').trim(),
+    };
+    var projects = (formData.get('projects') || '').trim();
+    if (projects) {
+      body.projects = projects.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+    return fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error(t || ('http ' + r.status)); });
+      return r.json();
+    });
+  }
+
+  function testDestination(name) {
+    var btn = document.querySelector('.dest-test[data-name="' + cssEscape(name) + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'testing…'; }
+    fetch('/api/notifications/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name })
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = data.ok ? 'sent ✓' : 'failed';
+        btn.classList.toggle('ok', !!data.ok);
+        setTimeout(function () {
+          btn.textContent = 'test';
+          btn.classList.remove('ok');
+        }, 2500);
+      }
+      if (!data.ok && data.error) alert('test failed: ' + data.error);
+    }).catch(function (e) {
+      if (btn) { btn.disabled = false; btn.textContent = 'test'; }
+      alert('test failed: ' + e);
+    });
+  }
+
+  function removeDestination(name) {
+    if (!confirm('Remove destination "' + name + '"? This rewrites config.json.')) return;
+    fetch('/api/notifications/' + encodeURIComponent(name), { method: 'DELETE' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('http ' + r.status);
+        refreshDestinations();
+      })
+      .catch(function (e) { alert('remove failed: ' + e); });
+  }
+
+  /* cssEscape — minimal substitute for CSS.escape (Safari has it but
+     older WebViews may not). Only needs to handle what dest names can
+     contain (safePathComponent: alphanumeric + . _ -). */
+  function cssEscape(s) { return s.replace(/["\\]/g, '\\$&'); }
 
   /* themePicker — three-way segmented control (system / dark / light)
      persisted to localStorage. "system" follows prefers-color-scheme
@@ -659,8 +797,30 @@
     if (e.target.id === 'push-off') { disablePushHere(); return; }
     var themeBtn = e.target.closest('.theme-btn');
     if (themeBtn) { setTheme(themeBtn.dataset.theme); return; }
+    var testBtn = e.target.closest('.dest-test');
+    if (testBtn) { e.stopPropagation(); testDestination(testBtn.dataset.name); return; }
+    var removeBtn = e.target.closest('.dest-remove');
+    if (removeBtn) { e.stopPropagation(); removeDestination(removeBtn.dataset.name); return; }
     var row = e.target.closest('[data-url]');
     if (row) { window.location.href = row.dataset.url; }
+  });
+
+  /* destination-form submit: POST then refresh + reset on success */
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('#dest-form');
+    if (!form) return;
+    e.preventDefault();
+    var submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'saving…'; }
+    addDestination(new FormData(form))
+      .then(function () {
+        form.reset();
+        refreshDestinations();
+      })
+      .catch(function (err) { alert('add failed: ' + err.message); })
+      .finally(function () {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'add destination'; }
+      });
   });
 
   /* a checkbox in the tracked-projects panel hides or shows a project */

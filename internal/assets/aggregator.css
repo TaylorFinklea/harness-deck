@@ -267,6 +267,41 @@
   .hist-resps { margin-left: 12px; }
 }
 
+/* --- settings: notification destinations ---
+   List entries are flex rows (label + action buttons); the add form
+   stacks vertically with one input per line. Buttons reuse the global
+   .hd-btn vocabulary; inputs reuse .hd-input. */
+.dest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px dotted var(--tn-bg-highlight);
+}
+.dest-row:first-child { border-top: none; }
+.dest-main { flex: 1; min-width: 0; }
+.dest-main .sub { color: var(--tn-comment); font-size: 11px; }
+.dest-actions { display: flex; gap: 6px; }
+.dest-actions .hd-btn { font-size: 11px; padding: 4px 10px; }
+.dest-actions .hd-btn.danger:hover { border-color: var(--tn-red); color: var(--tn-red); }
+
+.dest-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dotted var(--tn-bg-highlight);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.1);
+}
+.dest-form-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 8px;
+}
+.dest-form-actions { display: flex; justify-content: flex-end; }
+.dest-form .hd-input { width: 100%; }
+
 /* Archive-view actions — restore + permanent delete. The row is the
    same itemRow used everywhere; we just append a side-by-side button
    pair. */

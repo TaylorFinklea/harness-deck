@@ -220,6 +220,37 @@ keeps the "no live socket coupling required" property of the original
 authoring decision (2026-05-20) intact while removing friction for
 harnesses that already speak MCP.
 
+## 2026-05-26 — Notification fan-out: fire-and-forget, redacted GETs
+
+Fan-out destinations live in `config.json` (`notifications []`). The
+settings view CRUD writes the same file via the round-trip-through-
+`map[string]any` pattern, so future config fields survive — same shape
+register.go uses.
+
+Per-destination project allowlist is the only filter shipped in v1.
+Rich filters (kind / status / time-of-day) were considered and deferred
+— YAGNI until someone hits the case.
+
+Reliability is **fire-and-forget with a log line on failure**. No retry
+queue. Justification: the watcher's delta detection re-tests every 2s,
+so an ask that's still open re-fires automatically (idempotent at the
+event level — never the side-effect level, but a missed notification
+isn't worth the queue's cost). Same reliability model as Web Push,
+which we've now lived with end-to-end on a real iPhone.
+
+GET /api/notifications **redacts URLs to scheme://host**. Slack and
+Discord webhooks embed secrets in the URL path; if the full URL went
+out in the GET, any browser session loading the settings view would
+echo the secret over the wire. The full URL stays in config.json on
+disk; the user re-enters it via the add form to edit. The test
+endpoint takes a `name` (not a URL) for the same reason — accepting an
+arbitrary URL would make the server an open relay.
+
+A `notifMu sync.RWMutex` guards `cfg.Notifications` against concurrent
+reads from the watcher and writes from CRUD handlers. The watcher
+copies the slice under the read lock before calling `notify.Fanout` so
+a mid-tick CRUD edit can't slice into a partially-written slice.
+
 ## 2026-05-26 — MCP transport: stdio JSON-RPC, not HTTP
 
 MCP supports stdio and Streamable HTTP. Picked stdio for harness-deck's

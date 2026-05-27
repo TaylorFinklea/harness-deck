@@ -7,10 +7,13 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/TaylorFinklea/harness-deck/internal/notify"
 )
 
 // Config is the harness-deck runtime configuration.
@@ -36,6 +39,19 @@ type Config struct {
 	// listens with HTTPS, which is required for iOS web push notifications.
 	// Generate certs once with `tailscale cert <hostname>`.
 	TLS TLSConfig `json:"tls"`
+	// PublicURL is the externally-reachable base URL of the dashboard,
+	// e.g. "https://scadrial.tailceb58.ts.net:7420". Used by notification
+	// fan-out (Slack/Discord/webhook) to build clickable links to reports.
+	// Empty falls back to best-effort construction from Bind + Port + TLS;
+	// that fallback works for localhost but produces "0.0.0.0:7420" for
+	// 0.0.0.0 binds — links won't resolve externally, set this explicitly.
+	PublicURL string `json:"public_url,omitempty"`
+	// Notifications are fan-out destinations (Slack / Discord / generic
+	// webhook) fired alongside Web Push whenever a new ask appears.
+	// Validation happens at Load time; a malformed entry is fatal so
+	// misconfig surfaces immediately rather than silently dropping
+	// notifications later.
+	Notifications []notify.Destination `json:"notifications,omitempty"`
 }
 
 // TLSConfig points at the cert + key files used when HTTPS is enabled.
@@ -90,6 +106,11 @@ func Load() (Config, error) {
 	}
 	if c.Bind == "" {
 		c.Bind = Default().Bind
+	}
+	for i, d := range c.Notifications {
+		if err := d.Validate(); err != nil {
+			return c, fmt.Errorf("notifications[%d] (%q): %w", i, d.Name, err)
+		}
 	}
 	return c, nil
 }

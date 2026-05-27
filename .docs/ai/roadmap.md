@@ -140,11 +140,16 @@ retrospective + multi-channel notifier."
   fix: extended the `minmax(0, 1fr)` grid-track defense to the
   desktop `.layout` (was only at the 720px breakpoint), so wide
   markdown / code can't push the content column past the viewport.
-- **Notification fan-out** — destinations beyond Web Push: Slack /
-  Discord webhooks, generic POST webhook, optional email. Plug into
-  the existing watcher → push delivery path. Per-destination on/off in
-  the settings view; payload shape mirrors the existing push payload so
-  one delivery driver hands off to a list of senders.
+- **Notification fan-out** _(done — 2026-05-26)_ — Slack / Discord /
+  generic webhook destinations under `notifications[]` in config.json.
+  The watcher fires `notify.Fanout(...)` alongside Web Push for every
+  newly-appeared open ask. Per-destination optional `projects[]`
+  allowlist filters routing. Fire-and-forget with per-attempt log line.
+  Settings view gets a "notification destinations" panel (list / add /
+  test / remove) backed by `/api/notifications/*` CRUD with atomic
+  config rewrite (unknown fields preserved). URLs host-redacted in the
+  GET response so webhook tokens don't echo. `public_url` config field
+  controls the link rendered in chat. Email left out of v1.
 
 Also on the table (lower priority — not picked yet but logged):
 

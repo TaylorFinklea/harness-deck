@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
@@ -41,6 +42,9 @@ type Server struct {
 	// when nil the push endpoints return 503 and the watcher skips notifying.
 	pushKeys *push.Keys
 	subs     *push.Store
+	// notifMu guards cfg.Notifications + cfg.PublicURL against concurrent
+	// reads from the watcher and writes from /api/notifications/* CRUD.
+	notifMu sync.RWMutex
 }
 
 // New builds a Server and performs the initial report scan.
@@ -88,6 +92,10 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
 	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)
 	mux.HandleFunc("POST /api/push/unsubscribe", s.handlePushUnsubscribe)
+	mux.HandleFunc("GET /api/notifications", s.handleNotificationsList)
+	mux.HandleFunc("POST /api/notifications", s.handleNotificationsAdd)
+	mux.HandleFunc("DELETE /api/notifications/{name}", s.handleNotificationsDelete)
+	mux.HandleFunc("POST /api/notifications/test", s.handleNotificationsTest)
 	mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
 	mux.HandleFunc("GET /service-worker.js", s.handleServiceWorker)
 	mux.HandleFunc("GET /icon.svg", s.handleIcon)

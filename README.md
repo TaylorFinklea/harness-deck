@@ -122,6 +122,32 @@ server, open the dashboard on your phone, visit the **settings** view, and
 tap _Enable notifications on this browser_. New asks land on the lock screen
 and deep-link straight to the report.
 
+## Notification fan-out
+
+Alongside Web Push, harness-deck can fan every new ask out to Slack, Discord,
+or any HTTP webhook (n8n, Zapier, custom). Add destinations from the
+**settings** view (or directly to `config.json`):
+
+```jsonc
+// ~/.config/harness-deck/config.json
+{
+  "public_url": "https://scadrial.tailceb58.ts.net:7420",
+  "notifications": [
+    {"name": "team-alerts", "type": "slack",   "url": "https://hooks.slack.com/services/…"},
+    {"name": "my-server",   "type": "discord", "url": "https://discord.com/api/webhooks/…"},
+    {"name": "n8n",         "type": "webhook", "url": "https://n8n.example.com/…",
+     "projects": ["work-project"]}
+  ]
+}
+```
+
+`public_url` is the URL the chat-side link should point at — without it the
+fallback is `<bind>:<port>` which won't resolve when `bind` is `0.0.0.0`.
+Per-destination `projects` is an optional allowlist; omit it to fire for
+every project. Sends are fire-and-forget with a per-attempt log line — no
+retry queue, on the principle that the next still-open ask re-fires
+automatically.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

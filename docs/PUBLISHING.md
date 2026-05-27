@@ -285,6 +285,24 @@ The MCP `update_live` tool is the cheap way to push these updates every
 few seconds; it merges into the manifest's `live` field without
 rewriting other fields.
 
+## Where the notifications go
+
+Once your reports are flowing, you control where new-ask notifications
+land. By default harness-deck delivers them to:
+
+- **Web Push** — installed PWA on your phone or browser (after running
+  `harness-deck vapid` and subscribing in `/settings`).
+- **Configured fan-out destinations** — Slack incoming webhooks,
+  Discord webhooks, or generic HTTP webhooks listed under
+  `notifications` in `config.json`. See the README's "Notification
+  fan-out" section for the schema, or add them from the settings view
+  (`5` key in the dashboard).
+
+Per-destination project allowlists let you route work asks to `#team`
+and personal asks to your Discord without crossing wires. Fan-out fires
+once per newly-appeared open ask — answered, archived, or duplicate
+asks don't re-fire.
+
 ## Getting unstuck
 
 - `harness-deck validate <file>` — strict schema check.

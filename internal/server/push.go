@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
+	"github.com/TaylorFinklea/harness-deck/internal/notify"
 	"github.com/TaylorFinklea/harness-deck/internal/push"
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
@@ -166,11 +168,17 @@ func blockPrompt(b manifest.Block) string {
 	return b.Type
 }
 
-// notifyNewAsks sends one push per ask that appeared in cur but not prev.
-// First-tick prev is empty, so an existing inbox of asks does not spam
-// the phone at startup — only delta from the first observed snapshot.
+// notifyNewAsks sends one push per ask that appeared in cur but not prev
+// AND fans the same notification out to every configured destination
+// (Slack / Discord / webhook). First-tick prev is empty, so an existing
+// inbox of asks does not spam either channel at startup — only delta
+// from the first observed snapshot.
 func (s *Server) notifyNewAsks(prev, cur map[string]askDigest, entries map[string]store.Entry) {
-	if !s.pushEnabled() || s.subs.Count() == 0 {
+	havePush := s.pushEnabled() && s.subs.Count() > 0
+	s.notifMu.RLock()
+	haveFanout := len(s.cfg.Notifications) > 0
+	s.notifMu.RUnlock()
+	if !havePush && !haveFanout {
 		return
 	}
 	for key, curAsks := range cur {
@@ -184,17 +192,52 @@ func (s *Server) notifyNewAsks(prev, cur map[string]askDigest, entries map[strin
 			if title == "" {
 				title = entry.Run
 			}
-			payload := push.Payload{
-				Title:   entry.Project + " — " + title,
-				Body:    prompt,
-				Tag:     key + ":" + id,
-				URL:     "/r/" + entry.Project + "/" + entry.Run,
-				Project: entry.Project,
-				Run:     entry.Run,
+			reportPath := "/r/" + entry.Project + "/" + entry.Run
+			if havePush {
+				go s.deliverPush(push.Payload{
+					Title:   entry.Project + " — " + title,
+					Body:    prompt,
+					Tag:     key + ":" + id,
+					URL:     reportPath, // service worker resolves against origin
+					Project: entry.Project,
+					Run:     entry.Run,
+				})
 			}
-			go s.deliverPush(payload)
+			if haveFanout {
+				// Snapshot under the read lock so a CRUD edit happening
+				// mid-tick doesn't slice into a half-written slice.
+				s.notifMu.RLock()
+				dests := append([]notify.Destination(nil), s.cfg.Notifications...)
+				s.notifMu.RUnlock()
+				notify.Fanout(context.Background(), notify.Notification{
+					Title:   entry.Project + " — " + title,
+					Body:    prompt,
+					Tag:     key + ":" + id,
+					URL:     s.publicReportURL(entry.Project, entry.Run),
+					Project: entry.Project,
+					Run:     entry.Run,
+				}, dests, log.Printf)
+			}
 		}
 	}
+}
+
+// publicReportURL builds an absolute, externally-reachable URL for a
+// report — what Slack / Discord need so a click in chat lands on the
+// dashboard page. Prefers cfg.PublicURL when set; otherwise falls back
+// to bind+port+TLS-scheme, which works for localhost but produces
+// "0.0.0.0:7420" for an open bind (links won't resolve externally — the
+// PublicURL field exists to fix that).
+func (s *Server) publicReportURL(project, run string) string {
+	base := s.cfg.PublicURL
+	if base == "" {
+		scheme := "http"
+		if s.cfg.TLS.Enabled() {
+			scheme = "https"
+		}
+		base = fmt.Sprintf("%s://%s:%d", scheme, s.cfg.Bind, s.cfg.Port)
+	}
+	return base + "/r/" + project + "/" + run
 }
 
 // deliverPush sends one payload to every stored subscription, dropping
