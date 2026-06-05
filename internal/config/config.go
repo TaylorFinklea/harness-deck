@@ -134,3 +134,26 @@ func Expand(p string) string {
 	}
 	return filepath.Join(home, p[2:])
 }
+
+// BaseURL returns the canonical base URL a client should use to reach the
+// dashboard, without a trailing slash. It prefers PublicURL when set;
+// otherwise it builds scheme://host:port, substituting a loopback host for an
+// unspecified bind ("0.0.0.0"/"::"/"") since those are listen addresses, not
+// ones a client can connect to. Note: with TLS and an unspecified bind, the
+// loopback fallback will mismatch a hostname cert — set PublicURL to the
+// cert's hostname (e.g. a Tailscale name) for a clean HTTPS URL.
+func (c Config) BaseURL() string {
+	if u := strings.TrimRight(c.PublicURL, "/"); u != "" {
+		return u
+	}
+	scheme := "http"
+	if c.TLS.Enabled() {
+		scheme = "https"
+	}
+	host := c.Bind
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		host = "127.0.0.1"
+	}
+	return fmt.Sprintf("%s://%s:%d", scheme, host, c.Port)
+}

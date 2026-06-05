@@ -16,6 +16,7 @@ go build ./...                              # build everything
 go test ./...                               # run all tests
 go test ./internal/render -run TestReport   # run one package / one test
 ./harness-deck serve                        # start the dashboard (default :7420)
+./harness-deck open                         # open the dashboard in a dedicated window
 ./harness-deck validate report.json         # check a manifest
 ./harness-deck render report.json -o out.html
 ./harness-deck new --title "first report"   # scaffold a starter report.json

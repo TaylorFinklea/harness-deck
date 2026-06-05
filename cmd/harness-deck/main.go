@@ -3,8 +3,13 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
@@ -33,6 +38,8 @@ func main() {
 		cmdRender(os.Args[2:])
 	case "serve":
 		cmdServe()
+	case "open":
+		cmdOpen(os.Args[2:])
 	case "vapid":
 		cmdVAPID(os.Args[2:])
 	case "new":
@@ -59,6 +66,7 @@ usage:
   harness-deck validate <report.json>        check a manifest for problems
   harness-deck render <report.json> [-o f]   render a manifest to HTML
   harness-deck serve                         start the dashboard server
+  harness-deck open [--print]                open the dashboard in a dedicated window
   harness-deck new --project P --title T     scaffold a starter report.json
   harness-deck register <path>               add a project root to the config
   harness-deck mcp                           start a stdio MCP server (optional)
@@ -156,6 +164,112 @@ func cmdServe() {
 	if err := srv.Serve(); err != nil {
 		fatal("serve", err)
 	}
+}
+
+// cmdOpen opens the running dashboard in a dedicated, application-style
+// window. It resolves the URL from config (BaseURL — set public_url for a
+// clean HTTPS hostname) and launches a chromeless browser window: Chrome's
+// --app mode when a Chromium-family browser is installed, otherwise the
+// default browser. open does NOT start the server — run `harness-deck serve`
+// or install the launchd agent for that. Flags: --print emits the URL and
+// exits; --default-browser skips app mode.
+func cmdOpen(args []string) {
+	printOnly, useDefault := false, false
+	for _, a := range args {
+		switch a {
+		case "--print", "-p":
+			printOnly = true
+		case "--default-browser":
+			useDefault = true
+		case "-h", "--help":
+			fmt.Println("usage: harness-deck open [--print] [--default-browser]")
+			return
+		default:
+			fmt.Fprintf(os.Stderr, "open: unknown flag %q\n", a)
+			os.Exit(2)
+		}
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		fatal("config", err)
+	}
+	target := cfg.BaseURL()
+	if printOnly {
+		fmt.Println(target)
+		return
+	}
+	if !reachable(target) {
+		fmt.Fprintf(os.Stderr, "harness-deck: warning: %s is not responding — is the server running? (`harness-deck serve` or the launchd agent)\n", target)
+	}
+	if err := openWindow(target, useDefault); err != nil {
+		fatal("open", err)
+	}
+	fmt.Printf("opened %s\n", target)
+}
+
+// reachable reports whether a TCP connection to the URL's host:port succeeds
+// within a short timeout — a cheap "is the server up?" probe.
+func reachable(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := u.Host
+	if u.Port() == "" {
+		port := "80"
+		if u.Scheme == "https" {
+			port = "443"
+		}
+		host = net.JoinHostPort(u.Hostname(), port)
+	}
+	conn, err := net.DialTimeout("tcp", host, 1500*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+// openWindow launches rawURL in a dedicated chromeless window via a
+// Chromium browser's --app mode, falling back to the OS default browser.
+// useDefault forces the default-browser path.
+func openWindow(rawURL string, useDefault bool) error {
+	switch runtime.GOOS {
+	case "darwin":
+		if !useDefault {
+			if app := macChromiumApp(); app != "" {
+				// `open -na <app> --args ...` launches a fresh instance and
+				// forwards the browser flags; --app yields a chromeless window.
+				return exec.Command("open", "-na", app, "--args", "--app="+rawURL).Run()
+			}
+		}
+		return exec.Command("open", rawURL).Run()
+	case "linux":
+		if !useDefault {
+			for _, b := range []string{"google-chrome", "chromium", "chromium-browser", "brave-browser", "microsoft-edge"} {
+				if p, err := exec.LookPath(b); err == nil {
+					return exec.Command(p, "--app="+rawURL).Start()
+				}
+			}
+		}
+		if p, err := exec.LookPath("xdg-open"); err == nil {
+			return exec.Command(p, rawURL).Start()
+		}
+		return fmt.Errorf("no browser opener found (install xdg-utils or a Chromium browser)")
+	default:
+		return fmt.Errorf("open is unsupported on %s; reach the dashboard at %s", runtime.GOOS, rawURL)
+	}
+}
+
+// macChromiumApp returns the name of an installed Chromium-family browser
+// usable with `open -na <name> --args --app=URL`, or "" if none is present.
+func macChromiumApp() string {
+	for _, app := range []string{"Google Chrome", "Chromium", "Brave Browser", "Microsoft Edge", "Arc", "Vivaldi"} {
+		if _, err := os.Stat("/Applications/" + app + ".app"); err == nil {
+			return app
+		}
+	}
+	return ""
 }
 
 // cmdVAPID generates a fresh VAPID keypair and stores it next to the

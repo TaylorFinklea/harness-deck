@@ -56,7 +56,7 @@ What exists:
   browser, with a server-status pill and per-device subscription state.
   Inbox rows have a hover-revealed ✕ close action; the report page top bar
   carries ✕ close / ↺ reopen / ⌦ delete (delete confirms natively).
-- **`cmd/harness-deck`** — `validate`, `render`, `serve`, `new`,
+- **`cmd/harness-deck`** — `validate`, `render`, `serve`, `open`, `new`,
   `register`, `vapid`, `version`. `new` scaffolds a starter report.json
   (id auto = `YYYYMMDD-HHMMSS`, status `draft`, prose placeholder
   block; `--in-repo` writes to `<repo>/.harness/<id>/` instead of the
@@ -265,6 +265,19 @@ in `$BROWSER`. Configurable via `HARNESS_DECK_URL` env var
 their tailnet hostname). Read-only by design — response writing
 lives in the browser where the response UI is. Free Neovim
 integration via `lark.nvim`: `:Lark` → "Harness Deck" → Inbox.
+
+**Dedicated-window launcher (2026-06-05)** — `harness-deck open` opens the
+running dashboard in a chromeless app window (Chrome `--app` on macOS; falls
+back to the default browser). Flags: `--print` emits the URL, `--default-browser`
+skips app mode. URL comes from new `config.BaseURL()` — prefers `public_url`,
+else scheme+host+port with a loopback fallback for unspecified binds
+(`0.0.0.0`/`::`). For TLS setups set `public_url` to the cert hostname (e.g. the
+tailnet name) so the window — and notification links — use a cert-valid URL.
+Server persistence: chezmoi-managed launchd agent
+(`com.tfinklea.harness-deck.plist`, RunAtLoad+KeepAlive) runs
+`/opt/homebrew/bin/harness-deck serve`. Native PWA install is also available via
+Safari "Add to Dock" at the `public_url`. (Note: the brew binary is still 0.1.6;
+`open` ships in the next release — until then run the repo build.)
 
 ## Next
 

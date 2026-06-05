@@ -71,3 +71,28 @@ func TestLoadReadsBindAndTLS(t *testing.T) {
 		t.Errorf("TLS = %+v", c.TLS)
 	}
 }
+
+// TestBaseURL covers the canonical-URL resolution: PublicURL wins (trailing
+// slash trimmed), the scheme follows TLS, and an unspecified bind collapses to
+// loopback rather than the un-connectable listen address.
+func TestBaseURL(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  Config
+		want string
+	}{
+		{"public url wins", Config{PublicURL: "https://scadrial.example.ts.net:7420", Bind: "0.0.0.0", Port: 7420}, "https://scadrial.example.ts.net:7420"},
+		{"public url trailing slash trimmed", Config{PublicURL: "https://host:7420/", Port: 7420}, "https://host:7420"},
+		{"http loopback default", Config{Bind: "127.0.0.1", Port: 7420}, "http://127.0.0.1:7420"},
+		{"unspecified bind collapses to loopback", Config{Bind: "0.0.0.0", Port: 7420}, "http://127.0.0.1:7420"},
+		{"tls flips scheme to https", Config{Bind: "127.0.0.1", Port: 7420, TLS: TLSConfig{Cert: "/c", Key: "/k"}}, "https://127.0.0.1:7420"},
+		{"explicit host preserved", Config{Bind: "192.168.1.5", Port: 9000}, "http://192.168.1.5:9000"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.cfg.BaseURL(); got != tc.want {
+				t.Errorf("BaseURL() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

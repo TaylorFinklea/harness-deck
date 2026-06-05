@@ -92,6 +92,7 @@ works. Or download a prebuilt binary from the
 ```sh
 go build ./...               # build from source
 ./harness-deck serve         # start the local dashboard
+./harness-deck open          # open the dashboard in a dedicated app window
 ./harness-deck validate report.json
 ./harness-deck render report.json -o out.html
 ./harness-deck new --title "first report"  # scaffold a starter report.json
