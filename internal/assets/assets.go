@@ -48,6 +48,9 @@ var LiveBannerJS string
 //go:embed search.js
 var SearchJS string
 
+//go:embed html-block.js
+var HTMLBlockJS string
+
 //go:embed respond.js
 var RespondJS string
 
@@ -119,9 +122,12 @@ var LiveBannerJSInline = strings.ReplaceAll(LiveBannerJS, "</script", `<\/script
 // SearchJSInline is search.js with </script escaped for safe inlining.
 var SearchJSInline = strings.ReplaceAll(SearchJS, "</script", `<\/script`)
 
+// HTMLBlockJSInline is html-block.js with </script escaped for safe inlining.
+var HTMLBlockJSInline = strings.ReplaceAll(HTMLBlockJS, "</script", `<\/script`)
+
 // ReportJS is the script bundle inlined into a rendered report page: vim
 // navigation, the response handler, the mobile drawer + service worker
 // registration, the in-app tab strip, the keyboard triage helper, the
 // SSE-driven live-reload watcher, the live in-flight telemetry banner,
-// and the Cmd+K search palette.
-var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + LiveBannerJSInline + "\n" + SearchJSInline
+// the Cmd+K search palette, and the html-block shadow-DOM isolator.
+var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + LiveBannerJSInline + "\n" + SearchJSInline + "\n" + HTMLBlockJSInline

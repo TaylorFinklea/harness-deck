@@ -138,7 +138,7 @@
 {{define "block-html" -}}
 <section class="panel" data-vim-section id="{{.ID}}">
 {{template "panel-head" .}}
-<div class="panel-body">{{safeHTML .Body.HTML}}</div>
+<div class="panel-body"><hd-html><template>{{safeHTML .Body.HTML}}</template></hd-html></div>
 </section>
 {{- end}}
 

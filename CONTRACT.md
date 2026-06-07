@@ -95,11 +95,39 @@ copy button), GitHub-style tables (`| h | h |` / `| - | - |` / rows),
 `> ` blockquotes, and links (`[text](url)` or `<https://…>`). See
 `samples/postgres-audit.report.json` for a complete worked example.
 
-The `html` block's `html` field is rendered **verbatim and unsanitized** inside
-the themed panel — arbitrary HTML, inline `<style>`, and `<svg>` all work. It's
-the canvas for one-off rich content (custom layouts, rendered mock-ups, inline
-charts) that markdown and the typed blocks can't express; prefer a typed block
-for any *recurring* shape so it restyles with the renderer and stays consistent.
+### The `html` block
+
+The `html` field is rendered **verbatim** as the contents of an isolated
+**shadow root** inside the themed panel — arbitrary HTML, inline `<style>`, and
+`<svg>` all work. It's the canvas for one-off rich content (custom layouts,
+rendered mock-ups, inline charts) that markdown and the typed blocks can't
+express; prefer a typed block for any *recurring* shape so it restyles with the
+renderer and stays consistent.
+
+Because the block is isolated:
+
+- **Your `<style>` and selectors stay inside the block** — they can't leak out
+  and restyle the dashboard, and the page's CSS won't bleed into your markup.
+  Style freely with bare selectors (`div { … }`) or inline `style="…"`.
+- **`<script>` does not execute** — html blocks are for layout/visuals, not
+  interactive JS widgets. (Need interactivity? That's a feature request for a
+  typed block.)
+- **The Tokyo Night theme variables are available** (CSS custom properties
+  inherit through the shadow boundary), so use them for colors that adapt to
+  light/dark and restyle with the theme instead of hardcoding hex:
+
+  `--tn-bg` `--tn-bg-dark` `--tn-bg-highlight` · `--tn-fg` `--tn-fg-dark`
+  `--tn-comment` · `--tn-blue` `--tn-cyan` `--tn-purple` `--tn-green`
+  `--tn-yellow` `--tn-orange` `--tn-red` `--tn-magenta` `--tn-teal` ·
+  semantic: `--tn-ok` `--tn-warn` `--tn-err` `--tn-info` · `--tn-rule` (hairline).
+
+  ```json
+  { "type": "html", "html": "<div style=\"color:var(--tn-fg);border:1px solid var(--tn-rule);padding:10px\">themed <b style=\"color:var(--tn-green)\">ok</b></div>" }
+  ```
+
+  Images, SVG, video, and tables are capped to the panel width and the block
+  scrolls horizontally if its content is wider, so a wide layout won't break
+  the page.
 
 ### Interactive blocks
 

@@ -50,7 +50,8 @@ func TestReportRendersBlocks(t *testing.T) {
 		`class="delta pos"`,   // metric trend
 		`<svg class="spark"`,  // sparkline
 		`class="sev crit"`,    // risk severity
-		`<i id=esc>raw</i>`,   // html escape-hatch passed through
+		`<hd-html><template>`, // html block wrapped for shadow-DOM isolation
+		`<i id=esc>raw</i>`,   // html escape-hatch passed through verbatim
 		`VimNav.init`,         // vim navigation wired
 		`class="statusline"`,
 	} {
