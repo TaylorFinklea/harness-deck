@@ -87,13 +87,19 @@ block type degrades to a visible error panel rather than breaking the report.
 | `callout` | info/warn/err aside | `level`, `tag`, `markdown` |
 | `barchart` | labeled bars | `bars[]` (`label,pct,color`) |
 | `table` | columnar data | `columns[]`, `rows[][]` |
-| `html` | **escape hatch** — raw HTML inside panel chrome | `html` |
+| `html` | raw HTML/CSS/SVG canvas — full control inside panel chrome | `html` |
 
 Markdown fields support paragraphs, `# headings`, `- lists`, `**bold**`,
 `*italic*`, `` `code` ``, fenced ``` ```lang ``` ``` blocks (rendered with a
 copy button), GitHub-style tables (`| h | h |` / `| - | - |` / rows),
 `> ` blockquotes, and links (`[text](url)` or `<https://…>`). See
 `samples/postgres-audit.report.json` for a complete worked example.
+
+The `html` block's `html` field is rendered **verbatim and unsanitized** inside
+the themed panel — arbitrary HTML, inline `<style>`, and `<svg>` all work. It's
+the canvas for one-off rich content (custom layouts, rendered mock-ups, inline
+charts) that markdown and the typed blocks can't express; prefer a typed block
+for any *recurring* shape so it restyles with the renderer and stays consistent.
 
 ### Interactive blocks
 
