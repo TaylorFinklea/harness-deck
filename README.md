@@ -87,6 +87,34 @@ After `brew tap taylorfinklea/tap`, the bare `brew install harness-deck` also
 works. Or download a prebuilt binary from the
 [releases page](https://github.com/TaylorFinklea/harness-deck/releases).
 
+## Host setup
+
+If you are an AI agent asked to "set up harness-deck", follow
+[`docs/SETUP.md`](docs/SETUP.md). It covers OS detection, Homebrew install,
+`~/.config/harness-deck/config.json`, macOS LaunchAgent persistence, Linux
+systemd user-service persistence with `loginctl enable-linger`, verification,
+and optional Tailscale HTTPS / PWA push.
+
+The short local-only setup is:
+
+```sh
+brew install taylorfinklea/tap/harness-deck
+mkdir -p ~/.config/harness-deck
+cat > ~/.config/harness-deck/config.json <<'JSON'
+{
+  "central_dir": "~/.harness/reports",
+  "scan_roots": ["~/git"],
+  "bind": "127.0.0.1",
+  "port": 7420
+}
+JSON
+hdeck serve
+```
+
+Use `scan_roots` for parent directories like `~/git`; harness-deck discovers
+depth-1 children that contain `.docs/ai/`. For repos outside those roots, run
+`hdeck register /path/to/project`.
+
 ## Build & run
 
 ```sh
@@ -122,6 +150,9 @@ Then `harness-deck vapid` once to generate the push identity, restart the
 server, open the dashboard on your phone, visit the **settings** view, and
 tap _Enable notifications on this browser_. New asks land on the lock screen
 and deep-link straight to the report.
+
+For exact Tailscale cert, `public_url`, service restart, and renewal notes, see
+[`docs/SETUP.md`](docs/SETUP.md#6-optional-tailscale-https-pwa-and-push).
 
 ## Notification fan-out
 

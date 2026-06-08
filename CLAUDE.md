@@ -34,6 +34,26 @@ alternate config with the env override:
 HARNESS_DECK_CONFIG=/tmp/hd-test/config.json ./harness-deck serve
 ```
 
+## Host setup requests
+
+When a user says "set up harness-deck" or asks for install help on a new host,
+use [`docs/SETUP.md`](docs/SETUP.md) as the runbook. Do the setup for the
+actual OS:
+
+- Homebrew install when `brew` is available: `brew install
+  taylorfinklea/tap/harness-deck`.
+- macOS persistence: user LaunchAgent.
+- Linux persistence: user systemd service plus `sudo loginctl enable-linger
+  "$USER"`.
+- Config path: `~/.config/harness-deck/config.json`.
+- Local default: `bind` `127.0.0.1`, `port` `7420`, `scan_roots` like `~/git`.
+- Phone/Tailscale default: `bind` `0.0.0.0`, set `public_url`, add TLS cert/key
+  only when HTTPS or push is needed, run `hdeck vapid` for push.
+- Verify with `hdeck open --print` and `/api/reports`.
+
+Do not mix service managers: `loginctl` is Linux/systemd-only; `launchctl` is
+macOS-only.
+
 ## Hard constraint: zero external dependencies
 
 `go.mod` has **no `require` block** — the project is stdlib-only on purpose

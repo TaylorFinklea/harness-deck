@@ -48,6 +48,10 @@ harness-deck serve   # then open http://127.0.0.1:7420
 You should see your project appear in the sidebar and a single report under
 it. Edit the JSON file and the dashboard live-reloads (~2s).
 
+For full host setup — persistent service, Linux `loginctl` linger, macOS
+LaunchAgent, Tailscale HTTPS, and phone push — see
+[`docs/SETUP.md`](SETUP.md).
+
 ## Where to write the file
 
 You choose one of two locations, whichever fits your run model:
@@ -310,6 +314,8 @@ asks don't re-fire.
 - `harness-deck serve` then watch `/api/reports` — the live index.
 - `~/.config/harness-deck/config.json` — bind, TLS, scan roots, optional
   `notify_command` that fires whenever the user records an answer.
+- [`docs/SETUP.md`](SETUP.md) — install, persistent service, Tailscale, and
+  push-notification setup.
 
 Found a rough edge? File it at
 <https://github.com/TaylorFinklea/harness-deck/issues>.

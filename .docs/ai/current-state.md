@@ -276,8 +276,12 @@ tailnet name) so the window — and notification links — use a cert-valid URL.
 Server persistence: chezmoi-managed launchd agent
 (`com.tfinklea.harness-deck.plist`, RunAtLoad+KeepAlive) runs
 `/opt/homebrew/bin/harness-deck serve`. Native PWA install is also available via
-Safari "Add to Dock" at the `public_url`. (Note: the brew binary is still 0.1.6;
-`open` ships in the next release — until then run the repo build.)
+Safari "Add to Dock" at the `public_url`.
+
+**Host setup docs (2026-06-08)** — README now links `docs/SETUP.md`, an
+agent-oriented runbook for "set up harness-deck": Homebrew install, config,
+macOS LaunchAgent, Linux systemd user service + `loginctl enable-linger`,
+verification, Tailscale HTTPS/PWA push, and optional MCP publishing.
 
 ## Next
 
