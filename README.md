@@ -73,6 +73,20 @@ flowchart TD
   table of contents + run metadata, stacked content panels, vim navigation,
   Tokyo Night theme.
 
+## Why this exists
+
+AI coding agents are good at editing repos, but their human-facing artifacts can
+sprawl: Markdown reports in chat, one-off HTML mockups, decisions buried in
+scrollback, and review notes that disappear with the session. harness-deck gives
+those artifacts one local place to land.
+
+Think of it as a pane of glass for agent output. Chat is where you talk to the
+agent; harness-deck is where the agent shows you things: reports, mockups,
+comparisons, approvals, and decisions that should survive a context clear.
+
+The launch article draft lives in
+[`docs/launch/medium-pane-of-glass.md`](docs/launch/medium-pane-of-glass.md).
+
 ## Install
 
 ```sh

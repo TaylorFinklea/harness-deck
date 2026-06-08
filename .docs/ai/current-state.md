@@ -283,6 +283,12 @@ agent-oriented runbook for "set up harness-deck": Homebrew install, config,
 macOS LaunchAgent, Linux systemd user service + `loginctl enable-linger`,
 verification, Tailscale HTTPS/PWA push, and optional MCP publishing.
 
+**Launch positioning docs (2026-06-08)** — Product-vision responses in
+`.harness/20260608-product-vision/responses.json` approved a Medium-first
+launch package: title "I Built a Pane of Glass for My AI Coding Agents",
+artifact-sprawl before/after diagram, README positioning, community blurbs.
+Drafts live under `docs/launch/`.
+
 ## Next
 
 **Next roadmap wave (selected 2026-05-26)** — see roadmap.md:
