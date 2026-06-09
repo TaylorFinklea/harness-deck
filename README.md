@@ -104,6 +104,12 @@ After `brew tap taylorfinklea/tap`, the bare `brew install harness-deck` also
 works. Or download a prebuilt binary from the
 [releases page](https://github.com/TaylorFinklea/harness-deck/releases).
 
+**Or let your coding agent install it.** harness-deck ships an agent-oriented
+setup runbook ([`docs/SETUP.md`](docs/SETUP.md)). Point your harness at this
+repo and say *set up harness-deck* — it detects your OS, installs the binary,
+writes the config, and registers a start-on-login service (launchd on macOS,
+systemd on Linux), then verifies the dashboard responds.
+
 ## Host setup
 
 If you are an AI agent asked to "set up harness-deck", follow
