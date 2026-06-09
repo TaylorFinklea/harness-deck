@@ -68,7 +68,10 @@ flowchart TD
   block is the escape hatch for UI the vocabulary doesn't cover yet. See
   [`CONTRACT.md`](CONTRACT.md) for the full schema, or
   [`docs/PUBLISHING.md`](docs/PUBLISHING.md) for a walkthrough aimed at tools
-  that want to publish into the dashboard.
+  that want to publish into the dashboard. The contract also ships **inside the
+  binary** — run `hdeck contract` to print it, or read it over MCP (the
+  `harness-deck://contract` resource) — so an agent on any machine has the
+  schema without cloning this repo.
 - **Visual design:** the "v1 TUI dashboard" — terminal chrome, sidebar tree +
   table of contents + run metadata, stacked content panels, vim navigation,
   Tokyo Night theme.
@@ -139,6 +142,7 @@ go build ./...               # build from source
 ./harness-deck render report.json -o out.html
 ./harness-deck new --title "first report"  # scaffold a starter report.json
 ./harness-deck register /path/to/project   # add a project root to the config
+./harness-deck contract      # print the embedded report contract (--publishing for the guide)
 ./harness-deck vapid         # generate the VAPID keypair for phone push (one-time)
 ./harness-deck version       # print build metadata
 ```

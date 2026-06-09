@@ -208,6 +208,16 @@ Agents can always publish by writing `report.json` under
 MCP publishing is optional and does not require the dashboard server to be
 running.
 
+The report schema travels with the binary, so an agent never needs to clone
+this repo to learn it:
+
+- `hdeck contract` prints the full contract (`--publishing` prints the gentler
+  walkthrough).
+- Over MCP, the server exposes it as the `harness-deck://contract` resource
+  (plus `harness-deck://publishing`), and its `initialize` handshake returns
+  short instructions on when to publish.
+- A running dashboard also serves it at `GET /contract.md`.
+
 Claude Code:
 
 ```sh
