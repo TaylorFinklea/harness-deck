@@ -85,11 +85,52 @@ type ServerInfo struct {
 // initializeResult is the payload of the initialize response. Capabilities
 // uses map[string]any so we can declare empty objects (`{}`) for
 // capabilities the server has but with no sub-fields — what the spec
-// requires for "tools" support.
+// requires for "tools" / "resources" support. Instructions is an optional
+// free-text hint the spec lets a server hand the client up front — we use it
+// to explain when to publish a report and where the full schema lives.
 type initializeResult struct {
 	ProtocolVersion string         `json:"protocolVersion"`
 	Capabilities    map[string]any `json:"capabilities"`
 	ServerInfo      ServerInfo     `json:"serverInfo"`
+	Instructions    string         `json:"instructions,omitempty"`
+}
+
+// Resource is one document the server exposes via resources/list. It is
+// metadata only — the body is fetched separately via resources/read.
+type Resource struct {
+	URI         string `json:"uri"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mimeType,omitempty"`
+}
+
+// resourceDef binds a Resource's metadata to its text body, so the registry
+// stays the single source of truth for both resources/list and resources/read.
+type resourceDef struct {
+	Resource Resource
+	Text     string
+}
+
+// resourcesListResult is the payload of a resources/list response.
+type resourcesListResult struct {
+	Resources []Resource `json:"resources"`
+}
+
+// resourceReadParams is the params shape for resources/read.
+type resourceReadParams struct {
+	URI string `json:"uri"`
+}
+
+// resourceContents is one returned document body for resources/read.
+type resourceContents struct {
+	URI      string `json:"uri"`
+	MimeType string `json:"mimeType,omitempty"`
+	Text     string `json:"text"`
+}
+
+// resourceReadResult is the payload of a resources/read response.
+type resourceReadResult struct {
+	Contents []resourceContents `json:"contents"`
 }
 
 // Tool is one tool the server exposes via tools/list.
@@ -152,7 +193,7 @@ type toolDef struct {
 // principle, but our tools are quick and a sequential loop is dramatically
 // simpler to reason about. If a tool becomes long-running we'll move it
 // to goroutines + a write mutex.
-func Serve(ctx context.Context, in io.Reader, out io.Writer, tools map[string]toolDef, info ServerInfo) error {
+func Serve(ctx context.Context, in io.Reader, out io.Writer, tools map[string]toolDef, resources []resourceDef, info ServerInfo, instructions string) error {
 	scanner := bufio.NewScanner(in)
 	// Reports can be large (long markdown blocks, big diffs). Default buf is
 	// 64KB which trips on real-world manifests — bump to 4MB which covers
@@ -180,7 +221,7 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, tools map[string]to
 			writeError(enc, req.ID, errInvalidRequest, `jsonrpc must be "2.0"`)
 			continue
 		}
-		if err := dispatch(ctx, enc, req, tools, info); err != nil {
+		if err := dispatch(ctx, enc, req, tools, resources, info, instructions); err != nil {
 			log.Printf("mcp: dispatch %q: %v", req.Method, err)
 		}
 	}
@@ -192,7 +233,7 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, tools map[string]to
 
 // dispatch routes one request to the right handler. Notifications (no id)
 // are processed but get no reply.
-func dispatch(ctx context.Context, enc *json.Encoder, req Request, tools map[string]toolDef, info ServerInfo) error {
+func dispatch(ctx context.Context, enc *json.Encoder, req Request, tools map[string]toolDef, resources []resourceDef, info ServerInfo, instructions string) error {
 	switch req.Method {
 	case "initialize":
 		return writeResult(enc, req.ID, initializeResult{
@@ -200,10 +241,13 @@ func dispatch(ctx context.Context, enc *json.Encoder, req Request, tools map[str
 			Capabilities: map[string]any{
 				// tools.listChanged would let us proactively notify the client
 				// of tool-set changes. We never change tools at runtime, so the
-				// empty object is the right signal.
-				"tools": map[string]any{},
+				// empty object is the right signal. resources is likewise a
+				// fixed set (the embedded docs), so an empty object too.
+				"tools":     map[string]any{},
+				"resources": map[string]any{},
 			},
-			ServerInfo: info,
+			ServerInfo:   info,
+			Instructions: instructions,
 		})
 
 	case "notifications/initialized", "initialized":
@@ -232,6 +276,31 @@ func dispatch(ctx context.Context, enc *json.Encoder, req Request, tools map[str
 			return writeError(enc, req.ID, errInternal, err.Error())
 		}
 		return writeResult(enc, req.ID, res)
+
+	case "resources/list":
+		list := make([]Resource, 0, len(resources))
+		for _, r := range resources {
+			list = append(list, r.Resource)
+		}
+		return writeResult(enc, req.ID, resourcesListResult{Resources: list})
+
+	case "resources/read":
+		var params resourceReadParams
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			return writeError(enc, req.ID, errInvalidParams, "bad params: "+err.Error())
+		}
+		for _, r := range resources {
+			if r.Resource.URI == params.URI {
+				return writeResult(enc, req.ID, resourceReadResult{
+					Contents: []resourceContents{{
+						URI:      r.Resource.URI,
+						MimeType: r.Resource.MimeType,
+						Text:     r.Text,
+					}},
+				})
+			}
+		}
+		return writeError(enc, req.ID, errInvalidParams, fmt.Sprintf("unknown resource %q", params.URI))
 
 	case "ping":
 		// Spec ping: round-trip liveness check, empty result.

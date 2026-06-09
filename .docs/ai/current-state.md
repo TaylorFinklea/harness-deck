@@ -289,6 +289,19 @@ launch package: title "I Built a Pane of Glass for My AI Coding Agents",
 artifact-sprawl before/after diagram, README positioning, community blurbs.
 Drafts live under `docs/launch/`.
 
+**Self-describing binary (2026-06-09, unreleased)** — the binary now
+carries its own agent-facing docs so a coworker needs no repo clone.
+New root package `embed.go` (`package harnessdeck`) `go:embed`s
+`CONTRACT.md` + `docs/PUBLISHING.md`. Four surfaces, same bytes:
+`harness-deck contract [--publishing]` (CLI), MCP resources
+`harness-deck://contract` + `://publishing` plus an `instructions`
+string in the `initialize` handshake (`internal/mcp/resources.go`),
+and HTTP `GET /contract.md`. Contract is version-locked to the binary
+(embed, not GitHub-fetch — see decisions.md). Spec:
+`.docs/ai/phases/contract-delivery-spec.md`. Chezmoi `AGENTS.md` +
+`SKILL.md` repointed from the hardcoded `~/git/...` path to
+`harness-deck contract` / the MCP resource.
+
 ## Next
 
 **Next roadmap wave (selected 2026-05-26)** — see roadmap.md:

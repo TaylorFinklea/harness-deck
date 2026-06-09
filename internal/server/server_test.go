@@ -68,6 +68,21 @@ func TestShellServed(t *testing.T) {
 	}
 }
 
+func TestContractEndpoint(t *testing.T) {
+	h := newTestServer(t)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/contract.md", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /contract.md = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/markdown") {
+		t.Errorf("Content-Type = %q, want text/markdown", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "harness-deck/report@1") {
+		t.Error("/contract.md body missing schema marker")
+	}
+}
+
 func TestReportsAPI(t *testing.T) {
 	code, body := get(t, newTestServer(t), "/api/reports")
 	if code != http.StatusOK {

@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	harnessdeck "github.com/TaylorFinklea/harness-deck"
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
@@ -96,6 +97,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("POST /api/notifications", s.handleNotificationsAdd)
 	mux.HandleFunc("DELETE /api/notifications/{name}", s.handleNotificationsDelete)
 	mux.HandleFunc("POST /api/notifications/test", s.handleNotificationsTest)
+	mux.HandleFunc("GET /contract.md", s.handleContract)
 	mux.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
 	mux.HandleFunc("GET /service-worker.js", s.handleServiceWorker)
 	mux.HandleFunc("GET /icon.svg", s.handleIcon)
@@ -171,6 +173,15 @@ func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) handleManifest(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/manifest+json")
 	_, _ = w.Write([]byte(assets.ManifestJSON))
+}
+
+// handleContract serves the embedded report contract (CONTRACT.md) as
+// markdown, so an agent can fetch the schema from a running deck without a
+// repo clone. It's the HTTP twin of `harness-deck contract` and the MCP
+// harness-deck://contract resource — all three read the same embedded bytes.
+func (s *Server) handleContract(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	_, _ = w.Write([]byte(harnessdeck.Contract))
 }
 
 // handleServiceWorker serves the service worker script. Browsers require

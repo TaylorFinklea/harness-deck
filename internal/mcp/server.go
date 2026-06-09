@@ -12,19 +12,24 @@ import (
 // tools know where the central reports dir is and which roots to scan)
 // and the tool registry.
 type Server struct {
-	cfg   config.Config
-	tools map[string]toolDef
-	info  ServerInfo
+	cfg          config.Config
+	tools        map[string]toolDef
+	resources    []resourceDef
+	info         ServerInfo
+	instructions string
 }
 
-// New constructs an MCP server with the default tool set wired to the
-// passed config. The version string is stamped into the initialize
-// handshake response so clients can show which build they're talking to.
+// New constructs an MCP server with the default tool set and embedded-doc
+// resources wired to the passed config. The version string is stamped into
+// the initialize handshake response so clients can show which build they're
+// talking to.
 func New(cfg config.Config, version string) *Server {
 	s := &Server{
-		cfg:   cfg,
-		tools: map[string]toolDef{},
-		info:  ServerInfo{Name: "harness-deck", Version: version},
+		cfg:          cfg,
+		tools:        map[string]toolDef{},
+		resources:    defaultResources(),
+		info:         ServerInfo{Name: "harness-deck", Version: version},
+		instructions: instructions,
 	}
 	s.registerDefaults()
 	return s
@@ -33,7 +38,7 @@ func New(cfg config.Config, version string) *Server {
 // Run starts the JSON-RPC loop over the given pipes. Closing in (EOF)
 // returns nil; any other read error returns it.
 func (s *Server) Run(ctx context.Context, in io.Reader, out io.Writer) error {
-	return Serve(ctx, in, out, s.tools, s.info)
+	return Serve(ctx, in, out, s.tools, s.resources, s.info, s.instructions)
 }
 
 // register adds one tool to the registry. We panic on a duplicate name —

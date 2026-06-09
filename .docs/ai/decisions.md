@@ -427,3 +427,28 @@ prefer typed blocks over `html`). Linked from `README.md` and the
 top of `CONTRACT.md`. The motivating force was the cowork project
 asking how to publish — "read CONTRACT.md" works, but the gradient
 was too steep.
+
+## 2026-06-09 — Self-describing binary: embed CONTRACT.md, don't fetch it
+
+A coworker installing the binary (no repo clone, no dotfiles) had no
+way to get `CONTRACT.md` — and the user's chezmoi `AGENTS.md` + the
+installed `SKILL.md` both hardcoded `~/git/harness-deck/CONTRACT.md`,
+a dead path off the dev box. Fixed by making the binary carry its own
+docs.
+
+A new root-level package (`embed.go`, `package harnessdeck`) embeds
+`CONTRACT.md` + `docs/PUBLISHING.md` via `go:embed` at the module root
+(`github.com/TaylorFinklea/harness-deck`), so any package can read them
+with no duplication, symlink, or `go:generate`. Three surfaces expose
+them, all reading the same bytes: `harness-deck contract [--publishing]`
+(CLI), MCP resources `harness-deck://contract` + `://publishing` plus an
+`instructions` string in the `initialize` handshake (the coworker
+payoff — one MCP registration equips an agent fully), and HTTP
+`GET /contract.md`.
+
+Rejected: fetching `CONTRACT.md` from GitHub `HEAD` at runtime. Embedding
+makes the contract *version-locked to the binary* — you always get the
+contract that matches the renderer you installed. A GitHub-latest fetch
+could describe block types the installed binary can't render, which is
+exactly the graceful-degradation footgun the project already guards
+against. Offline-safe and zero-dependency as a bonus.

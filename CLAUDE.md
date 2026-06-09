@@ -21,6 +21,7 @@ go test ./internal/render -run TestReport   # run one package / one test
 ./harness-deck render report.json -o out.html
 ./harness-deck new --title "first report"   # scaffold a starter report.json
 ./harness-deck register /path/to/project    # add a project root to the config
+./harness-deck contract                     # print the embedded report contract (--publishing for the guide)
 ./harness-deck vapid                        # generate the VAPID keypair for push (one-time)
 ```
 
@@ -114,6 +115,14 @@ starting point:
 
 - **`CONTRACT.md` is the agent-facing spec and must stay in sync with the
   `manifest` structs.** Any change to report/block fields updates both.
+- **The binary is self-describing.** `embed.go` at the repo root
+  (`package harnessdeck`) `go:embed`s `CONTRACT.md` + `docs/PUBLISHING.md`, so
+  the `contract` subcommand, the MCP `harness-deck://contract` resource, and
+  the HTTP `GET /contract.md` route all serve the same embedded bytes —
+  version-locked to the build, no repo clone needed. The MCP `initialize`
+  handshake also returns an `instructions` string (`internal/mcp/resources.go`)
+  so an MCP-connected agent learns when to publish without the skill file. Edit
+  `CONTRACT.md` in place; the embed picks it up at compile time.
 - **Adding a block type** touches four places: a `Block` struct + registry
   entry in `internal/manifest/`, a `block-<type>` template in
   `internal/render/templates/`, a default title in `render.go`'s

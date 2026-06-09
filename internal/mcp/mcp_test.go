@@ -61,6 +61,73 @@ func TestInitializeHandshake(t *testing.T) {
 	}
 }
 
+func TestInitializeAdvertisesResourcesAndInstructions(t *testing.T) {
+	r := runOne(t, config.Default(), `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)
+	if r.Error != nil {
+		t.Fatalf("initialize returned error: %+v", r.Error)
+	}
+	res := r.Result.(map[string]any)
+	caps, _ := res["capabilities"].(map[string]any)
+	if _, hasResources := caps["resources"]; !hasResources {
+		t.Errorf("capabilities missing 'resources': %v", caps)
+	}
+	instr, _ := res["instructions"].(string)
+	if instr == "" {
+		t.Error("initialize result missing instructions string")
+	}
+	if !strings.Contains(instr, "harness-deck://contract") {
+		t.Errorf("instructions should point at the contract resource: %q", instr)
+	}
+}
+
+func TestResourcesListIncludesContract(t *testing.T) {
+	r := runOne(t, config.Default(), `{"jsonrpc":"2.0","id":2,"method":"resources/list"}`)
+	if r.Error != nil {
+		t.Fatalf("resources/list error: %+v", r.Error)
+	}
+	res := r.Result.(map[string]any)
+	resources, _ := res["resources"].([]any)
+	uris := map[string]bool{}
+	for _, x := range resources {
+		m := x.(map[string]any)
+		uris[m["uri"].(string)] = true
+	}
+	for _, want := range []string{"harness-deck://contract", "harness-deck://publishing"} {
+		if !uris[want] {
+			t.Errorf("resources/list missing %q (have %v)", want, uris)
+		}
+	}
+}
+
+func TestResourcesReadContractReturnsSchema(t *testing.T) {
+	body := `{"jsonrpc":"2.0","id":3,"method":"resources/read","params":{"uri":"harness-deck://contract"}}`
+	r := runOne(t, config.Default(), body)
+	if r.Error != nil {
+		t.Fatalf("resources/read error: %+v", r.Error)
+	}
+	res := r.Result.(map[string]any)
+	contents, _ := res["contents"].([]any)
+	if len(contents) == 0 {
+		t.Fatal("resources/read returned no contents")
+	}
+	first := contents[0].(map[string]any)
+	if first["mimeType"] != "text/markdown" {
+		t.Errorf("mimeType = %v, want text/markdown", first["mimeType"])
+	}
+	text, _ := first["text"].(string)
+	if !strings.Contains(text, "harness-deck/report@1") {
+		t.Error("contract resource body missing schema marker")
+	}
+}
+
+func TestResourcesReadUnknownURIErrors(t *testing.T) {
+	body := `{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"uri":"harness-deck://nope"}}`
+	r := runOne(t, config.Default(), body)
+	if r.Error == nil {
+		t.Errorf("expected an error for an unknown resource uri, got result %v", r.Result)
+	}
+}
+
 func TestToolsListIncludesAllDefaults(t *testing.T) {
 	r := runOne(t, config.Default(), `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
 	if r.Error != nil {

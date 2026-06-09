@@ -46,6 +46,8 @@ func main() {
 		cmdNew(os.Args[2:])
 	case "register":
 		cmdRegister(os.Args[2:])
+	case "contract":
+		cmdContract(os.Args[2:])
 	case "mcp":
 		cmdMCP(os.Args[2:])
 	case "version", "-v", "--version":
@@ -69,6 +71,7 @@ usage:
   harness-deck open [--print]                open the dashboard in a dedicated window
   harness-deck new --project P --title T     scaffold a starter report.json
   harness-deck register <path>               add a project root to the config
+  harness-deck contract [--publishing]       print the embedded report contract
   harness-deck mcp                           start a stdio MCP server (optional)
   harness-deck vapid                         generate the VAPID keypair for push
   harness-deck version                       print build metadata
