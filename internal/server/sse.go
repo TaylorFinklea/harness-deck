@@ -2,12 +2,20 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
+
+// scanWarnThreshold is the scan duration above which a WARN log line is emitted.
+const scanWarnThreshold = 500 * time.Millisecond
+
+// scanLogFloor is the minimum scan duration that produces any log output.
+// Sub-floor scans are completely silent to avoid 2-second spam on healthy installs.
+const scanLogFloor = 100 * time.Millisecond
 
 // hub fans out change notifications to every connected SSE client.
 type hub struct {
@@ -107,7 +115,16 @@ func (s *Server) initWatchState() watchState {
 //
 // tick is deliberately free of time.Sleep so tests can drive it directly.
 func (s *Server) tick(ws watchState) watchState {
+	scanStart := time.Now()
 	s.store.Scan(s.enabledRoots())
+	elapsed := time.Since(scanStart)
+	// testScanDuration overrides the measured value so tests can exercise
+	// the warn path without actually sleeping.
+	if s.testScanDuration > 0 {
+		elapsed = s.testScanDuration
+	}
+	s.logScanTiming(elapsed, len(s.store.Entries()))
+
 	cur := s.changeFingerprint()
 	changed := cur != ws.lastSig
 
@@ -129,6 +146,28 @@ func (s *Server) tick(ws watchState) watchState {
 	}
 
 	return watchState{lastSig: cur, prevAsks: curAsks, prevEntries: curEntries}
+}
+
+// logScanTiming emits a scan-duration log line when the scan took longer
+// than the quiet floor (100ms). Scans above the warn threshold (500ms) get
+// a "WARN" prefix so slow-disk or large-repo situations are easy to grep.
+// Sub-floor scans are silent so typical installs (millisecond scans) never
+// produce per-tick noise.
+func (s *Server) logScanTiming(d time.Duration, n int) {
+	if d < scanLogFloor {
+		return
+	}
+	var msg string
+	if d >= scanWarnThreshold {
+		msg = fmt.Sprintf("harness-deck: WARN slow scan: %v for %d entries", d.Round(time.Millisecond), n)
+	} else {
+		msg = fmt.Sprintf("harness-deck: scan: %v for %d entries", d.Round(time.Millisecond), n)
+	}
+	if s.testScanLogFn != nil {
+		s.testScanLogFn(msg)
+		return
+	}
+	log.Print(msg)
 }
 
 // watch rescans on an interval and broadcasts when anything the dashboard

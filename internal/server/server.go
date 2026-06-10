@@ -56,6 +56,16 @@ type Server struct {
 	// is actually invoked. Tests use this seam to verify signature-gated
 	// skipping behaviour.
 	testDigestCountFn func()
+
+	// testScanLogFn, when non-nil, receives scan-timing log messages instead
+	// of (in addition to) the real log.Printf calls. Tests use this to assert
+	// on the warn path without parsing real log output.
+	testScanLogFn func(string)
+
+	// testScanDuration, when non-zero, overrides the measured scan duration
+	// reported in scan-timing log lines. Tests set this to trigger the
+	// warn path without actually sleeping.
+	testScanDuration time.Duration
 }
 
 // New builds a Server and performs the initial report scan.
