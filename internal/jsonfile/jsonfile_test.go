@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -222,5 +223,43 @@ func TestPatchRejectsTrailingGarbage(t *testing.T) {
 	err := Patch(path, func(doc map[string]any) error { return nil })
 	if err == nil {
 		t.Fatal("trailing garbage should be an error, not silently dropped")
+	}
+}
+
+func TestPatchConcurrentMutationsAreSerialized(t *testing.T) {
+	// Patch is used by two different PROCESSES on the same report.json
+	// (dashboard close/archive vs MCP update_live). The advisory lock has
+	// to serialize the read-modify-write — concurrent goroutines contend
+	// on the same flock path, so this exercises the identical syscall.
+	path := filepath.Join(t.TempDir(), "doc.json")
+	if err := os.WriteFile(path, []byte(`{"n":0}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	const n = 50
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := Patch(path, func(doc map[string]any) error {
+				cur, _ := doc["n"].(json.Number)
+				v, _ := cur.Int64()
+				doc["n"] = v + 1
+				return nil
+			})
+			if err != nil {
+				t.Errorf("Patch: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	data, _ := os.ReadFile(path)
+	var got struct{ N int64 }
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("result not JSON: %v", err)
+	}
+	if got.N != n {
+		t.Errorf("n = %d, want %d (lost updates — read-modify-write not serialized)", got.N, n)
 	}
 }

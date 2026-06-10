@@ -65,6 +65,20 @@ func Upsert(path string, mutate func(doc map[string]any) error) error {
 }
 
 func patch(path string, allowMissing bool, mutate func(doc map[string]any) error) error {
+	// The lock file lives beside the target, so the parent must exist
+	// before the lock can be taken (Upsert may be creating both).
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	// Advisory lock shared by every writer of this file — including ones
+	// in other processes (dashboard vs MCP server) — so two concurrent
+	// read-modify-writes can't erase each other's changes.
+	unlock, err := lockFile(path + ".lock")
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	doc := map[string]any{}
 	data, err := os.ReadFile(path)
 	switch {
