@@ -7,6 +7,8 @@ package manifest
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 )
 
 // Schema is the manifest schema identifier expected in a report's "schema" field.
@@ -110,6 +112,90 @@ var registry = map[string]func() BlockBody{
 func KnownType(t string) bool {
 	_, ok := registry[t]
 	return ok
+}
+
+// Types returns the sorted list of every registered block type. The order is
+// deterministic (sorted) so tests that iterate the list produce stable output.
+func Types() []string {
+	out := make([]string, 0, len(registry))
+	for t := range registry {
+		out = append(out, t)
+	}
+	// Insertion order of map keys is random; sort for stability.
+	sort.Strings(out)
+	return out
+}
+
+// BlockPrompt returns the human-readable question text for an interactive
+// block, falling back to the block title if no prompt is set. It is the
+// canonical helper for building push-notification bodies and fanout messages.
+func BlockPrompt(b Block) string {
+	switch body := b.Body.(type) {
+	case *AskBlock:
+		if body.Prompt != "" {
+			return body.Prompt
+		}
+	case *DecisionBlock:
+		if body.Prompt != "" {
+			return body.Prompt
+		}
+	case *ApprovalBlock:
+		if body.Prompt != "" {
+			return body.Prompt
+		}
+	}
+	if b.Body != nil {
+		if t := b.Body.PanelTitle(); t != "" {
+			return t
+		}
+	}
+	return b.Type
+}
+
+// BlockText concatenates every block's plain-text content for full-text search.
+// Skips the html block (raw markup is rarely what a user is searching for, and
+// the cost of stripping tags isn't worth it). It is the canonical helper for
+// building search indexes.
+func BlockText(rep *Report) string {
+	var b strings.Builder
+	for _, blk := range rep.Blocks {
+		switch body := blk.Body.(type) {
+		case *ProseBlock:
+			b.WriteString(body.Markdown)
+			b.WriteByte('\n')
+		case *RecommendationsBlock:
+			for _, item := range body.Items {
+				b.WriteString(item.Markdown)
+				b.WriteByte('\n')
+			}
+		case *CalloutBlock:
+			b.WriteString(body.Markdown)
+			b.WriteByte('\n')
+		case *TimelineBlock:
+			for _, ev := range body.Events {
+				b.WriteString(ev.Markdown)
+				b.WriteByte('\n')
+			}
+		case *AskBlock:
+			b.WriteString(body.Prompt)
+			b.WriteByte('\n')
+			for _, opt := range body.Options {
+				b.WriteString(opt)
+				b.WriteByte('\n')
+			}
+		case *DecisionBlock:
+			b.WriteString(body.Prompt)
+			b.WriteByte('\n')
+			b.WriteString(body.A.Title)
+			b.WriteByte('\n')
+			b.WriteString(body.B.Title)
+			b.WriteByte('\n')
+		case *ApprovalBlock:
+			b.WriteString(body.Prompt)
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
 }
 
 // InteractiveID returns an interactive block's response id, or "" if the block

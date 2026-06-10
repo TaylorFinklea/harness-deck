@@ -88,6 +88,9 @@ block type degrades to a visible error panel rather than breaking the report.
 | `barchart` | labeled bars | `bars[]` (`label,pct,color`) |
 | `table` | columnar data | `columns[]`, `rows[][]` |
 | `html` | raw HTML/CSS/SVG canvas — full control inside panel chrome | `html` |
+| `ask` | interactive question (choice / yesno / text) | `id`, `prompt`, `mode`, `options[]` |
+| `decision` | interactive A/B choice | `id`, `prompt`, `a`, `b` (same shape as `compare`) |
+| `approval` | interactive sign-off | `id`, `prompt` |
 
 Markdown fields support paragraphs, `# headings`, `- lists`, `**bold**`,
 `*italic*`, `` `code` ``, fenced ``` ```lang ``` ``` blocks (rendered with a

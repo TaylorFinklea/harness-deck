@@ -126,9 +126,17 @@ starting point:
 - **Adding a block type** touches four places: a `Block` struct + registry
   entry in `internal/manifest/`, a `block-<type>` template in
   `internal/render/templates/`, a default title in `render.go`'s
-  `defaultTitles`, and a row in `CONTRACT.md`. The `html` block is the
-  deliberate escape hatch — recurring `html` usage is the signal to promote a
-  pattern to a real typed block.
+  `defaultTitles` (non-interactive types only), and a row in `CONTRACT.md`.
+  The `html` block is the deliberate escape hatch — recurring `html` usage
+  is the signal to promote a pattern to a real typed block.
+  `TestRegistryCrossCheck` in `internal/render` enforces all four places
+  automatically — if you add a registry entry without the rest, the test
+  will name exactly what's missing. Interactive types (`ask`/`decision`/
+  `approval`) are exempt from `defaultTitles` but must still have a
+  template and a CONTRACT.md row. If the new type produces searchable prose,
+  add a case to `manifest.BlockText`; if it's interactive, confirm
+  `manifest.BlockPrompt` covers it — both helpers live in `internal/manifest/`
+  and the cross-check test exercises them.
 - **Graceful degradation is a design rule**, not an accident: unknown block
   types, missing `responses.json`, and absent config files all resolve to a
   sensible fallback rather than an error.

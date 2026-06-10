@@ -134,38 +134,13 @@ func (s *Server) currentAskDigests() (map[string]askDigest, map[string]store.Ent
 			if _, answered := answers.Responses[id]; answered {
 				continue
 			}
-			d[id] = blockPrompt(b)
+			d[id] = manifest.BlockPrompt(b)
 		}
 		if len(d) > 0 {
 			digests[key] = d
 		}
 	}
 	return digests, entries
-}
-
-// blockPrompt returns the human-readable question text for an interactive
-// block, falling back to the block title if no prompt is set.
-func blockPrompt(b manifest.Block) string {
-	switch body := b.Body.(type) {
-	case *manifest.AskBlock:
-		if body.Prompt != "" {
-			return body.Prompt
-		}
-	case *manifest.DecisionBlock:
-		if body.Prompt != "" {
-			return body.Prompt
-		}
-	case *manifest.ApprovalBlock:
-		if body.Prompt != "" {
-			return body.Prompt
-		}
-	}
-	if b.Body != nil {
-		if t := b.Body.PanelTitle(); t != "" {
-			return t
-		}
-	}
-	return b.Type
 }
 
 // notifyNewAsks sends one push per ask that appeared in cur but not prev

@@ -95,7 +95,7 @@ func scoreEntry(s *Server, e store.Entry, needle string) searchHit {
 	// is the small "report fetch cost per match".)
 	rep, _, err := s.store.Get(e.Project, e.Run)
 	if err == nil && rep != nil {
-		text := blockText(rep)
+		text := manifest.BlockText(rep)
 		idx := strings.Index(strings.ToLower(text), needle)
 		if idx >= 0 {
 			out.Score += 5
@@ -103,51 +103,6 @@ func scoreEntry(s *Server, e store.Entry, needle string) searchHit {
 		}
 	}
 	return out
-}
-
-// blockText concatenates every block's plain-text content for search.
-// Skips the html block (raw markup is rarely what a user is searching
-// for, and the cost of stripping tags isn't worth it).
-func blockText(rep *manifest.Report) string {
-	var b strings.Builder
-	for _, blk := range rep.Blocks {
-		switch body := blk.Body.(type) {
-		case *manifest.ProseBlock:
-			b.WriteString(body.Markdown)
-			b.WriteByte('\n')
-		case *manifest.RecommendationsBlock:
-			for _, item := range body.Items {
-				b.WriteString(item.Markdown)
-				b.WriteByte('\n')
-			}
-		case *manifest.CalloutBlock:
-			b.WriteString(body.Markdown)
-			b.WriteByte('\n')
-		case *manifest.TimelineBlock:
-			for _, ev := range body.Events {
-				b.WriteString(ev.Markdown)
-				b.WriteByte('\n')
-			}
-		case *manifest.AskBlock:
-			b.WriteString(body.Prompt)
-			b.WriteByte('\n')
-			for _, opt := range body.Options {
-				b.WriteString(opt)
-				b.WriteByte('\n')
-			}
-		case *manifest.DecisionBlock:
-			b.WriteString(body.Prompt)
-			b.WriteByte('\n')
-			b.WriteString(body.A.Title)
-			b.WriteByte('\n')
-			b.WriteString(body.B.Title)
-			b.WriteByte('\n')
-		case *manifest.ApprovalBlock:
-			b.WriteString(body.Prompt)
-			b.WriteByte('\n')
-		}
-	}
-	return b.String()
 }
 
 // snippet returns ~120 chars of context around the match, with "…"
