@@ -5,8 +5,9 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"sync"
+
+	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 )
 
 // Store persists the set of push Subscriptions we deliver notifications to.
@@ -87,18 +88,11 @@ func (s *Store) load() []Subscription {
 	return subs
 }
 
-// save writes subs atomically (temp file + rename).
+// save writes subs atomically (unique temp file + rename).
 func (s *Store) save(subs []Subscription) error {
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
-		return err
-	}
 	data, err := json.MarshalIndent(subs, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, append(data, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, s.path)
+	return jsonfile.AtomicWrite(s.path, append(data, '\n'), 0o600)
 }

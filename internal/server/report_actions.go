@@ -5,38 +5,25 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 )
 
 // patchReport rewrites report.json after applying changes to its
-// top-level fields, preserving every other field via a map round-trip.
-// The write is atomic (temp + rename) so a crash mid-write cannot
-// truncate the agent's report.
+// top-level fields (nil deletes the key), preserving every other field —
+// including exact number literals — via jsonfile.Patch's atomic
+// read-modify-write.
 func patchReport(dir string, changes map[string]any) error {
-	path := filepath.Join(dir, "report.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return err
-	}
-	for k, v := range changes {
-		if v == nil {
-			delete(doc, k)
-		} else {
-			doc[k] = v
+	return jsonfile.Patch(filepath.Join(dir, "report.json"), func(doc map[string]any) error {
+		for k, v := range changes {
+			if v == nil {
+				delete(doc, k)
+			} else {
+				doc[k] = v
+			}
 		}
-	}
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(out, '\n'), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+		return nil
+	})
 }
 
 // handleReportClose marks a report as done. Idempotent — closing an

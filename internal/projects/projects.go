@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 )
 
 // Project is one discovered project root.
@@ -211,14 +212,7 @@ func (m *Manager) saveState(set map[string]bool, order []string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(m.statePath), 0o755); err != nil {
-		return err
-	}
-	tmp := m.statePath + ".tmp"
-	if err := os.WriteFile(tmp, append(data, '\n'), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, m.statePath)
+	return jsonfile.AtomicWrite(m.statePath, append(data, '\n'), 0o644)
 }
 
 // discover returns project roots: depth-1 children of each scan root that

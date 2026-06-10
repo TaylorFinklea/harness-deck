@@ -264,3 +264,6 @@ func strictDecode(raw []byte, v any) error {
 	dec.DisallowUnknownFields()
 	return dec.Decode(v)
 }
+
+// ValidStatus reports whether s is one of the allowed Report.Status values.
+func ValidStatus(s string) bool { return statusValues[s] }

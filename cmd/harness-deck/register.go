@@ -2,13 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 )
 
 // cmdRegister adds a project root to the harness-deck config's `projects`
@@ -52,7 +55,10 @@ with ~ expanded.
 	}
 
 	path := config.Path()
-	current := loadConfigMap(path)
+	current, err := loadConfigMap(path)
+	if err != nil {
+		fatal("register: read config", err)
+	}
 	projects := stringSlice(current["projects"])
 
 	if *remove {
@@ -92,29 +98,31 @@ with ~ expanded.
 
 // loadConfigMap reads the existing config as a generic map so the
 // register subcommand never throws away fields it doesn't know about.
-// A missing or unreadable file degrades to an empty map.
-func loadConfigMap(path string) map[string]any {
+// A missing file degrades to an empty map; an existing-but-unparseable
+// file is an error — never a silent restart from empty that would make
+// the subsequent write clobber the user's settings.
+func loadConfigMap(path string) (map[string]any, error) {
 	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return map[string]any{}, nil
+	}
 	if err != nil {
-		return map[string]any{}
+		return nil, err
 	}
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
-		return map[string]any{}
+		return nil, fmt.Errorf("%s exists but is not valid JSON — refusing to rewrite it: %w", path, err)
 	}
-	return m
+	return m, nil
 }
 
 // writeConfigMap pretty-prints m and atomically renames into place.
 func writeConfigMap(path string, m map[string]any) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
 	body, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}
-	return atomicWrite(path, append(body, '\n'), 0o644)
+	return jsonfile.AtomicWrite(path, append(body, '\n'), 0o644)
 }
 
 // stringSlice coerces a JSON-decoded value to []string, accepting both

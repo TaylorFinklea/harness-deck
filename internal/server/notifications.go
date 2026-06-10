@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
 )
 
@@ -18,8 +17,8 @@ import (
 // echoes the secret back. The user can edit the URL via the add flow
 // but the existing value never round-trips through the wire.
 type notificationsResponse struct {
-	PublicURL    string                  `json:"public_url"`
-	Destinations []destinationListEntry  `json:"destinations"`
+	PublicURL    string                 `json:"public_url"`
+	Destinations []destinationListEntry `json:"destinations"`
 }
 
 // destinationListEntry redacts the URL down to "<scheme>://<host>" so
@@ -178,18 +177,11 @@ func (s *Server) handleNotificationsTest(w http.ResponseWriter, r *http.Request)
 	_, _ = w.Write([]byte(`{"ok":true}`))
 }
 
-// saveNotifications writes the destination list back to config.json,
-// round-tripping the rest of the file through map[string]any so unknown
-// future fields survive. Same pattern as cmd/harness-deck/register.go.
+// saveNotifications writes the destination list back to config.json via
+// jsonfile.Upsert, so unknown future fields survive the rewrite and an
+// existing-but-unparseable config (a hand-edit typo) errors out instead of
+// being clobbered down to one key.
 func saveNotifications(dests []notify.Destination) error {
-	path := config.Path()
-	var current map[string]any
-	if data, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(data, &current)
-	}
-	if current == nil {
-		current = map[string]any{}
-	}
 	// Marshal the typed slice through JSON so the destination shape stays
 	// consistent with what config.Load expects to see.
 	encoded, err := json.Marshal(dests)
@@ -200,20 +192,10 @@ func saveNotifications(dests []notify.Destination) error {
 	if err := json.Unmarshal(encoded, &decoded); err != nil {
 		return err
 	}
-	current["notifications"] = decoded
-
-	body, err := json.MarshalIndent(current, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(body, '\n'), 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return jsonfile.Upsert(config.Path(), func(doc map[string]any) error {
+		doc["notifications"] = decoded
+		return nil
+	})
 }
 
 // redactURL returns "<scheme>://<host>" so the settings UI shows what
@@ -260,4 +242,3 @@ func indexOfByte(s string, b byte) int {
 	}
 	return -1
 }
-

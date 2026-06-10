@@ -240,3 +240,43 @@ func minimalManifest(project, id, title string) []byte {
 	b, _ := json.Marshal(m)
 	return b
 }
+
+func TestUpdateLivePreservesLargeIntegerLiterals(t *testing.T) {
+	// update_live round-trips the whole document; decoding numbers into
+	// float64 silently corrupts integers past 2^53 anywhere in the report.
+	dir := t.TempDir()
+	cfg := config.Default()
+	cfg.CentralDir = dir
+
+	runDir := filepath.Join(dir, "acme", "run-9")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	report := `{"schema":"harness-deck/report@1","id":"run-9","project":"acme",` +
+		`"harness":"claude-code","title":"big numbers","status":"draft",` +
+		`"created":"2026-06-10T00:00:00Z","big_id":9007199254740993,"blocks":[]}`
+	if err := os.WriteFile(filepath.Join(runDir, "report.json"), []byte(report), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args, _ := json.Marshal(map[string]any{"project": "acme", "run": "run-9", "step": "compiling"})
+	req := map[string]any{"jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": map[string]any{"name": "update_live", "arguments": json.RawMessage(args)}}
+	line, _ := json.Marshal(req)
+
+	r := runOne(t, cfg, string(line))
+	if r.Error != nil {
+		t.Fatalf("protocol error: %+v", r.Error)
+	}
+	res := r.Result.(map[string]any)
+	if got, _ := res["isError"].(bool); got {
+		t.Fatalf("update_live failed: %v", res["content"])
+	}
+
+	data, err := os.ReadFile(filepath.Join(runDir, "report.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "9007199254740993") {
+		t.Errorf("large integer mangled by update_live round-trip:\n%s", data)
+	}
+}

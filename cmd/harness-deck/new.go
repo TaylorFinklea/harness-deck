@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 )
 
 // cmdNew scaffolds a starter report.json — id, created timestamp, status
@@ -91,7 +92,7 @@ Flags:
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		fatal("new: mkdir", err)
 	}
-	if err := atomicWrite(target, append(body, '\n'), 0o644); err != nil {
+	if err := jsonfile.AtomicWrite(target, append(body, '\n'), 0o644); err != nil {
 		fatal("new: write", err)
 	}
 	fmt.Printf("wrote %s\n", target)
@@ -151,14 +152,4 @@ func repoRoot(dir string) (string, error) {
 		cur = parent
 	}
 	return "", fmt.Errorf("no git repo found above %s", dir)
-}
-
-// atomicWrite is the temp+rename pattern reused across the repo so a
-// crash mid-write cannot truncate a target file.
-func atomicWrite(path string, data []byte, perm os.FileMode) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, perm); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
 }

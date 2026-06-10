@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
@@ -213,7 +214,7 @@ func (s *Server) toolPublishReport(_ context.Context, raw json.RawMessage) (Tool
 	if err != nil {
 		return toolErr("marshal: " + err.Error()), nil
 	}
-	if err := atomicWrite(target, append(pretty, '\n'), 0o644); err != nil {
+	if err := jsonfile.AtomicWrite(target, append(pretty, '\n'), 0o644); err != nil {
 		return toolErr("write: " + err.Error()), nil
 	}
 	return toolOK(fmt.Sprintf("wrote %s (%d block(s))", target, len(rep.Blocks))), nil
@@ -343,35 +344,22 @@ func (s *Server) toolUpdateStatus(_ context.Context, raw json.RawMessage) (ToolC
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return toolErr("bad arguments: " + err.Error()), nil
 	}
-	switch args.Status {
-	case "draft", "awaiting-review", "answered", "done":
-	default:
+	if !manifest.ValidStatus(args.Status) {
 		return toolErr(fmt.Sprintf("invalid status %q (must be draft / awaiting-review / answered / done)", args.Status)), nil
 	}
 	dir, err := s.runDir(args.Project, args.Run, args.RepoPath)
 	if err != nil {
 		return toolErr(err.Error()), nil
 	}
-	target := filepath.Join(dir, "report.json")
-	data, err := os.ReadFile(target)
+	// jsonfile.Patch preserves any field we don't know about (newer
+	// manifest field added by a future renderer, future Live block, …)
+	// and keeps number literals exact across the rewrite.
+	err = jsonfile.Patch(filepath.Join(dir, "report.json"), func(doc map[string]any) error {
+		doc["status"] = args.Status
+		return nil
+	})
 	if err != nil {
-		return toolErr("read: " + err.Error()), nil
-	}
-	// Round-trip through map[string]any so any field we don't know about
-	// (newer manifest field added by a future renderer, future Live block,
-	// …) survives the rewrite. Same pattern projects.go uses for the
-	// projects.json file.
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return toolErr("parse: " + err.Error()), nil
-	}
-	doc["status"] = args.Status
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return toolErr("marshal: " + err.Error()), nil
-	}
-	if err := atomicWrite(target, append(out, '\n'), 0o644); err != nil {
-		return toolErr("write: " + err.Error()), nil
+		return toolErr(err.Error()), nil
 	}
 	return toolOK(fmt.Sprintf("status = %q at %s", args.Status, time.Now().UTC().Format(time.RFC3339))), nil
 }
@@ -402,45 +390,35 @@ func (s *Server) toolUpdateLive(_ context.Context, raw json.RawMessage) (ToolCal
 	if err != nil {
 		return toolErr(err.Error()), nil
 	}
-	target := filepath.Join(dir, "report.json")
-	data, err := os.ReadFile(target)
+	updated := time.Now().UTC().Format(time.RFC3339)
+	err = jsonfile.Patch(filepath.Join(dir, "report.json"), func(doc map[string]any) error {
+		live, _ := doc["live"].(map[string]any)
+		if live == nil {
+			live = map[string]any{}
+		}
+		live["updated"] = updated
+		if args.Step != nil {
+			live["step"] = *args.Step
+		}
+		if args.ElapsedMs != nil {
+			live["elapsed_ms"] = *args.ElapsedMs
+		}
+		if args.Tokens != nil {
+			live["tokens"] = *args.Tokens
+		}
+		if args.CostUSD != nil {
+			live["cost_usd"] = *args.CostUSD
+		}
+		if args.Progress != nil {
+			live["progress"] = *args.Progress
+		}
+		doc["live"] = live
+		return nil
+	})
 	if err != nil {
-		return toolErr("read: " + err.Error()), nil
+		return toolErr(err.Error()), nil
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return toolErr("parse: " + err.Error()), nil
-	}
-	live, _ := doc["live"].(map[string]any)
-	if live == nil {
-		live = map[string]any{}
-	}
-	live["updated"] = time.Now().UTC().Format(time.RFC3339)
-	if args.Step != nil {
-		live["step"] = *args.Step
-	}
-	if args.ElapsedMs != nil {
-		live["elapsed_ms"] = *args.ElapsedMs
-	}
-	if args.Tokens != nil {
-		live["tokens"] = *args.Tokens
-	}
-	if args.CostUSD != nil {
-		live["cost_usd"] = *args.CostUSD
-	}
-	if args.Progress != nil {
-		live["progress"] = *args.Progress
-	}
-	doc["live"] = live
-
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
-		return toolErr("marshal: " + err.Error()), nil
-	}
-	if err := atomicWrite(target, append(out, '\n'), 0o644); err != nil {
-		return toolErr("write: " + err.Error()), nil
-	}
-	return toolOK(fmt.Sprintf("live updated at %s", live["updated"])), nil
+	return toolOK(fmt.Sprintf("live updated at %s", updated)), nil
 }
 
 // toolOK is the standard "happy path" tool result.
@@ -452,15 +430,4 @@ func toolOK(text string) ToolCallResult {
 // the client UI with isError set.
 func toolErr(text string) ToolCallResult {
 	return ToolCallResult{Content: []ContentItem{{Type: "text", Text: text}}, IsError: true}
-}
-
-// atomicWrite is the temp+rename pattern used elsewhere in the repo.
-// Duplicated rather than imported because the cmd-level helper isn't
-// exported and pulling it would create a cmd -> internal dep cycle.
-func atomicWrite(path string, data []byte, perm os.FileMode) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, perm); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
 }

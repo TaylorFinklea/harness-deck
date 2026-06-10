@@ -22,7 +22,7 @@ func TestRegisterAddsAndRemoves(t *testing.T) {
 	cmdRegister([]string{projectDir})
 	cmdRegister([]string{projectDir}) // idempotent re-add — should not error
 
-	got := loadConfigMap(cfgPath)
+	got, _ := loadConfigMap(cfgPath)
 	projs := stringSlice(got["projects"])
 	if len(projs) != 1 || projs[0] != projectDir {
 		t.Fatalf("after add: projects = %v", projs)
@@ -32,7 +32,7 @@ func TestRegisterAddsAndRemoves(t *testing.T) {
 	}
 
 	cmdRegister([]string{"--remove", projectDir})
-	got = loadConfigMap(cfgPath)
+	got, _ = loadConfigMap(cfgPath)
 	projs = stringSlice(got["projects"])
 	if len(projs) != 0 {
 		t.Errorf("after remove: projects = %v", projs)
@@ -57,7 +57,7 @@ func TestRegisterPreservesUnknownFields(t *testing.T) {
 
 	cmdRegister([]string{projectDir})
 
-	got := loadConfigMap(cfgPath)
+	got, _ := loadConfigMap(cfgPath)
 	for _, k := range []string{"central_dir", "scan_roots", "bind", "tls"} {
 		if _, ok := got[k]; !ok {
 			t.Errorf("register dropped %q from the config", k)
@@ -65,5 +65,27 @@ func TestRegisterPreservesUnknownFields(t *testing.T) {
 	}
 	if data, _ := json.Marshal(got["tls"]); string(data) != `{"cert":"/c","key":"/k"}` {
 		t.Errorf("tls = %s", data)
+	}
+}
+
+func TestLoadConfigMapRefusesCorruptConfig(t *testing.T) {
+	// A corrupt config must abort the register command — degrading to an
+	// empty map would make cmdRegister rewrite the user's config with only
+	// a "projects" key.
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	corrupt := `{"central_dir":"/x",}` // trailing comma
+	if err := os.WriteFile(cfgPath, []byte(corrupt), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := loadConfigMap(cfgPath); err == nil {
+		t.Fatal("loadConfigMap on a corrupt file should error, not degrade to empty")
+	}
+	// A genuinely missing file is still the start-fresh case.
+	m, err := loadConfigMap(filepath.Join(t.TempDir(), "absent.json"))
+	if err != nil {
+		t.Fatalf("missing file should not error: %v", err)
+	}
+	if len(m) != 0 {
+		t.Errorf("missing file should yield an empty map, got %v", m)
 	}
 }
