@@ -49,11 +49,43 @@ var (
 func inlineMarkdown(s string) string {
 	s = html.EscapeString(s)
 	s = reAutolink.ReplaceAllString(s, `<a href="$1" rel="noopener">$1</a>`)
-	s = reLink.ReplaceAllString(s, `<a href="$2" rel="noopener">$1</a>`)
+	s = reLink.ReplaceAllStringFunc(s, func(m string) string {
+		parts := reLink.FindStringSubmatch(m)
+		text, url := parts[1], parts[2]
+		if !safeLinkURL(url) {
+			// Scriptable scheme (javascript:, data:, …): keep the literal
+			// markdown — already HTML-escaped, visibly not a link.
+			return m
+		}
+		return `<a href="` + url + `" rel="noopener">` + text + `</a>`
+	})
 	s = reCode.ReplaceAllString(s, "<code>$1</code>")
 	s = reBold.ReplaceAllString(s, "<b>$1</b>")
 	s = reItalic.ReplaceAllString(s, "<i>$1</i>")
 	return s
+}
+
+// safeLinkURL reports whether a [text](url) target may become a live href
+// in the typed-rendering path. Scheme-less targets (relative paths,
+// #anchors) and http/https/mailto pass; anything else — javascript:,
+// data:, vbscript:, … — is refused. Schemes compare case-insensitively
+// after trimming leading control/space characters.
+func safeLinkURL(u string) bool {
+	for len(u) > 0 && u[0] <= ' ' {
+		u = u[1:]
+	}
+	// A scheme is everything before the first ':', but only if that colon
+	// appears before any '/', '?' or '#' (per RFC 3986 a path segment or
+	// query can also contain colons).
+	i := strings.IndexAny(u, ":/?#")
+	if i < 0 || u[i] != ':' {
+		return true // no scheme: relative URL or fragment
+	}
+	switch strings.ToLower(u[:i]) {
+	case "http", "https", "mailto":
+		return true
+	}
+	return false
 }
 
 // renderMarkdownInline renders a single line/run of Markdown with no block
