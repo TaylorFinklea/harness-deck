@@ -1,0 +1,181 @@
+{
+  "agent": "gpt-5",
+  "archived": true,
+  "blocks": [
+    {
+      "markdown": "We are positioning the first public article for **AI coding power users**: people already using Claude Code, Codex, OpenCode, Cursor-style agents, or similar harnesses and feeling artifact sprawl.\n\nThe article should start as a **personal origin story**, not a generic launch announcement: agents got better at building things, but the human-facing artifacts were scattered across chat, Markdown dumps, and loose HTML files. harness-deck became the local pane of glass where agents can show human-facing work.",
+      "title": "Decisions already made",
+      "type": "prose"
+    },
+    {
+      "html": "\u003cstyle\u003e\n  .vision { color: var(--tn-fg); font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }\n  .lane { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; align-items: stretch; }\n  .card { border: 1px solid var(--tn-rule); border-radius: 8px; padding: 12px; background: color-mix(in srgb, var(--tn-bg-highlight) 70%, transparent); min-height: 96px; }\n  .card h3 { margin: 0 0 8px; font-size: 13px; color: var(--tn-cyan); letter-spacing: 0; }\n  .card p { margin: 0; font-size: 12px; line-height: 1.45; color: var(--tn-fg); }\n  .arrow { display: grid; place-items: center; color: var(--tn-comment); font-size: 11px; margin: 8px 0; }\n  .caption { margin-top: 14px; font-size: 12px; color: var(--tn-comment); }\n  .stack { display: grid; gap: 6px; margin-top: 8px; }\n  .chip { border: 1px solid var(--tn-rule); border-radius: 999px; padding: 4px 8px; font-size: 11px; color: var(--tn-fg); background: var(--tn-bg); }\n  .hero { border: 1px solid var(--tn-purple); border-radius: 10px; padding: 14px; margin-bottom: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--tn-purple) 18%, transparent), color-mix(in srgb, var(--tn-cyan) 10%, transparent)); }\n  .hero strong { color: var(--tn-yellow); }\n  @media (max-width: 760px) { .lane { grid-template-columns: 1fr; } }\n\u003c/style\u003e\n\u003cdiv class=\"vision\"\u003e\n  \u003cdiv class=\"hero\"\u003e\n    \u003cstrong\u003eThesis:\u003c/strong\u003e AI coding agents need a shared presentation layer. Chat is the conversation; harness-deck is where agents put the artifacts they want a human to inspect.\n  \u003c/div\u003e\n  \u003cdiv class=\"lane\"\u003e\n    \u003cdiv class=\"card\"\u003e\n      \u003ch3\u003eBefore\u003c/h3\u003e\n      \u003cp\u003eClaude writes a Markdown report. Codex drops an HTML mockup. OpenCode leaves a decision in scrollback. Everything is technically visible, but nothing is centered.\u003c/p\u003e\n      \u003cdiv class=\"stack\"\u003e\u003cspan class=\"chip\"\u003echat transcript\u003c/span\u003e\u003cspan class=\"chip\"\u003eloose HTML\u003c/span\u003e\u003cspan class=\"chip\"\u003elost decision\u003c/span\u003e\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card\"\u003e\n      \u003ch3\u003eContract\u003c/h3\u003e\n      \u003cp\u003eEvery harness emits the same small report manifest: prose, metrics, comparisons, raw HTML mockups, and interactive questions.\u003c/p\u003e\n      \u003cdiv class=\"stack\"\u003e\u003cspan class=\"chip\"\u003ereport.json\u003c/span\u003e\u003cspan class=\"chip\"\u003etyped blocks\u003c/span\u003e\u003cspan class=\"chip\"\u003ehtml canvas\u003c/span\u003e\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card\"\u003e\n      \u003ch3\u003ePane of glass\u003c/h3\u003e\n      \u003cp\u003eharness-deck renders reports into one local dashboard, grouped by project, with asks and approvals that survive context clears.\u003c/p\u003e\n      \u003cdiv class=\"stack\"\u003e\u003cspan class=\"chip\"\u003edashboard\u003c/span\u003e\u003cspan class=\"chip\"\u003einbox\u003c/span\u003e\u003cspan class=\"chip\"\u003eresponses.json\u003c/span\u003e\u003c/div\u003e\n    \u003c/div\u003e\n    \u003cdiv class=\"card\"\u003e\n      \u003ch3\u003ePublic story\u003c/h3\u003e\n      \u003cp\u003eThe Medium article explains the workflow gap first, then shows harness-deck as a concrete local-first solution.\u003c/p\u003e\n      \u003cdiv class=\"stack\"\u003e\u003cspan class=\"chip\"\u003earticle\u003c/span\u003e\u003cspan class=\"chip\"\u003eReddit/HN posts\u003c/span\u003e\u003cspan class=\"chip\"\u003eGitHub repo\u003c/span\u003e\u003c/div\u003e\n    \u003c/div\u003e\n  \u003c/div\u003e\n  \u003cdiv class=\"caption\"\u003eUse this visual idea in the article as a simple diagram, or turn it into a screenshot-backed example using an actual harness-deck report.\u003c/div\u003e\n\u003c/div\u003e",
+      "title": "Mockup: the story in one visual",
+      "type": "html"
+    },
+    {
+      "a": {
+        "items": [
+          {
+            "kind": "pro",
+            "text": "Starts with a concrete pain: scattered Markdown, HTML mockups, and decisions disappearing into chat."
+          },
+          {
+            "kind": "pro",
+            "text": "Makes the project feel earned instead of invented for a product launch."
+          },
+          {
+            "kind": "neu",
+            "text": "Still generalizes into the larger pattern: agents need a presentation layer."
+          }
+        ],
+        "tag": "origin",
+        "title": "Origin story first"
+      },
+      "b": {
+        "items": [
+          {
+            "kind": "pro",
+            "text": "Broader and more reusable: every AI harness needs a shared pane of glass."
+          },
+          {
+            "kind": "con",
+            "text": "Risks sounding abstract before readers feel the actual problem."
+          },
+          {
+            "kind": "con",
+            "text": "Could bury the best story: the tool came from real artifact sprawl."
+          }
+        ],
+        "tag": "pattern",
+        "title": "Pattern essay first"
+      },
+      "title": "Two article arcs",
+      "type": "compare"
+    },
+    {
+      "columns": [
+        "Asset",
+        "Purpose",
+        "Likely home"
+      ],
+      "rows": [
+        [
+          "Medium article",
+          "Canonical story and shareable explanation",
+          "Medium + repo copy"
+        ],
+        [
+          "README launch section",
+          "Convert interested readers into first install",
+          "GitHub"
+        ],
+        [
+          "Short community posts",
+          "Start discussion without dumping a full essay into each forum",
+          "Reddit, HN, Substack notes"
+        ],
+        [
+          "Example report gallery",
+          "Show what agents can publish beyond Markdown",
+          "harness-deck reports/screenshots"
+        ]
+      ],
+      "title": "Launch assets to produce",
+      "type": "table"
+    },
+    {
+      "items": [
+        {
+          "id": "r1",
+          "markdown": "Draft the Medium article as `docs/launch/medium-pane-of-glass.md` so the repo owns the canonical copy before publishing elsewhere.",
+          "owner": "codex"
+        },
+        {
+          "id": "r2",
+          "markdown": "Create 2-3 sample reports that demonstrate the claim: a review report, an HTML mockup report, and an interactive decision report.",
+          "owner": "codex"
+        },
+        {
+          "id": "r3",
+          "markdown": "Answer the dashboard questions in this report. I will use `responses.json` as the source for the next draft.",
+          "owner": "human"
+        }
+      ],
+      "title": "Recommended next move",
+      "type": "recommendations"
+    },
+    {
+      "id": "title-choice",
+      "mode": "choice",
+      "options": [
+        "I Built a Pane of Glass for My AI Coding Agents",
+        "My AI Agents Needed Somewhere to Show Their Work",
+        "The Missing UI Layer for AI Coding Agents"
+      ],
+      "prompt": "Which title should anchor the first Medium draft?",
+      "title": "Question 1",
+      "type": "ask"
+    },
+    {
+      "id": "launch-package",
+      "mode": "choice",
+      "options": [
+        "Medium draft only",
+        "Medium draft plus README launch section",
+        "Medium draft plus README and community post blurbs"
+      ],
+      "prompt": "How broad should the first launch package be?",
+      "title": "Question 2",
+      "type": "ask"
+    },
+    {
+      "id": "example-focus",
+      "mode": "choice",
+      "options": [
+        "Artifact sprawl before/after diagram",
+        "A real harness-deck HTML mockup report",
+        "An interactive ask/decision report with responses.json"
+      ],
+      "prompt": "What concrete example should the article show first?",
+      "title": "Question 3",
+      "type": "ask"
+    },
+    {
+      "id": "origin-anecdote",
+      "mode": "text",
+      "prompt": "What specific origin anecdote should be in the article? A short sentence is enough: the moment where scattered agent artifacts became annoying enough that harness-deck needed to exist.",
+      "title": "Question 4",
+      "type": "ask"
+    },
+    {
+      "id": "approve-draft-next",
+      "prompt": "After you answer the questions above, should I use those responses to draft the first Medium article and launch-package copy?",
+      "title": "Approval",
+      "type": "approval"
+    }
+  ],
+  "created": "2026-06-08T21:00:45Z",
+  "harness": "codex",
+  "id": "20260608-product-vision",
+  "kind": "idea",
+  "meta": [
+    {
+      "key": "audience",
+      "value": "AI coding power users"
+    },
+    {
+      "key": "center",
+      "value": "personal origin story"
+    },
+    {
+      "key": "surface",
+      "value": "Medium first, then community posts"
+    }
+  ],
+  "project": "harness-deck",
+  "schema": "harness-deck/report@1",
+  "scope": "launch story",
+  "status": "done",
+  "title": "Product vision: tell people why harness-deck exists",
+  "verdict": "Answered and acted on: Medium draft, README positioning, and community blurbs are under docs/launch/."
+}

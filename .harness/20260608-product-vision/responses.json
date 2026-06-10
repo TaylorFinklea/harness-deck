@@ -1,0 +1,32 @@
+{
+  "run": "20260608-product-vision",
+  "project": "harness-deck",
+  "updated": "2026-06-08T21:57:54Z",
+  "responses": {
+    "approve-draft-next": {
+      "block": "approve-draft-next",
+      "value": "approved",
+      "at": "2026-06-08T21:57:54Z"
+    },
+    "example-focus": {
+      "block": "example-focus",
+      "value": "Artifact sprawl before/after diagram",
+      "at": "2026-06-08T21:57:15Z"
+    },
+    "launch-package": {
+      "block": "launch-package",
+      "value": "Medium draft plus README and community post blurbs",
+      "at": "2026-06-08T21:56:58Z"
+    },
+    "origin-anecdote": {
+      "block": "origin-anecdote",
+      "value": "That’s a good one",
+      "at": "2026-06-08T21:57:39Z"
+    },
+    "title-choice": {
+      "block": "title-choice",
+      "value": "I Built a Pane of Glass for My AI Coding Agents",
+      "at": "2026-06-08T21:56:43Z"
+    }
+  }
+}

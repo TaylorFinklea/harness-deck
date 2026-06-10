@@ -1,0 +1,101 @@
+{
+  "schema": "harness-deck/report@1",
+  "id": "20260610-bug-bash-audit",
+  "project": "harness-deck",
+  "harness": "claude-code",
+  "agent": "claude-fable-5",
+  "title": "Bug bash + architecture review — 30 verified findings",
+  "status": "done",
+  "kind": "audit",
+  "created": "2026-06-10T03:00:00Z",
+  "blocks": [
+    {
+      "type": "prose",
+      "title": "executive summary",
+      "markdown": "Multi-agent review (13 finder/reviewer agents across 8 bug lenses + 5 architecture areas, findings adversarially verified against source). **The MVP is architecturally sound** — package boundaries hold, the no-innerHTML discipline held everywhere checked, graceful degradation is mostly real. The defects cluster around one root pattern: **multiple uncoordinated writers doing read-modify-write on shared JSON files** (7 of 30 findings). One critical: `respond.Record` is the only non-atomic JSON writer in the repo, on the file holding the user's answers.\n\nSecond theme: **the release gap**. `hdeck contract`, MCP resources, and `GET /contract.md` are documented in README/SETUP and pointed to by chezmoi AGENTS.md — but live in no tagged release. Every installed binary fails `hdeck contract` today."
+    },
+    {
+      "type": "risks",
+      "title": "severity distribution",
+      "risks": [
+        { "severity": "crit", "label": "responses.json: non-atomic write + unserialized RMW — user answers lost (respond.go:71)", "pct": 95 },
+        { "severity": "high", "label": "8 high: delete blast-radius, cross-process report.json races, config clobber, MCP list_reports blind to scan_roots, fatal block parse, javascript: links, draft-wiping reload, g-chord double-dispatch", "pct": 70 },
+        { "severity": "med", "label": "12 medium: float64 mangling, push >4KB silent fail, 410-prune race, basename shadowing, (project,run) collisions, MCP 4MB line death, …", "pct": 40 },
+        { "severity": "low", "label": "9 low: scan flicker, notify timeout, dead code, spec deviations, doc lies", "pct": 15 }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "verified findings — critical + high",
+      "columns": ["sev", "finding", "location"],
+      "rows": [
+        ["CRIT", "respond.Record: bare os.WriteFile + unlocked read-modify-write on responses.json. Concurrent answers (phone+desktop) silently lose one; torn reads flip answered asks to open and re-fire push. Found by 4 independent agents.", "internal/respond/respond.go:56-72"],
+        ["HIGH", "DELETE does os.RemoveAll(entry.Dir); a report.json misplaced at ~/.harness/reports/ or .harness/ root makes one click wipe every report (WalkDir indexes any depth, Dir=parent).", "internal/server/report_actions.go:135 + store.go:88,191"],
+        ["HIGH", "Cross-process lost-update on report.json: MCP update_live (fires every few seconds) vs dashboard close/archive — Close silently reverts mid-run. Both writers share the same fixed report.json.tmp path, so concurrent 'atomic' writes can corrupt each other.", "internal/mcp/tools.go:396-443,461 vs report_actions.go:14-39"],
+        ["HIGH", "saveNotifications + register clobber config.json to a single key when the existing file has any read/parse error (trailing comma from a hand-edit destroys bind/port/scan_roots/tls).", "internal/server/notifications.go:186-192, cmd/harness-deck/register.go:96-106"],
+        ["HIGH", "MCP list_reports builds scan roots only from cfg.Projects — with the documented default (scan_roots, empty projects) agents can't see their own in-repo publishes and conclude the publish failed.", "internal/mcp/tools.go:298-303"],
+        ["HIGH", "A type-mismatched field in a KNOWN block type (e.g. \"pct\":\"50\") aborts the whole manifest.Parse — the report silently vanishes from the dashboard. Exact inverse of the graceful-degradation rule; unknown types degrade, known-type typos kill.", "internal/manifest/manifest.go:147"],
+        ["HIGH", "Markdown [text](url) substitutes any URL into href with no scheme check — javascript:/data: links go live in the SAFE typed-rendering path (prose, callouts, asks, roadmap view). Autolinks are safe; only the [](url) path is exposed.", "internal/render/markdown.go:52"],
+        ["HIGH", "Live-telemetry heartbeats rewrite report.json → sig change → live.js reloads the report page while the user is typing an ask answer — draft text wiped. 'Agent working + needs input' is the core use case.", "internal/assets/live.js:24-35"],
+        ["HIGH", "Two competing g-chord state machines: dashboard g t / g T / g x advertised in help but swallowed (aggregator consumes 'g' in capture phase, has no t/T/x cases); on report pages vim-nav's gg leaves tabs.js armed so gg→a archives AND navigates simultaneously.", "internal/assets/aggregator.js:1413-1432,1454 + tabs.js:150"]
+      ]
+    },
+    {
+      "type": "table",
+      "title": "verified findings — medium",
+      "columns": ["finding", "location"],
+      "rows": [
+        ["All map[string]any round-trips decode numbers as float64 — integers >2^53 anywhere in a report silently corrupt on every Close/Archive/update_live; values re-encoding as 1e+21 then fail manifest.Parse entirely.", "report_actions.go:21, tools.go:365,411"],
+        ["Validate never strict-decodes the top level (contrary to CLAUDE.md's claim) and MCP publish_report writes the re-marshaled struct — unknown top-level fields silently dropped vs the file path keeping them.", "validate.go + tools.go:212"],
+        ["Ask-notification delta re-fires every open ask when a report transiently vanishes one tick: project toggle off→on, unarchive, or a mid-write parse error.", "sse.go:100 + push.go:184-187"],
+        ["reItalic runs over already-emitted HTML — '5 * 3 = 15 and 2 * 4 = 8' gets italicized; a URL containing two asterisks gets <i> tags injected INTO its href.", "markdown.go:55"],
+        ["RespondJS is the only bundle member concatenated without the </script-guard every sibling gets — latent page-breaking injection point with no test.", "assets.go:133"],
+        ["Inbox cursor persisted to sessionStorage is never restored on initial load/F5 — restoreFocus() only runs on view *change*; the landing view snaps to row 0.", "aggregator.js:1059-1111"],
+        ["One JSON-RPC line >4MB kills the whole MCP session (bufio.ErrTooLong treated as fatal) instead of a per-message parse error — the code's own comment anticipates 'big diffs'.", "protocol.go:201,228-230"],
+        ["Push payloads >~4KB encrypt into a record longer than the declared record_size (RFC 8188 violation) — push services reject with 400/413, ask never reaches the phone, log says only 'push rejected'.", "encrypt.go:72-99"],
+        ["410-prune races re-subscription: Remove(endpoint) after a stale delivery can delete the freshly re-subscribed keys for the same endpoint — silent permanent unsubscribe.", "server/push.go:246-265"],
+        ["publicReportURL hand-rolls the base URL without the loopback substitution config.BaseURL has — bind '::' yields 'https://:::7420/…' in Slack/Discord links.", "server/push.go:231-241"],
+        ["Project discovery dedups by directory BASENAME — ~/work/foo registered explicitly is silently shadowed by ~/git/foo; register succeeds but the project never appears.", "projects.go:234-237"],
+        ["Report identity is author-supplied (project, id) — two distinct reports colliding silently shadow each other with no errs entry; /r/{p}/{r} can only reach the survivor.", "store.go:96-100"]
+      ]
+    },
+    {
+      "type": "table",
+      "title": "verified findings — low",
+      "columns": ["finding", "location"],
+      "rows": [
+        ["Overlapping store.Scan walks commit last-writer-wins — hidden projects flicker back ~2s after toggle.", "store.go:72-116"],
+        ["notify.Run has no timeout; a hung notify hook blocks the respond HTTP handler forever (answer is recorded, UI shows failure).", "notify.go:31 + server.go:277"],
+        ["switchToTabN reads legacy 'harness-deck:tabs' which migrate() deletes — dead code kept harmless only by a lucky non-consume.", "aggregator.js:1370-1384"],
+        ["Notifications with missing jsonrpc field get an unsolicited error reply — JSON-RPC 2.0 forbids replying to notifications.", "protocol.go:220-223"],
+        ["update_status/update_live alphabetize all report.json keys, breaking the documented canonical field order publish_report preserves.", "tools.go:364-373"],
+        ["addPaddingTrim's doc claims standard-or-urlsafe base64 handling; it only trims '=' — standard-alphabet keys fail decode.", "encrypt.go:123-132"],
+        ["currentAskDigests' comment promises a log line on read failure; the code silently continues — an unreadable open-ask report never notifies and never logs, forever.", "server/push.go:107-123"],
+        ["HARNESS_DECK_CONFIG is used verbatim — a literal '~/…' value creates a stray ./~ tree; every other path field gets Expand().", "config.go:77"],
+        ["Dead legacy 1-4 view-switch keydown handler — VIEWS no longer defines .key, predicate can never match.", "aggregator.js:1246-1253"]
+      ]
+    },
+    {
+      "type": "recommendations",
+      "title": "architecture recommendations (consolidated from 5 reviewers)",
+      "items": [
+        { "id": "REL", "owner": "now", "markdown": "**Tag a release** (v0.2.4 or v0.3.0). The self-describing-binary feature is referenced by committed README/SETUP and the repointed chezmoi AGENTS.md/SKILL.md, but exists in no tag — `hdeck contract` fails on every installed binary. Must precede the Medium launch." },
+        { "id": "JSON", "owner": "now", "markdown": "**One shared `internal/jsonfile` helper** (`Patch` + `AtomicWrite` with unique temp names + `UseNumber()` + refuse-to-clobber-on-parse-error). The read-map-mutate-marshal-rename pattern exists in 5 divergent copies; `respond.Record` already dropped the atomic write. This one move fixes the critical, the config clobber, the tmp collision, and the float64 mangling." },
+        { "id": "TICK", "owner": "now", "markdown": "**Extract the watcher into a testable `tick()`**, gate ask-digest recompute on the store signature (drops N file re-parses per 2s in steady state), then test the delta semantics + notifications CRUD — currently 0% coverage on the highest-blast-radius writes." },
+        { "id": "REG", "owner": "now", "markdown": "**Registry cross-check test**: every manifest block type must have a template, a defaultTitle (or be interactive), and appear in the embedded CONTRACT.md. Makes the four-places checklist self-enforcing; also pull `blockPrompt`/`blockText` back into manifest (they're hidden places 5 and 6)." },
+        { "id": "FE", "owner": "now", "markdown": "**Frontend now-items**: guard live.js reload while an input has focus/draft (the draft-wipe bug); single g-chord owner with a registration API; `assets_test.go` locking bundle order + the </script guard (apply it to the assembled bundle so no member can be forgotten)." },
+        { "id": "OBS", "owner": "now", "markdown": "**Scan-timing visibility**: log scan duration + entry count, warn at >500ms. Measured baseline: ~106µs/report full-parse → ~110ms/tick at 1k reports; the 2s budget dies near ~18k. Measure before optimizing." },
+        { "id": "SCHEMA", "owner": "next", "markdown": "**Schema evolution mechanism**: parse `harness-deck/report@N` into family+version, accept a set, add a Versioning section to CONTRACT.md, and a forward-compat test (v2 report with unknown block renders fallback on v1 binary). Today bumping the const breaks every existing manifest in Validate." },
+        { "id": "PERF", "owner": "next", "markdown": "**Mtime-keyed incremental scan** (6× tick reduction measured, raises the cliff past 100k reports, makes archived-report cost moot) + cap /api/projects history at ~50 runs with ?all=1 + cache rendered roadmap/current-state HTML by mtime." },
+        { "id": "SPLIT", "owner": "next", "markdown": "**Split aggregator.js** along its existing comment seams via Go-side concatenation (assets.go already is the bundler) — settings/push/destinations (~450 lines) first; CustomEvent replaces the single-slot HDPinsChanged; drop the HDTabs shim." },
+        { "id": "MISC", "owner": "later", "markdown": "Search text-cache by entry sig; exclude archived from default /api/reports; responses.json version field + Values[] growth path; `new --template` as first post-launch feature; hd-dom.js shared el() helper." }
+      ]
+    },
+    {
+      "type": "callout",
+      "level": "warn",
+      "tag": "in-flight",
+      "markdown": "**Current-state assessment**: phases 0–5 + both post-MVP waves complete and verified. In flight: (1) the **unreleased self-describing binary** (3 commits past the last tag, docs already depend on it); (2) the **Medium launch** — article + community posts drafted and approved, blocked on the release + stale pre-v0.2.0 screenshots; (3) `.harness/` at the repo root untracked — neither committed nor ignored, while current-state.md cites its responses.json as the launch-decision record; (4) roadmap.md narrative stops at 2026-05-26 while current-state.md carries 353 lines of journal — the two docs have swapped roles; (5) the lark-plug-hdeck 'week of read-only usage' deferral window has expired and awaits a verdict."
+    }
+  ]
+}

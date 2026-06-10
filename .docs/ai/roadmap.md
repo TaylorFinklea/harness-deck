@@ -10,168 +10,171 @@ responses back to the harness.
 
 ## Milestones
 
-- **Phase 0 — repo skeleton.** Repo, Go module, vendored design assets, handoff
-  docs. _(done)_
-- **Phase 1 — manifest + renderer.** Go manifest types; renderer for every
-  block type incl. `html` escape hatch + Markdown; page shell; CLI `validate` /
-  `render`. _(done — Go structs are the schema; see decisions.md)_
-- **Phase 2 — discovery + aggregator.** Config, scan central + per-project dirs,
-  aggregator shell page, `harness-deck serve`. _(done)_
-- **Phase 3 — live updates.** Change detection → SSE → live tree/view updates.
-  _(done)_
-- **Phase 4 — response round-trip.** Interactive block controls, `/respond`,
-  `responses.json`, notification command. _(done)_
-- **Phase 5 — roadmap view.** Render each project's `.docs/ai/roadmap.md` plus
-  reports of kind `roadmap`. _(done)_
+- **Phase 0 — repo skeleton.** _(done)_
+- **Phase 1 — manifest + renderer.** _(done — Go structs are the schema)_
+- **Phase 2 — discovery + aggregator.** _(done)_
+- **Phase 3 — live updates.** _(done)_
+- **Phase 4 — response round-trip.** _(done)_
+- **Phase 5 — roadmap view.** _(done)_
+- **Phase 6 — harness-side integration.** _(done — lives in `chezmoi-config`)_
 
-All planned phases (0–5) are complete. The next step is Phase 6 — harness-side
-integration — which lives in `chezmoi-config`, not this repo.
+## Post-MVP — shipped
 
-## Post-MVP additions
+One line each; detail in decisions.md + git log.
 
-- **Project discovery + tracking** _(done — 2026-05-22)_ — `scan_roots`
-  auto-discovers project roots; the roadmap view became the **projects** view
-  (per-project current-state + roadmap) with a collapsible panel of visibility
-  toggles persisted to `projects.json`. See decisions.md.
-- **Mobile PWA + Web Push** _(done — 2026-05-23)_ — phone-friendly responsive
-  CSS, installable manifest + service worker, stdlib-only Web Push pipeline
-  (`internal/push`), `harness-deck vapid` subcommand, opt-in `bind` + `tls`
-  config, settings view for per-browser subscribe/unsubscribe. Connectivity
-  model is Tailscale; HTTPS via `tailscale cert`. See decisions.md.
-- **Asks visibility, archive, in-app tabs, code copy** _(done — 2026-05-24)_
-  — pinned unanswered-asks banner at the top of every report; aggregate
-  open-asks counter in the titlebar + browser tab title; soft-archive
-  with a recoverable archive view; fenced code blocks render with a copy
-  button; recommendations bodies pass through full Markdown; `:` command
-  palette gains wildmenu-style autocomplete; in-app tab strip pins
-  multiple report URLs in localStorage with `gt`/`gT` to cycle.
+- Project discovery + tracking _(2026-05-22)_ — scan_roots, projects view, toggles
+- Mobile PWA + Web Push, stdlib-only _(2026-05-23, v0.1.5)_
+- Asks visibility, archive, code copy, command palette _(2026-05-24, v0.1.6)_
+- Keyboard triage _(2026-05-24, v0.1.7)_ · Mobile polish _(v0.1.8/9)_
+- Report-page live reload _(2026-05-25, v0.1.10)_ · Pull-to-refresh _(v0.1.11)_
+- Richer Markdown: tables/quotes/links _(v0.1.12)_ · Roadmap polish _(v0.1.13)_
+- `new` + `register` subcommands _(v0.1.14)_ · Cross-report search _(v0.1.15)_
+- Theme switch + light mode _(v0.1.16)_ · Apple push 403 fix _(v0.1.19)_
+- PNG PWA icons + docs/PUBLISHING.md _(2026-05-26)_
+- "Extend usefulness" wave _(2026-05-26)_ — MCP report-builder server, live
+  in-flight telemetry, per-project run history, notification fan-out
+- **v0.2.0 cohesive redesign** _(2026-05-27)_ — 6 views → 2, keyboard chord
+  system, inbox cursor; post-release keyboard polish; pins replace auto-tabs
+- lark-plug-hdeck shipped read-only _(2026-05-27, separate repo)_
+- `open` dedicated-window launcher + `config.BaseURL()` _(2026-06-05, v0.2.1–3)_
+- html block isolated in shadow root _(2026-06-05)_
+- docs/SETUP.md agent runbook _(2026-06-08)_ · launch drafts under docs/launch/
+- **Self-describing binary** _(2026-06-09, unreleased)_ — embed CONTRACT.md +
+  PUBLISHING.md; `contract` subcommand, MCP resources + initialize
+  instructions, `GET /contract.md`
 
-- **Keyboard triage** _(done — 2026-05-24)_ — first unanswered ask
-  auto-focuses on report load; digits pick option N, `y`/`n` map to
-  yes/no or approve/changes-requested, `Enter` submits the highlighted
-  choice, `i` jumps into the text-mode input, `Tab` / `Shift+Tab` skip
-  between unanswered blocks, `Esc` defocuses. Page reload after submit
-  carries focus naturally to the next unanswered ask, so the inner loop
-  is "press digit, page reloads, press digit". `?` help overlay lists
-  the triage shortcuts.
-- **Mobile polish** _(done — 2026-05-24)_ — v0.1.8 + v0.1.9: real iPhone
-  testing surfaced a CSS Grid `1fr` foot-gun (the default `minmax(auto,
-  1fr)` lets a wide descendant push the whole page past the viewport)
-  plus a wrong asset-bundle order. Fixed with `minmax(0, 1fr)`,
-  `min-width: 0` on overflow containers, MobileCSS always last in the
-  bundle, and an inbox-row layout that stacks vertically below 720px.
-- **Report-page live reload** _(done — 2026-05-25)_ — store signature
-  now hashes responses.json mtime so cross-device answers trigger SSE;
-  `GET /r/{p}/{r}/sig` exposes a per-report fingerprint; `live.js` on
-  the report page reloads when the server-side sig diverges (or
-  redirects to / if the report is gone). 2s post-load grace prevents
-  respond.js's own reload from triggering a second one.
-- **Pull-to-refresh on PWAs** _(done — 2026-05-25)_ — both iOS Safari and
-  Chrome strip native pull-to-refresh when display-mode is standalone, so
-  installed PWAs had no way to force a reload. Added a touch-based PTR in
-  mobile.js gated on standalone (no double-trigger with browser native PTR),
-  damped pull with rubber-band feel, 70px threshold, 120ms confirmation
-  flash before location.reload().
-- **Richer Markdown** _(done — 2026-05-25)_ — GitHub-style tables
-  (`| h | h |` header + `| --- |` separator + rows), `> ` blockquotes, and
-  links (`[text](url)` inline + `<https://…>` autolinks) added to the
-  in-house Markdown renderer. Style ride-along in deck.css; CONTRACT.md
-  Markdown vocabulary updated. Stdlib-only — still zero external deps.
-  Sample report at `~/.harness/reports/acme/markdown-demo/report.json`.
-- **Roadmap polish** _(done — 2026-05-25)_ — GitHub task lists
-  (`- [x]` / `- [ ]`) render with green/yellow checkbox glyphs and
-  dimmed-completed body text; `---` horizontal rules become section
-  dividers; trailing `(DONE)` / `(WIP)` / `(planned)` / `(blocked)`
-  tokens in headings render as colored status pills. `.roadmap-md` gets
-  more breathing room around H2/H3 with a subtle bottom border on H2 so
-  wave/phase sections feel structured.
-- **CLI: `new` + `register` subcommands** _(done — 2026-05-25)_ —
-  `harness-deck new --title T` scaffolds a starter report.json with
-  sensible defaults (auto id, draft status, prose placeholder).
-  `harness-deck register <path>` atomically adds a project root to
-  the config's `projects` array; `--remove` removes it. Both use the
-  shared atomic-write pattern and preserve unknown config fields.
-- **Cross-report search** _(done — 2026-05-25)_ — new `GET /api/search?q=`
-  walks all non-archived entries, scores metadata + block body content
-  (case-insensitive substring), returns top 20 matches with a snippet
-  around the first body hit (markers around the match for client-side
-  `<mark>` highlighting). Frontend: `search.js` adds a Cmd+K / Ctrl+K
-  palette overlay (debounced live-fetch, ↑/↓ navigate, Enter opens via
-  HDTabs, Esc closes). Titlebar gets a `🔎` button for touch users.
-- **Theme switch + light mode** _(done — 2026-05-25)_ — added Tokyo Night
-  Day palette overrides under both `@media (prefers-color-scheme: light)`
-  and `[data-theme="light"]` so default behavior follows the OS. Settings
-  view picks up a three-way segmented control (system / dark / light)
-  persisted to `localStorage('harness-deck:theme')`. A tiny inline
-  preamble script applies the saved preference before render to avoid
-  flash-of-wrong-theme.
+## Now (sequenced 2026-06-10 — product review w/ audit)
 
-## Next up — extend usefulness (2026-05-26)
+Full audit: `.harness/20260610-bug-bash-audit/report.json` (30 verified
+findings). Sequencing decision: release → fix highs → launch.
 
-Selected together as the next four leverage points. The MVP loop is done;
-these turn harness-deck from "renders agent output" into "live ops pane +
-retrospective + multi-channel notifier."
+1. - [ ] **Release v0.2.4** — tag created locally; **user to run
+     `git push origin main v0.2.4`** (triggers GoReleaser → GitHub Release →
+     tap formula). Verify: fresh `brew upgrade` then `hdeck contract` prints
+     the schema. _Landmine: until pushed, installed binaries fail the
+     `hdeck contract` invocation that README/SETUP/chezmoi AGENTS.md already
+     reference._
+2. - [ ] **Bug-fix milestone: critical + 8 highs** — spec at
+     `.docs/ai/phases/bug-fix-wave-spec.md`; phase checkboxes in
+     current-state.md `## Plan`. Spine: one `internal/jsonfile` helper kills
+     the RMW cluster. Tag **v0.2.5** when done.
+3. - [ ] **Launch sequence** — (a) retake the 3 README screenshots against
+     the v0.2.x UI (rename roadmap.png → projects.png; consider an html-block
+     mockup shot), (b) reconsider README "Status: Early build" line,
+     (c) publish the Medium article, (d) fill `<MEDIUM_URL>`/`<GITHUB_URL>`
+     placeholders in docs/launch/community-posts.md, (e) post per its
+     checklist. Order matters: after v0.2.5 so readers don't hit known highs.
+4. - [ ] **Arch hardening wave** (adopted 2026-06-10):
+     - [ ] watcher `tick()` extraction + signature-gated digests + delta/CRUD
+       tests (0% coverage on the config-rewriting handlers today)
+     - [ ] registry cross-check test (template + defaultTitle + CONTRACT.md
+       presence per block type) + absorb `blockPrompt`/`blockText` into
+       `manifest` (hidden places 5–6 of the four-places checklist)
+     - [ ] `assets_test.go` bundle invariants (MobileCSS-last, `</script`
+       guard applied to the assembled bundle — closes the RespondJS gap)
+     - [ ] schema versioning: parse `report@N` family+version, accepted set,
+       CONTRACT.md Versioning section, forward-compat test
+     - [ ] scan-timing log line (duration + entry count, warn >500ms)
 
-- **MCP report-builder server** _(done — 2026-05-26)_ — stdio JSON-RPC
-  server (`harness-deck mcp`), six tools: `publish_report`,
-  `validate_report`, `get_responses`, `list_reports`, `update_status`,
-  `update_live`. Wraps the same atomic-write path the file contract
-  uses; harnesses without MCP support keep working unchanged. Wired
-  in `internal/mcp/`, stdlib only. Documented in `docs/PUBLISHING.md`
-  as the optional path; `CONTRACT.md` stays the canonical reference.
-- **Live in-flight telemetry** _(done — 2026-05-26)_ — optional `live`
-  field on the manifest (`updated`, `step`, `elapsed_ms`, `tokens`,
-  `cost_usd`, `progress`). Report page renders a pulsing green banner
-  above the open-asks list while `updated` is within 60 seconds, then
-  switches to a muted "stale" state (data stays — only the pulse
-  stops). The inbox dot pulses for the same window. The MCP
-  `update_live` tool merges telemetry into the manifest without
-  rewriting unrelated fields — cheap to call every few seconds during
-  a run.
-- **Per-project run history** _(done — 2026-05-26)_ — every report
-  under a project, newest-first, with the user's responses inlined
-  beneath each run. `/api/projects` grew a `history` field of
-  `historyRun` records (entry summary + inlined `responses.json`).
-  `viewProjects()` renders a "history" subsection per project: status
-  dot + title + meta on the right (time / kind / harness / archived /
-  open-asks pills) + response chips (`block → value · timestamp ·
-  optional note`). The flat inbox stays the triage surface; the
-  per-project timeline is the retrospective surface. Ride-along
-  fix: extended the `minmax(0, 1fr)` grid-track defense to the
-  desktop `.layout` (was only at the 720px breakpoint), so wide
-  markdown / code can't push the content column past the viewport.
-- **Notification fan-out** _(done — 2026-05-26)_ — Slack / Discord /
-  generic webhook destinations under `notifications[]` in config.json.
-  The watcher fires `notify.Fanout(...)` alongside Web Push for every
-  newly-appeared open ask. Per-destination optional `projects[]`
-  allowlist filters routing. Fire-and-forget with per-attempt log line.
-  Settings view gets a "notification destinations" panel (list / add /
-  test / remove) backed by `/api/notifications/*` CRUD with atomic
-  config rewrite (unknown fields preserved). URLs host-redacted in the
-  GET response so webhook tokens don't echo. `public_url` config field
-  controls the link rendered in chat. Email left out of v1.
+## Next
 
-Also on the table (lower priority — not picked yet but logged):
+- **Report templates** (`new --template audit|review|progress|decision|idea`)
+  — first post-launch feature (decided 2026-06-10); pre-fill the block shapes
+  PUBLISHING.md recommends; mention in its 60-second smoke test.
+- **Perf wave** (measure first via the scan-timing log): mtime-keyed
+  incremental scan in store.Scan (measured ~6× tick reduction); cap
+  /api/projects history (~50 runs + `?all=1`); cache rendered roadmap/
+  current-state HTML by mtime.
+- **aggregator.js split** along comment seams via Go-side concatenation
+  (settings/push/destinations chunk first); `CustomEvent('hd:pins-changed')`
+  replaces the single-slot HDPinsChanged; drop the HDTabs shim.
+- **register/config reload asymmetry** — `register --help` claims the watcher
+  picks it up; it doesn't. Either fix the text or stat config.json in tick()
+  and reload roots.
 
-- **Report templates** — `harness-deck new --template audit | review |
-  progress | decision | idea` scaffolds opinionated starters with the
-  right block shapes pre-filled. Pairs with `docs/PUBLISHING.md`.
-- **Search filters + saved searches** — Cmd+K filters by project /
-  status / kind / block-type / time range; saved searches pin to
-  the sidebar's PINNED section (now that tabs are gone).
-- **lark-plug-hdeck — response writing** — shipped 2026-05-27 as
-  read-only (Inbox / All / In Flight pickers, open in $BROWSER).
-  Could grow yes/no inline responses but choice / text need real
-  picker-mode UX design. Defer until a week of read-only usage.
-- **herdr ↔ harness-deck active integration** — passive integration
-  already works (agents in herdr panes publish per CONTRACT.md).
-  Active surface (herdr pane status mirroring open-asks) requires
-  a herdr extension; wait until used in anger.
+## Backlog
 
-## Later / out of scope
+Self-contained items from the 2026-06-10 audit (mediums, then lows). Full
+traces in `.harness/20260610-bug-bash-audit/report.json`. Default Verify:
+`go build ./... && go test ./...` unless noted.
 
-- Harness-side integration (hooks/skill so harnesses emit manifests and pick up
-  responses) — lives in `chezmoi-config`, separate task.
+- [ ] **Validate top-level strictness + publish_report byte fidelity** —
+  strict-decode the top-level doc in Validate (shadow struct); make MCP
+  publish_report write the validated `args.Manifest` bytes (json.Indent)
+  instead of re-marshaling the struct. Files: internal/manifest/validate.go,
+  internal/mcp/tools.go:212. Sonnet.
+- [ ] **Ask-delta re-fire on transient disappearance** — merge cur into prev
+  (retain vanished keys a few ticks) or keep a notified-set keyed by Tag.
+  Files: internal/server/sse.go:100, push.go:176-187. Sonnet — coordinate
+  with the watcher tick() refactor.
+- [ ] **Markdown italic pass corrupts hrefs** — placeholder-token the
+  link/code spans before bold/italic; require non-space inside `*…*`.
+  Files: internal/render/markdown.go:49-57. Sonnet.
+- [ ] **Inbox cursor not restored on initial load** — call restoreFocus()
+  before the first ensureFocused() at bootstrap. Files:
+  internal/assets/aggregator.js:1059-1111. Verify: browser. Sonnet.
+- [ ] **MCP: oversized line kills session** — detect bufio.ErrTooLong, drain
+  the line, emit one -32700, continue. Files: internal/mcp/protocol.go:201,
+  228-230. Sonnet.
+- [ ] **Push payload >4KB silently rejected** — truncate Body to a preview
+  length before encrypt (also caps Slack/Discord bodies). Files:
+  internal/push/encrypt.go:72-99, internal/server/push.go:200. Sonnet.
+- [ ] **410-prune can delete a fresh re-subscription** — RemoveIfMatches
+  (endpoint + keys) instead of Remove(endpoint). Files:
+  internal/server/push.go:246-265, internal/push/store.go. Sonnet.
+- [ ] **publicReportURL diverges from BaseURL** — delete the hand-rolled
+  builder; call s.cfg.BaseURL() + path. Files: internal/server/push.go:231.
+  Haiku candidate.
+- [ ] **Project discovery dedups by basename** — key on absolute path,
+  disambiguate display names, surface dropped duplicates. Files:
+  internal/projects/projects.go:234-258. Sonnet — touches persistence keys.
+- [ ] **(project,run) collisions silently shadow** — when seen[key] differs
+  in Path, append to errs. Files: internal/store/store.go:96-100. Haiku
+  candidate.
+- [ ] **store.Scan last-writer-wins** — scanMu across walk+commit, or
+  generation counter. Files: internal/store/store.go:72-116. Sonnet.
+- [ ] **notify.Run no timeout blocks respond handler** — CommandContext w/
+  10s timeout (mirror handleNotificationsTest) or run after broadcast.
+  Files: internal/notify/notify.go, internal/server/server.go:277. Haiku.
+- [ ] **switchToTabN reads deleted legacy key** — point at HDPins.load() or
+  delete the branch. Files: internal/assets/aggregator.js:1370-1384.
+  Verify: browser digits 2-9. Haiku.
+- [ ] **JSON-RPC: don't reply to malformed notifications** — gate writeError
+  on IsNotification. Files: internal/mcp/protocol.go:220-223. Haiku.
+- [ ] **update tools alphabetize report.json keys** — decide: struct
+  re-marshal for canonical order vs document the trade-off. Files:
+  internal/mcp/tools.go:364-373,410-436. Sonnet.
+- [ ] **addPaddingTrim doc lies** — make it convert standard→urlsafe (doc
+  says it does) or fix the doc. Files: internal/push/encrypt.go:123-132.
+  Haiku.
+- [ ] **currentAskDigests missing promised log line** — add log.Printf in
+  the err branch. Files: internal/server/push.go:120-123. Haiku.
+- [ ] **HARNESS_DECK_CONFIG not tilde-expanded** — run through
+  config.Expand in config.Path() and projects.StatePath(). Files:
+  internal/config/config.go:77, internal/projects/projects.go:42. Haiku.
+- [ ] **Dead legacy view-switch handler** — delete aggregator.js:1246-1253.
+  Verify: browser digit nav. Haiku.
+- [ ] **new.go hardcodes the schema literal** — reference manifest.Schema;
+  update new_test.go:36. Haiku.
+
+## Later / parking lot
+
+- **Search filters + saved searches** — Cmd+K filters by project / status /
+  kind / time; saved searches pin to the sidebar PINNED section.
+- **lark-plug-hdeck response writing** — re-deferred 2026-06-10. Trigger:
+  *catching myself opening the browser just to tap yes/no on an ask.*
+  Until then read-only stands.
+- **herdr ↔ harness-deck active integration** — unchanged gate: requires a
+  herdr extension; wait until used in anger.
+- **responses.json evolution** — version field + `Values []string` for
+  multi-select answers; pairs with any richer-answer-types work.
+- **Search text-cache + archived exclusion from /api/reports** — only above
+  ~1-2k active reports; measure first.
+- **hd-dom.js** — shared el()/htmlToNodes so the no-innerHTML discipline is
+  a helper, not a convention.
+
+## Out of scope
+
 - v1a/v1b/v1c visual refinements (v1 original only for now).
 - Multi-user / auth / cloud sync — local single-user only.
 
@@ -181,5 +184,6 @@ Also on the table (lower priority — not picked yet but logged):
   (`tokyo-night.css`, `vim-nav.js`, v1 layout). No frontend build step.
 - The renderer owns all report HTML/CSS — manifests never contain layout, only
   content (except the deliberate `html` escape-hatch block).
-- The harness→deck contract is a written file. MCP, if added, is a convenience
-  wrapper, never the only path.
+- The harness→deck contract is a written file. MCP is a convenience wrapper,
+  never the only path.
+- Zero external Go dependencies — stdlib only, no `require` block.

@@ -452,3 +452,35 @@ contract that matches the renderer you installed. A GitHub-latest fetch
 could describe block types the installed binary can't render, which is
 exactly the graceful-degradation footgun the project already guards
 against. Offline-safe and zero-dependency as a bonus.
+
+## 2026-06-10 — Bug bash audit + release-first sequencing
+
+Multi-agent audit (8 bug lenses + 5 architecture reviewers, findings
+adversarially verified against source) produced 30 confirmed findings;
+durable record in `.harness/20260610-bug-bash-audit/report.json`. Product
+review locked these decisions:
+
+- **Tag v0.2.4 immediately, before fixes.** The self-describing binary is
+  referenced by committed README/SETUP and the repointed chezmoi
+  AGENTS.md/SKILL.md but exists in no tag — every installed binary fails
+  `hdeck contract`. Nothing in the tag is worse than what's installed, so
+  release first. Full sequencing: v0.2.4 → crit/high fix milestone →
+  v0.2.5 → Medium launch (readers shouldn't hit known highs).
+- **Fix-milestone scope: critical + all 8 highs.** Mediums/lows became
+  self-contained roadmap Backlog items rather than a campaign.
+- **Root-cause framing over per-site patches:** 7 findings share one
+  pattern — uncoordinated read-modify-write on shared JSON. One
+  `internal/jsonfile` helper (unique temp names, UseNumber, refuse to
+  clobber unparseable files) fixes the critical, the config clobber, the
+  tmp collision, and the float64 mangling in a single move.
+- **`.harness/` is committed**, not gitignored — decision records travel
+  with the repo and the flagship repo dogfoods its own in-repo publishing
+  doctrine.
+- **lark-plug-hdeck response writing re-deferred** with a concrete
+  trigger ("catching myself opening the browser just to tap yes/no")
+  replacing the expired time-boxed condition.
+- **Report templates** picked as the first post-launch feature (compounds
+  the launch funnel; scaffolding already exists).
+- **Arch adoptions:** watcher tick() + delta/CRUD tests, registry
+  cross-check test (+ absorbing blockPrompt/blockText into manifest),
+  assets bundle-invariants test, schema versioning mechanism.
