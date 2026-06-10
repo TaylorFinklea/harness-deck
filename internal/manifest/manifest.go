@@ -145,7 +145,11 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 	}
 	body := ctor()
 	if err := json.Unmarshal(data, body); err != nil {
-		return fmt.Errorf("block %q: %w", head.Type, err)
+		// Known type, mistyped field: degrade exactly like an unknown type.
+		// Body stays nil so the renderer shows the fallback panel, the rest
+		// of the report — and its dashboard index entry — survives, and
+		// Validate's independent strict pass reports the actual problem.
+		return nil
 	}
 	b.Body = body
 	return nil

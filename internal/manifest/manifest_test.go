@@ -113,3 +113,27 @@ func hasProblem(ps []Problem, substr string) bool {
 	}
 	return false
 }
+
+func TestParseLenientOnKnownBlockFieldTypeMismatch(t *testing.T) {
+	// The graceful-degradation rule: an unknown block TYPE keeps the report
+	// alive with a fallback panel. A known type with one mistyped field must
+	// degrade the same way — not abort the whole Parse and silently drop the
+	// report from the dashboard.
+	data := []byte(`{"schema":"harness-deck/report@1","id":"r1","project":"acme",
+		"harness":"claude-code","title":"t","status":"draft",
+		"created":"2026-06-10T00:00:00Z",
+		"blocks":[{"type":"prose","markdown":123},{"type":"prose","markdown":"fine"}]}`)
+	rep, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse should tolerate a mistyped field in one block: %v", err)
+	}
+	if rep.Blocks[0].Body != nil {
+		t.Error("mistyped block should leave Body nil (fallback panel)")
+	}
+	if rep.Blocks[1].Body == nil {
+		t.Error("healthy sibling block must still decode")
+	}
+	if len(rep.Validate()) == 0 {
+		t.Error("Validate must still flag the mistyped field")
+	}
+}
