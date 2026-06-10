@@ -164,8 +164,21 @@ func (b Block) MarshalJSON() ([]byte, error) {
 }
 
 // Parse decodes a report manifest from JSON. It does not validate semantics;
-// call Report.Validate for that.
+// call Report.Validate for that. Parse is lenient on schema version: a higher
+// version of the canonical family still parses (unknown blocks degrade to
+// fallback panels). A completely different schema family is an error.
 func Parse(data []byte) (*Report, error) {
+	// Peek at the schema field before full decode so we can reject an alien
+	// family without silently ignoring it.
+	var head struct {
+		Schema string `json:"schema"`
+	}
+	if err := json.Unmarshal(data, &head); err != nil {
+		return nil, err
+	}
+	if err := checkSchemaLenient(head.Schema); err != nil {
+		return nil, err
+	}
 	var r Report
 	if err := json.Unmarshal(data, &r); err != nil {
 		return nil, err

@@ -73,8 +73,11 @@ func TestUnknownBlockTypeIsLenient(t *testing.T) {
 }
 
 func TestValidateCatchesProblems(t *testing.T) {
+	// Use a same-family schema value that isn't an accepted version so Validate
+	// flags it. "wrong" would be caught at Parse now (different family); using
+	// a future version makes the intent clear and exercises Validate's strict path.
 	bad := `{
-	  "schema": "wrong",
+	  "schema": "harness-deck/report@999",
 	  "project": "p",
 	  "harness": "h",
 	  "title": "t",
@@ -91,8 +94,8 @@ func TestValidateCatchesProblems(t *testing.T) {
 	}
 	ps := r.Validate()
 	for _, want := range []string{
-		"expected", // schema mismatch
-		"missing",  // id missing
+		"newer than this binary", // schema: future version of known family
+		"missing",                // id missing
 		"draft|awaiting-review",
 		"RFC3339",
 		"invalid value \"extreme\"",

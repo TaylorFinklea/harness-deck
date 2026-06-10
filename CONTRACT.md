@@ -140,6 +140,26 @@ needs a unique `id` within the report.
   the chosen side's `tag`.
 - **`approval`** — `{id, prompt}` — records `approved` or `changes-requested`.
 
+## Versioning
+
+The `schema` field follows the `<family>@<N>` format — currently
+`harness-deck/report@1`. The family is `harness-deck/report`; the version is a
+positive integer.
+
+**Lenient parse / strict validate split:**
+
+- `Parse` accepts any version of the canonical family. A manifest written by a
+  newer harness (e.g. `harness-deck/report@2`) will still load: known blocks
+  decode normally; unknown block types degrade to visible fallback panels. A
+  different family (e.g. `other-tool/report@1`) is rejected immediately.
+- `Validate` (run by `harness-deck validate`) only accepts the exact set of
+  versions this binary knows. A newer version produces an error that says the
+  schema is "newer than this binary supports — upgrade harness-deck".
+
+**For publishers:** always write the exact schema string shown in the top-level
+fields example above. Only upgrade `@N` when you intentionally target a newer
+harness-deck release that documents the new version.
+
 ## Consuming responses
 
 When the user answers, harness-deck writes `responses.json` into the run

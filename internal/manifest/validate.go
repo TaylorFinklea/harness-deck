@@ -26,11 +26,7 @@ func (r *Report) Validate() []Problem {
 	var ps []Problem
 	add := func(path, msg string) { ps = append(ps, Problem{path, msg}) }
 
-	if r.Schema == "" {
-		add("schema", "missing")
-	} else if r.Schema != Schema {
-		add("schema", fmt.Sprintf("expected %q, got %q", Schema, r.Schema))
-	}
+	ps = append(ps, checkSchemaStrict(r.Schema)...)
 	for field, val := range map[string]string{
 		"id": r.ID, "project": r.Project, "harness": r.Harness,
 		"title": r.Title, "status": r.Status, "created": r.Created,
