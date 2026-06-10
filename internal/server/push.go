@@ -178,7 +178,8 @@ func (s *Server) notifyNewAsks(prev, cur map[string]askDigest, entries map[strin
 	s.notifMu.RLock()
 	haveFanout := len(s.cfg.Notifications) > 0
 	s.notifMu.RUnlock()
-	if !havePush && !haveFanout {
+	haveTestSeam := s.testNotifyFn != nil
+	if !havePush && !haveFanout && !haveTestSeam {
 		return
 	}
 	for key, curAsks := range cur {
@@ -186,6 +187,11 @@ func (s *Server) notifyNewAsks(prev, cur map[string]askDigest, entries map[strin
 		for id, prompt := range curAsks {
 			if _, existed := prevAsks[id]; existed {
 				continue
+			}
+			// Fire the test seam, if any, once per new ask (before any real
+			// push/fanout so tests can count without needing real VAPID keys).
+			if s.testNotifyFn != nil {
+				s.testNotifyFn()
 			}
 			entry := entries[key]
 			title := entry.Title

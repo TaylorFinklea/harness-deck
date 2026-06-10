@@ -46,6 +46,16 @@ type Server struct {
 	// notifMu guards cfg.Notifications + cfg.PublicURL against concurrent
 	// reads from the watcher and writes from /api/notifications/* CRUD.
 	notifMu sync.RWMutex
+
+	// testNotifyFn, when non-nil, is called once per new-ask notification
+	// instead of (in addition to) the real push/fanout path. Tests use this
+	// seam to count notification fires without needing real VAPID keys.
+	testNotifyFn func()
+
+	// testDigestCountFn, when non-nil, is called each time currentAskDigests
+	// is actually invoked. Tests use this seam to verify signature-gated
+	// skipping behaviour.
+	testDigestCountFn func()
 }
 
 // New builds a Server and performs the initial report scan.

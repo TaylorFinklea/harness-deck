@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
 
 // hub fans out change notifications to every connected SSE client.
@@ -80,6 +82,55 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// watchState carries the inter-tick state threaded through tick() calls.
+// Keeping it as a plain struct makes the loop body a pure function of
+// inputs + side-effects, which is what lets tests drive it directly.
+type watchState struct {
+	lastSig     string                 // changeFingerprint after the last scan
+	prevAsks    map[string]askDigest   // ask digest set from the previous tick
+	prevEntries map[string]store.Entry // entry map from the previous tick
+}
+
+// initWatchState captures the baseline snapshot — identical to what the
+// watcher goroutine would read on startup — so the first real tick only
+// fires for genuine deltas rather than re-firing the entire existing inbox.
+func (s *Server) initWatchState() watchState {
+	sig := s.changeFingerprint()
+	prevAsks, prevEntries := s.currentAskDigests()
+	return watchState{lastSig: sig, prevAsks: prevAsks, prevEntries: prevEntries}
+}
+
+// tick is one watcher iteration: scan, detect changes, broadcast SSE when
+// something changed, fire ask notifications for newly-appeared open asks.
+// Ask digests are only recomputed when the store signature changed —
+// avoiding N full re-parses per 2 s in steady state.
+//
+// tick is deliberately free of time.Sleep so tests can drive it directly.
+func (s *Server) tick(ws watchState) watchState {
+	s.store.Scan(s.enabledRoots())
+	cur := s.changeFingerprint()
+	changed := cur != ws.lastSig
+
+	var curAsks map[string]askDigest
+	var curEntries map[string]store.Entry
+	if changed {
+		// Only recompute digests when the store actually changed — no-op
+		// ticks cost nothing beyond the scan itself.
+		if s.testDigestCountFn != nil {
+			s.testDigestCountFn()
+		}
+		curAsks, curEntries = s.currentAskDigests()
+		s.notifyNewAsks(ws.prevAsks, curAsks, curEntries)
+		s.hub.broadcast("reports")
+	} else {
+		// No change — preserve the previous digest set unchanged.
+		curAsks = ws.prevAsks
+		curEntries = ws.prevEntries
+	}
+
+	return watchState{lastSig: cur, prevAsks: curAsks, prevEntries: curEntries}
+}
+
 // watch rescans on an interval and broadcasts when anything the dashboard
 // reflects changes — reports, discovered projects, or their .docs/ai docs.
 // Polling (rather than fsnotify) keeps the build dependency-free; a
@@ -89,18 +140,10 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 // existing open asks does not spam the phone at startup — only deltas
 // after the first poll fire pushes.
 func (s *Server) watch(interval time.Duration) {
-	last := s.changeFingerprint()
-	prevAsks, _ := s.currentAskDigests()
+	ws := s.initWatchState()
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for range t.C {
-		s.store.Scan(s.enabledRoots())
-		curAsks, entries := s.currentAskDigests()
-		s.notifyNewAsks(prevAsks, curAsks, entries)
-		prevAsks = curAsks
-		if cur := s.changeFingerprint(); cur != last {
-			last = cur
-			s.hub.broadcast("reports")
-		}
+		ws = s.tick(ws)
 	}
 }
