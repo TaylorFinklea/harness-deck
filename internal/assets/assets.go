@@ -125,6 +125,12 @@ var SearchJSInline = strings.ReplaceAll(SearchJS, "</script", `<\/script`)
 // HTMLBlockJSInline is html-block.js with </script escaped for safe inlining.
 var HTMLBlockJSInline = strings.ReplaceAll(HTMLBlockJS, "</script", `<\/script`)
 
+// RespondJSInline is respond.js with </script escaped for safe inlining.
+// respond.js does not currently contain the sequence, but applying the guard
+// here ensures any future edit that introduces it cannot break the inline
+// <script> context. All bundle members must go through this escape.
+var RespondJSInline = strings.ReplaceAll(RespondJS, "</script", `<\/script`)
+
 // ReportJS is the script bundle inlined into a rendered report page: vim
 // navigation, the response handler, the mobile drawer + service worker
 // registration, the in-app tab strip, the keyboard triage helper, the
@@ -138,4 +144,4 @@ var HTMLBlockJSInline = strings.ReplaceAll(HTMLBlockJS, "</script", `<\/script`)
 // vim-nav → respond → mobile → tabs (the single g-chord owner, see
 // window.HDKeys) → triage. Reordering this line silently reshuffles
 // keyboard semantics; don't.
-var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + LiveBannerJSInline + "\n" + SearchJSInline + "\n" + HTMLBlockJSInline
+var ReportJS = VimNavJSInline + "\n" + RespondJSInline + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + LiveBannerJSInline + "\n" + SearchJSInline + "\n" + HTMLBlockJSInline
