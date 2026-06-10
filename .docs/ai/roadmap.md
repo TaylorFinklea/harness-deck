@@ -52,10 +52,10 @@ findings). Sequencing decision: release → fix highs → launch.
      succeeded (4 platform binaries), tap formula committed, verified via
      local `brew upgrade` → `hdeck version` 0.2.4 + `hdeck contract` prints
      the embedded schema.
-2. - [ ] **Bug-fix milestone: critical + 8 highs** — spec at
-     `.docs/ai/phases/bug-fix-wave-spec.md`; phase checkboxes in
-     current-state.md `## Plan`. Spine: one `internal/jsonfile` helper kills
-     the RMW cluster. Tag **v0.2.5** when done.
+2. - [x] **Bug-fix milestone: critical + 8 highs** _(done 2026-06-10)_ —
+     all 9 items shipped TDD-first; frontend items browser-verified. See
+     `.docs/ai/phases/bug-fix-wave-report.md`. **v0.2.5 tagged locally —
+     user to push** (`git push origin main v0.2.5`).
 3. - [ ] **Launch sequence** — (a) retake the 3 README screenshots against
      the v0.2.x UI (rename roadmap.png → projects.png; consider an html-block
      mockup shot), (b) reconsider README "Status: Early build" line,

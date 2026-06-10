@@ -1383,15 +1383,34 @@
     return false;
   }
 
+  /* g-chord completions for the dashboard. tabs.js is the single
+     g-chord state machine (it loads on both the shell and report
+     pages); we register only the in-place completions it should
+     prefer over its URL-jump built-ins. The registry bootstrap is
+     identical in both files — whichever loads first creates it. */
+  var HDKeys = (window.HDKeys = window.HDKeys || {
+    pendingPrefix: '',
+    _chords: {},
+    chord: function (prefix, key, fn) { this._chords[prefix + key] = fn; },
+  });
+  HDKeys.chord('g', 'i', function () { archiveFilter = false; render(); showView('inbox'); });
+  HDKeys.chord('g', 'p', function () { showView('projects'); });
+  HDKeys.chord('g', 'a', function () { showView('inbox'); archiveFilter = true; render(); });
+  HDKeys.chord('g', 'g', function () { window.scrollTo({ top: 0, behavior: 'instant' }); });
+
   /* Inbox cursor key handler — capture phase so we intercept j/k
-     before vim-nav's page-scroll binding fires. Also owns chord
-     prefixes (Space, g) and digit-to-tab routing. */
+     before vim-nav's page-scroll binding fires. Also owns the Space
+     leader and digit-to-tab routing; the g chord belongs to tabs.js. */
   document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
     // Modifier keys belong to the browser / OS — don't intercept.
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // A pending g-chord belongs to tabs.js — stand down so the
+    // completion key reaches its bubble-phase handler untouched
+    // (otherwise our single-key row bindings eat it in capture phase).
+    if (HDKeys.pendingPrefix) return;
 
     function consume() { e.preventDefault(); e.stopImmediatePropagation(); }
 
@@ -1410,27 +1429,6 @@
       consume();
       return;
     }
-    if (pendingChord === 'g') {
-      setPendingChord('');
-      switch (e.key) {
-        case 'i':
-          archiveFilter = false; render();
-          showView('inbox'); consume(); return;
-        case 'p':
-          showView('projects'); consume(); return;
-        case 'a':
-          showView('inbox');
-          archiveFilter = true; render();
-          consume(); return;
-        case 'g':
-          window.scrollTo({ top: 0, behavior: 'instant' });
-          consume(); return;
-      }
-      // Unknown chord — drop silently, swallow the key.
-      consume();
-      return;
-    }
-
     // --- tree focus mode owns j/k/Enter/Esc when active ---
     if (treeFocused) {
       switch (e.key) {
@@ -1451,7 +1449,9 @@
       if (switchToTabN(parseInt(e.key, 10))) { consume(); return; }
     }
     if (e.key === ' ') { setPendingChord(' '); consume(); return; }
-    if (e.key === 'g') { setPendingChord('g'); consume(); return; }
+    // `g` deliberately NOT consumed: it bubbles to tabs.js, the single
+    // g-chord owner, which arms and dispatches (our registered
+    // completions above included).
     if (e.key === '?') { openHelpOverlay(); consume(); return; }
 
     // Below: row actions, only meaningful when a row list is visible.

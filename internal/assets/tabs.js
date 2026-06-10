@@ -15,6 +15,20 @@
   var STORAGE_KEY = 'harness-deck:pins';
   var MAX_PINS = 9; // matches the digit-shortcut range (1=dashboard, 2-9=pins)
 
+  /* HDKeys is the single g-chord registry. tabs.js owns the chord state
+     machine; other scripts (aggregator.js on the dashboard) register
+     in-place completions that take precedence over the URL-jump
+     built-ins below. Created by whichever script loads first — the
+     shell loads aggregator before tabs, the report bundle has no
+     aggregator at all. pendingPrefix is read by aggregator's
+     capture-phase handler so its single-key bindings stand down while
+     a chord completion is in flight. */
+  var HDKeys = (window.HDKeys = window.HDKeys || {
+    pendingPrefix: '',
+    _chords: {},
+    chord: function (prefix, key, fn) { this._chords[prefix + key] = fn; },
+  });
+
   function load() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
@@ -102,10 +116,15 @@
   var pendingGTimer = 0;
   function armG() {
     pendingG = true;
+    HDKeys.pendingPrefix = 'g';
     if (pendingGTimer) clearTimeout(pendingGTimer);
-    pendingGTimer = setTimeout(function () { pendingG = false; }, 1500);
+    pendingGTimer = setTimeout(disarmG, 1500);
   }
-  function disarmG() { pendingG = false; if (pendingGTimer) clearTimeout(pendingGTimer); }
+  function disarmG() {
+    pendingG = false;
+    HDKeys.pendingPrefix = '';
+    if (pendingGTimer) clearTimeout(pendingGTimer);
+  }
 
   document.addEventListener('keydown', function (e) {
     var t = e.target;
@@ -147,56 +166,65 @@
       return;
     }
 
-    if (e.key === 'g') { armG(); return; }
-    if (!pendingG) return;
-
-    switch (e.key) {
-      case 't':
-        // Cycle to the next pin. With no pins, this is a no-op
-        // (instead of bouncing to dashboard like the old tabs did,
-        // which felt magical).
-        disarmG();
-        if (!pins.length) { e.preventDefault(); return; }
-        var iN = here ? indexOf(pins, here.project, here.run) : -1;
-        location.href = reportURL(pins[(iN + 1 + pins.length) % pins.length]);
-        e.preventDefault();
-        return;
-      case 'T':
-        disarmG();
-        if (!pins.length) { e.preventDefault(); return; }
-        var iP = here ? indexOf(pins, here.project, here.run) : -1;
-        location.href = reportURL(pins[(iP - 1 + pins.length) % pins.length]);
-        e.preventDefault();
-        return;
-      case 'd':
-      case 'h':
-        disarmG();
-        location.href = '/';
-        e.preventDefault();
-        return;
-      case 'i':
-        disarmG();
-        location.href = '/?v=inbox';
-        e.preventDefault();
-        return;
-      case 'p':
-        disarmG();
-        location.href = '/?v=projects';
-        e.preventDefault();
-        return;
-      case 'a':
-        disarmG();
-        location.href = '/?archive=1';
-        e.preventDefault();
-        return;
-      case 'x':
-        // g x — unpin the current report (the new "close tab"). The
-        // page itself stays; only the sidebar entry goes.
-        disarmG();
-        if (here) unpin(here.project, here.run);
-        e.preventDefault();
-        return;
+    // Chord completion comes BEFORE the arm check: a second `g` within
+    // the window must complete (and disarm) rather than re-arm — the old
+    // order left the chord armed after vim-nav's gg, so the next single
+    // key double-dispatched (gg then a archived AND navigated away).
+    if (pendingG) {
+      disarmG();
+      // Registered completions (aggregator's in-place view switches on
+      // the dashboard) take precedence over the URL-jump built-ins.
+      var chordFn = HDKeys._chords['g' + e.key];
+      if (chordFn) { chordFn(e); e.preventDefault(); return; }
+      switch (e.key) {
+        case 't':
+          // Cycle to the next pin. With no pins, this is a no-op
+          // (instead of bouncing to dashboard like the old tabs did,
+          // which felt magical).
+          if (!pins.length) { e.preventDefault(); return; }
+          var iN = here ? indexOf(pins, here.project, here.run) : -1;
+          location.href = reportURL(pins[(iN + 1 + pins.length) % pins.length]);
+          e.preventDefault();
+          return;
+        case 'T':
+          if (!pins.length) { e.preventDefault(); return; }
+          var iP = here ? indexOf(pins, here.project, here.run) : -1;
+          location.href = reportURL(pins[(iP - 1 + pins.length) % pins.length]);
+          e.preventDefault();
+          return;
+        case 'd':
+        case 'h':
+          location.href = '/';
+          e.preventDefault();
+          return;
+        case 'i':
+          location.href = '/?v=inbox';
+          e.preventDefault();
+          return;
+        case 'p':
+          location.href = '/?v=projects';
+          e.preventDefault();
+          return;
+        case 'a':
+          location.href = '/?archive=1';
+          e.preventDefault();
+          return;
+        case 'x':
+          // g x — unpin the current report (the new "close tab"). The
+          // page itself stays; only the sidebar entry goes.
+          if (here) unpin(here.project, here.run);
+          e.preventDefault();
+          return;
+        case 'g':
+          // gg — vim-nav owns the scroll-to-top on report pages; the
+          // dashboard registers its own 'gg' handler above. Either way
+          // the chord is spent: stand down, never re-arm.
+          return;
+      }
+      // Unknown completion (or Escape): chord cancelled.
+      return;
     }
+    if (e.key === 'g') { armG(); return; }
   });
 
   // Public API. HDTabs name retained so external callers (search.js)

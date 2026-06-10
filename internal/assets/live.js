@@ -18,6 +18,39 @@
 
   var loadedAt = Date.now();
   var inflight = false;
+  var banner = null;
+
+  // typingInProgress guards the one user-hostile reload: an in-flight
+  // agent heartbeating `live` telemetry rewrites report.json every few
+  // seconds, and reloading mid-answer wipes whatever the user has typed
+  // into an ask. Focused input OR any non-empty draft defers the reload.
+  function typingInProgress() {
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return true;
+    var inputs = document.querySelectorAll('.hd-input');
+    for (var i = 0; i < inputs.length; i++) {
+      if (inputs[i].value && inputs[i].value.trim() !== '') return true;
+    }
+    return false;
+  }
+
+  // showPending surfaces a passive "tap to reload" chip instead of
+  // yanking the page out from under the user. Clicking runs the action
+  // the guard deferred (reload, or home when the report is gone).
+  function showPending(label, action) {
+    if (banner) return;
+    banner = document.createElement('div');
+    banner.id = 'hd-reload-pending';
+    banner.setAttribute('role', 'status');
+    banner.textContent = label;
+    banner.style.cssText =
+      'position:fixed;bottom:14px;right:14px;z-index:1000;' +
+      'padding:6px 12px;cursor:pointer;font-size:12px;' +
+      'background:var(--tn-bg-highlight,#292e42);color:var(--tn-fg,#c0caf5);' +
+      'border:1px solid var(--tn-blue,#7aa2f7);border-radius:4px;';
+    banner.addEventListener('click', action);
+    document.body.appendChild(banner);
+  }
 
   function check() {
     if (inflight) return;
@@ -27,10 +60,18 @@
       cache: 'no-store',
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j.exists) {
+        if (typingInProgress()) {
+          showPending('report removed — tap to go home', function () { location.href = '/'; });
+          return;
+        }
         location.href = '/';
         return;
       }
       if (j.sig && j.sig !== R.sig) {
+        if (typingInProgress()) {
+          showPending('report updated — tap to reload', function () { location.reload(); });
+          return;
+        }
         location.reload();
       }
     }).catch(function (err) {

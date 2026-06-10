@@ -130,4 +130,12 @@ var HTMLBlockJSInline = strings.ReplaceAll(HTMLBlockJS, "</script", `<\/script`)
 // registration, the in-app tab strip, the keyboard triage helper, the
 // SSE-driven live-reload watcher, the live in-flight telemetry banner,
 // the Cmd+K search palette, and the html-block shadow-DOM isolator.
+//
+// ORDER IS KEYBOARD PRECEDENCE. Every file registers its document-level
+// keydown listener at load, and bubble-phase listeners fire in
+// registration order — so concatenation order here (and the <script>
+// order in server/shell.html.tmpl) decides who sees a key first:
+// vim-nav → respond → mobile → tabs (the single g-chord owner, see
+// window.HDKeys) → triage. Reordering this line silently reshuffles
+// keyboard semantics; don't.
 var ReportJS = VimNavJSInline + "\n" + RespondJS + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + LiveBannerJSInline + "\n" + SearchJSInline + "\n" + HTMLBlockJSInline

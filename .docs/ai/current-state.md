@@ -2,23 +2,17 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main, synced with origin. Build/tests green.
-- 2026-06-10: bug bash + arch review done → `.harness/20260610-bug-bash-audit/`
-  (30 verified findings). Product review locked: release → fix highs → launch.
-- **v0.2.4 released + verified** (binaries, tap formula, local brew upgrade,
-  `hdeck contract` works). Next up: the fix milestone below, then v0.2.5.
+- Branch: main, **ahead of origin (fix-wave commits) — unpushed**. Build/tests green.
+- **Bug-fix milestone COMPLETE** (all 9 items; frontend items browser-verified
+  via Playwright, not just eyeballed). Report:
+  `phases/bug-fix-wave-report.md`. Audit: `.harness/20260610-bug-bash-audit/`.
+- **v0.2.5 tag created locally, NOT pushed.** User to run
+  `git push origin main v0.2.5` → release. Then the launch sequence
+  (roadmap Now item 3) is unblocked.
 
-## Plan (bug-fix milestone — spec: phases/bug-fix-wave-spec.md)
+## Plan
 
-- [x] internal/jsonfile helper + migrate 5 writers + status-enum dedup — Verify: go test ./...
-- [x] respond.Record atomic + mutex; surface respond.Load err in store — Verify: go test ./...
-- [x] Cross-process report.json flock — Verify: go test ./...
-- [x] MCP list_reports scan_roots parity — Verify: go test ./internal/mcp/...
-- [x] DELETE blast-radius guard — Verify: go test ./internal/server/...
-- [x] Lenient known-block parse (Body nil on mismatch) — Verify: go test ./internal/manifest/... ./internal/store/...
-- [x] Markdown link scheme allowlist — Verify: go test ./internal/render/...
-- [ ] live.js draft guard — Verify: human (browser)
-- [ ] g-chord single owner — Verify: human (browser)
+(empty — next item comes from roadmap Now: launch sequence, or arch wave)
 
 ## Blockers
 
