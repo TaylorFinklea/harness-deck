@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
@@ -109,5 +110,43 @@ func TestScanRecordsParseErrors(t *testing.T) {
 	}
 	if len(s.Errors()) != 1 {
 		t.Fatalf("got %d scan errors, want 1", len(s.Errors()))
+	}
+}
+
+func TestScanSurfacesCorruptResponsesWithoutDroppingReport(t *testing.T) {
+	// A corrupt responses.json must not silently flip answered asks back
+	// to open: the report stays indexed (graceful degradation), but the
+	// problem surfaces in Errors() instead of being swallowed.
+	central := t.TempDir()
+	dir := filepath.Join(central, "acme", "run-1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	report := `{"schema":"harness-deck/report@1","id":"run-1","project":"acme",` +
+		`"harness":"claude-code","title":"t","status":"awaiting-review",` +
+		`"created":"2026-06-10T00:00:00Z",` +
+		`"blocks":[{"type":"ask","id":"a1","prompt":"ok?","mode":"yesno"}]}`
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(report), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "responses.json"), []byte(`{"resp`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := New(config.Config{CentralDir: central})
+	s.Scan(nil)
+
+	entries := s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1 (report must stay indexed)", len(entries))
+	}
+	found := false
+	for _, e := range s.Errors() {
+		if strings.Contains(e, "responses.json") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("corrupt responses.json not surfaced in Errors(): %v", s.Errors())
 	}
 }

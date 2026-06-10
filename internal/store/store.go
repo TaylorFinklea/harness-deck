@@ -88,10 +88,16 @@ func (s *Store) Scan(projectRoots []string) {
 			if d.Name() != "report.json" {
 				return nil
 			}
-			e, perr := loadEntry(path, source)
+			e, warn, perr := loadEntry(path, source)
 			if perr != nil {
 				errs = append(errs, path+": "+perr.Error())
 				return nil
+			}
+			if warn != "" {
+				// Soft problem (e.g. corrupt responses.json): the report
+				// stays indexed, but the issue is visible instead of
+				// silently flipping answered asks back to open.
+				errs = append(errs, warn)
 			}
 			key := e.Project + "\x00" + e.Run
 			if seen[key] {
@@ -173,15 +179,17 @@ func (s *Store) Get(project, run string) (*manifest.Report, Entry, error) {
 	return rep, *found, err
 }
 
-// loadEntry reads one report.json into an index Entry.
-func loadEntry(path, source string) (Entry, error) {
+// loadEntry reads one report.json into an index Entry. The warn return
+// carries soft problems that should surface in scan errors without
+// dropping the report from the index.
+func loadEntry(path, source string) (Entry, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return Entry{}, err
+		return Entry{}, "", err
 	}
 	rep, err := manifest.Parse(data)
 	if err != nil {
-		return Entry{}, err
+		return Entry{}, "", err
 	}
 	e := Entry{
 		Project: rep.Project, Run: rep.ID, Harness: rep.Harness, Agent: rep.Agent,
@@ -197,8 +205,14 @@ func loadEntry(path, source string) (Entry, error) {
 		e.RespModTime = fi.ModTime()
 	}
 	// OpenAsks is the count of interactive blocks not yet answered in
-	// responses.json — the "needs you" signal for the inbox.
-	answers, _ := respond.Load(e.Dir)
+	// responses.json — the "needs you" signal for the inbox. A corrupt
+	// responses.json can't tell us what was answered, so every ask counts
+	// as open — but the problem is reported, not swallowed.
+	warn := ""
+	answers, aerr := respond.Load(e.Dir)
+	if aerr != nil {
+		warn = filepath.Join(e.Dir, respond.FileName) + ": " + aerr.Error()
+	}
 	for _, b := range rep.Blocks {
 		if !manifest.InteractiveTypes[b.Type] {
 			continue
@@ -216,5 +230,5 @@ func loadEntry(path, source string) (Entry, error) {
 	if e.Run == "" {
 		e.Run = filepath.Base(e.Dir)
 	}
-	return e, nil
+	return e, warn, nil
 }

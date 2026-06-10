@@ -1,6 +1,8 @@
 package respond
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -47,5 +49,37 @@ func TestRecordOverwritesSameBlock(t *testing.T) {
 	f, _ := Load(dir)
 	if len(f.Responses) != 1 || f.Responses["q1"].Value != "second" {
 		t.Errorf("re-answering a block should overwrite; got %+v", f.Responses)
+	}
+}
+
+func TestRecordConcurrentWritersLoseNoAnswers(t *testing.T) {
+	// Two clients answering different blocks of the same run (phone +
+	// desktop) must both land: Record's read-modify-write has to be
+	// serialized, or the later writer resurrects the earlier writer's
+	// pre-answer snapshot.
+	dir := t.TempDir()
+	const n = 50
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			_, err := Record(dir, "acme", "run-1", Response{
+				Block: fmt.Sprintf("ask-%02d", i),
+				Value: "yes",
+			})
+			if err != nil {
+				t.Errorf("Record ask-%02d: %v", i, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	f, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load after concurrent records: %v", err)
+	}
+	if len(f.Responses) != n {
+		t.Errorf("answers recorded = %d, want %d (lost updates)", len(f.Responses), n)
 	}
 }
