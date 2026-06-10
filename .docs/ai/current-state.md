@@ -2,12 +2,11 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main, **ahead 5 + session commits — unpushed**. Build/tests green.
+- Branch: main, synced with origin. Build/tests green.
 - 2026-06-10: bug bash + arch review done → `.harness/20260610-bug-bash-audit/`
   (30 verified findings). Product review locked: release → fix highs → launch.
-- **v0.2.4 tag created locally, NOT pushed.** User to run
-  `git push origin main v0.2.4` → GoReleaser release + tap formula. Then
-  verify `hdeck contract` from a brew upgrade.
+- **v0.2.4 released + verified** (binaries, tap formula, local brew upgrade,
+  `hdeck contract` works). Next up: the fix milestone below, then v0.2.5.
 
 ## Plan (bug-fix milestone — spec: phases/bug-fix-wave-spec.md)
 

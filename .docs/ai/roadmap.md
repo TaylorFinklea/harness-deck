@@ -48,12 +48,10 @@ One line each; detail in decisions.md + git log.
 Full audit: `.harness/20260610-bug-bash-audit/report.json` (30 verified
 findings). Sequencing decision: release → fix highs → launch.
 
-1. - [ ] **Release v0.2.4** — tag created locally; **user to run
-     `git push origin main v0.2.4`** (triggers GoReleaser → GitHub Release →
-     tap formula). Verify: fresh `brew upgrade` then `hdeck contract` prints
-     the schema. _Landmine: until pushed, installed binaries fail the
-     `hdeck contract` invocation that README/SETUP/chezmoi AGENTS.md already
-     reference._
+1. - [x] **Release v0.2.4** _(done 2026-06-10)_ — tag pushed, GoReleaser run
+     succeeded (4 platform binaries), tap formula committed, verified via
+     local `brew upgrade` → `hdeck version` 0.2.4 + `hdeck contract` prints
+     the embedded schema.
 2. - [ ] **Bug-fix milestone: critical + 8 highs** — spec at
      `.docs/ai/phases/bug-fix-wave-spec.md`; phase checkboxes in
      current-state.md `## Plan`. Spine: one `internal/jsonfile` helper kills
