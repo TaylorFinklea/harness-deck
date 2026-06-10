@@ -54,25 +54,19 @@ findings). Sequencing decision: release → fix highs → launch.
      the embedded schema.
 2. - [x] **Bug-fix milestone: critical + 8 highs** _(done 2026-06-10)_ —
      all 9 items shipped TDD-first; frontend items browser-verified. See
-     `.docs/ai/phases/bug-fix-wave-report.md`. **v0.2.5 tagged locally —
-     user to push** (`git push origin main v0.2.5`).
-3. - [ ] **Launch sequence** — (a) retake the 3 README screenshots against
-     the v0.2.x UI (rename roadmap.png → projects.png; consider an html-block
-     mockup shot), (b) reconsider README "Status: Early build" line,
-     (c) publish the Medium article, (d) fill `<MEDIUM_URL>`/`<GITHUB_URL>`
-     placeholders in docs/launch/community-posts.md, (e) post per its
-     checklist. Order matters: after v0.2.5 so readers don't hit known highs.
-4. - [ ] **Arch hardening wave** (adopted 2026-06-10):
-     - [ ] watcher `tick()` extraction + signature-gated digests + delta/CRUD
-       tests (0% coverage on the config-rewriting handlers today)
-     - [ ] registry cross-check test (template + defaultTitle + CONTRACT.md
-       presence per block type) + absorb `blockPrompt`/`blockText` into
-       `manifest` (hidden places 5–6 of the four-places checklist)
-     - [ ] `assets_test.go` bundle invariants (MobileCSS-last, `</script`
-       guard applied to the assembled bundle — closes the RespondJS gap)
-     - [ ] schema versioning: parse `report@N` family+version, accepted set,
-       CONTRACT.md Versioning section, forward-compat test
-     - [ ] scan-timing log line (duration + entry count, warn >500ms)
+     `.docs/ai/phases/bug-fix-wave-report.md`. v0.2.5 released (first run
+     401'd — transient; rerun succeeded, tap formula at 0.2.5).
+3. - [ ] **Launch sequence** — (a) ✅ 3 README screenshots retaken vs v0.2.x
+     against a curated fixture (roadmap.png → projects.png), (b) ✅ Status
+     line rewritten (daily use, Homebrew, versioned contract — commit
+     74156bf), (c) **user: publish the Medium article**
+     (docs/launch/medium-pane-of-glass.md), (d) fill
+     `<MEDIUM_URL>`/`<GITHUB_URL>` placeholders in
+     docs/launch/community-posts.md once (c) yields the URL, (e) post per
+     its checklist.
+4. - [x] **Arch hardening wave** _(done 2026-06-10)_ — all five bullets +
+     GH Actions Node 24 bump; commits faec79b..5232af7. See
+     `.docs/ai/phases/arch-hardening-wave-report.md`.
 
 ## Next
 

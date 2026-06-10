@@ -2,17 +2,16 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main, **ahead of origin (fix-wave commits) — unpushed**. Build/tests green.
-- **Bug-fix milestone COMPLETE** (all 9 items; frontend items browser-verified
-  via Playwright, not just eyeballed). Report:
-  `phases/bug-fix-wave-report.md`. Audit: `.harness/20260610-bug-bash-audit/`.
-- **v0.2.5 tag created locally, NOT pushed.** User to run
-  `git push origin main v0.2.5` → release. Then the launch sequence
-  (roadmap Now item 3) is unblocked.
+- Branch: main, **ahead of origin by 8 commits (arch wave + screenshots + docs) — unpushed, untagged**. Build/tests/-race green.
+- v0.2.5 **released** (run 401'd once — transient; rerun succeeded; tap at 0.2.5).
+- Arch hardening wave COMPLETE → `phases/arch-hardening-wave-report.md`.
+- Launch (roadmap Now 3): screenshots + Status line done; remaining steps are
+  **user actions** — publish Medium article, then fill community-posts.md
+  placeholders and post.
 
 ## Plan
 
-(empty — next item comes from roadmap Now: launch sequence, or arch wave)
+(empty — next from roadmap: user-gated launch steps, or Next/Backlog items)
 
 ## Blockers
 
@@ -20,4 +19,4 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Open questions
 
-- None — 2026-06-10 product-review decisions are in decisions.md.
+- Tag the arch wave as v0.2.6 now, or fold into the next feature release?
