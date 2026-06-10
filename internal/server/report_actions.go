@@ -2,11 +2,14 @@ package server
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 
+	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
+	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
 
 // patchReport rewrites report.json after applying changes to its
@@ -112,11 +115,19 @@ func (s *Server) handleReportSig(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleReportDelete removes a report's run directory — report.json,
-// responses.json, and any artifacts the agent left alongside.
+// responses.json, and any artifacts the agent left alongside. The guard
+// matters: discovery indexes a report.json at ANY depth, so a manifest
+// misplaced at a shared root would make entry.Dir the whole central dir
+// (or a repo's entire .harness/) and RemoveAll would take every other
+// report with it.
 func (s *Server) handleReportDelete(w http.ResponseWriter, r *http.Request) {
 	_, entry, err := s.store.Get(r.PathValue("project"), r.PathValue("run"))
 	if err != nil {
 		http.Error(w, "report not found: "+err.Error(), http.StatusNotFound)
+		return
+	}
+	if reason := s.unsafeToDelete(entry); reason != "" {
+		http.Error(w, "refusing to delete: "+reason, http.StatusConflict)
 		return
 	}
 	if err := os.RemoveAll(entry.Dir); err != nil {
@@ -127,4 +138,34 @@ func (s *Server) handleReportDelete(w http.ResponseWriter, r *http.Request) {
 	s.hub.broadcast("reports")
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"ok":true}`))
+}
+
+// unsafeToDelete reports why entry.Dir must not be RemoveAll'd, or "" when
+// the delete is safe. Two refusal conditions: the dir IS a shared scan
+// root (central dir or a project's .harness root), or another indexed
+// report lives anywhere beneath it.
+func (s *Server) unsafeToDelete(entry store.Entry) string {
+	dir := filepath.Clean(entry.Dir)
+	if dir == filepath.Clean(config.Expand(s.cfg.CentralDir)) {
+		return "this report.json sits at the central reports root, not in its own run directory"
+	}
+	for _, root := range s.enabledRoots() {
+		if dir == filepath.Clean(filepath.Join(config.Expand(root), ".harness")) {
+			return "this report.json sits at a project's .harness root, not in its own run directory"
+		}
+	}
+	var other string
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || other != "" {
+			return nil
+		}
+		if d.Name() == "report.json" && path != entry.Path {
+			other = path
+		}
+		return nil
+	})
+	if other != "" {
+		return "another report (" + other + ") lives inside this directory"
+	}
+	return ""
 }
