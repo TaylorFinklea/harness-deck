@@ -13,6 +13,7 @@ import (
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
+	"github.com/TaylorFinklea/harness-deck/internal/projects"
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
@@ -295,11 +296,14 @@ func (s *Server) toolListReports(_ context.Context, raw json.RawMessage) (ToolCa
 	// Fresh store scan — the MCP process doesn't share state with a
 	// long-running `harness-deck serve`, so we re-discover on demand. Cheap
 	// in practice because the filesystem walks the same dirs the watcher
-	// already keeps warm.
+	// already keeps warm. The roots mirror server.enabledRoots exactly
+	// (scan_roots discovery + explicit projects, minus user-hidden ones)
+	// so list_reports and the dashboard agree on what exists.
 	st := store.New(s.cfg)
-	roots := make([]string, 0, len(s.cfg.Projects))
-	for _, p := range s.cfg.Projects {
-		roots = append(roots, p)
+	enabled := projects.NewManager(s.cfg.ScanRoots, s.cfg.Projects, projects.StatePath()).Enabled()
+	roots := make([]string, 0, len(enabled))
+	for _, p := range enabled {
+		roots = append(roots, p.Path)
 	}
 	st.Scan(roots)
 	entries := st.Entries()

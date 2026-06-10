@@ -280,3 +280,46 @@ func TestUpdateLivePreservesLargeIntegerLiterals(t *testing.T) {
 		t.Errorf("large integer mangled by update_live round-trip:\n%s", data)
 	}
 }
+
+func TestListReportsSeesScanRootsProjects(t *testing.T) {
+	// The dashboard scans projects discovered under scan_roots; list_reports
+	// must see the same world, or an agent that publishes into a discovered
+	// repo can't find its own report and concludes the publish failed.
+	t.Setenv("HARNESS_DECK_CONFIG", filepath.Join(t.TempDir(), "config.json"))
+
+	root := t.TempDir() // plays the role of ~/git
+	proj := filepath.Join(root, "myproj")
+	if err := os.MkdirAll(filepath.Join(proj, ".docs", "ai"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runDir := filepath.Join(proj, ".harness", "run-7")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	report := `{"schema":"harness-deck/report@1","id":"run-7","project":"myproj",` +
+		`"harness":"claude-code","title":"in-repo report","status":"draft",` +
+		`"created":"2026-06-10T00:00:00Z","blocks":[]}`
+	if err := os.WriteFile(filepath.Join(runDir, "report.json"), []byte(report), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.Default()
+	cfg.CentralDir = t.TempDir()
+	cfg.ScanRoots = []string{root}
+	cfg.Projects = nil
+
+	req := map[string]any{"jsonrpc": "2.0", "id": 8, "method": "tools/call", "params": map[string]any{"name": "list_reports", "arguments": json.RawMessage(`{}`)}}
+	line, _ := json.Marshal(req)
+	r := runOne(t, cfg, string(line))
+	if r.Error != nil {
+		t.Fatalf("protocol error: %+v", r.Error)
+	}
+	res := r.Result.(map[string]any)
+	if got, _ := res["isError"].(bool); got {
+		t.Fatalf("list_reports failed: %v", res["content"])
+	}
+	body, _ := json.Marshal(res["content"])
+	if !strings.Contains(string(body), "run-7") {
+		t.Errorf("scan_roots-discovered report missing from list_reports:\n%s", body)
+	}
+}
