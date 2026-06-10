@@ -59,11 +59,8 @@ findings). Sequencing decision: release → fix highs → launch.
 3. - [ ] **Launch sequence** — (a) ✅ 3 README screenshots retaken vs v0.2.x
      against a curated fixture (roadmap.png → projects.png), (b) ✅ Status
      line rewritten (daily use, Homebrew, versioned contract — commit
-     74156bf), (c) **user: publish the Medium article**
-     (docs/launch/medium-pane-of-glass.md), (d) fill
-     `<MEDIUM_URL>`/`<GITHUB_URL>` placeholders in
-     docs/launch/community-posts.md once (c) yields the URL, (e) post per
-     its checklist.
+     74156bf), (c) ✅ Medium article published, (d) ✅
+     docs/launch/community-posts.md links filled, (e) post per its checklist.
 4. - [x] **Arch hardening wave** _(done 2026-06-10)_ — all five bullets +
      GH Actions Node 24 bump; commits faec79b..5232af7. See
      `.docs/ai/phases/arch-hardening-wave-report.md`.

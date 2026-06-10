@@ -5,9 +5,8 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 - Branch: main, **ahead of origin by 8 commits (arch wave + screenshots + docs) — unpushed, untagged**. Build/tests/-race green.
 - v0.2.5 **released** (run 401'd once — transient; rerun succeeded; tap at 0.2.5).
 - Arch hardening wave COMPLETE → `phases/arch-hardening-wave-report.md`.
-- Launch (roadmap Now 3): screenshots + Status line done; remaining steps are
-  **user actions** — publish Medium article, then fill community-posts.md
-  placeholders and post.
+- Launch (roadmap Now 3): screenshots + Status line done; Medium URL +
+  community-posts links filled; remaining step: post per checklist.
 
 ## Plan
 
