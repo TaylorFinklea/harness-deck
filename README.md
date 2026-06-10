@@ -31,12 +31,16 @@ The projects view auto-discovers every project under your `scan_roots` (e.g.
 together, alongside any reports published with `kind: "roadmap"`. A "tracked
 projects" panel lets you uncheck the ones you don't care to follow:
 
-![The harness-deck projects view](docs/screenshots/roadmap.png)
+![The harness-deck projects view](docs/screenshots/projects.png)
 
 ## Status
 
-Early build. See [`.docs/ai/roadmap.md`](.docs/ai/roadmap.md) for the phased plan
-and [`.docs/ai/current-state.md`](.docs/ai/current-state.md) for the latest
+Actively developed and used daily by its author. Releases ship via Homebrew,
+the manifest contract is versioned (`harness-deck/report@1`), and a stale
+binary degrades gracefully rather than breaking when the schema grows. Expect
+fast iteration on the UI before v1. See
+[`.docs/ai/roadmap.md`](.docs/ai/roadmap.md) for the plan and
+[`.docs/ai/current-state.md`](.docs/ai/current-state.md) for the latest
 breadcrumb.
 
 ## How it works
