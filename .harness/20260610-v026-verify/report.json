@@ -1,0 +1,59 @@
+{
+  "schema": "harness-deck/report@1",
+  "id": "20260610-v026-verify",
+  "project": "harness-deck",
+  "harness": "claude-code",
+  "agent": "claude-fable-5",
+  "title": "v0.2.6 release — manual verification checklist",
+  "scope": "release",
+  "kind": "verify · human-in-the-loop",
+  "status": "awaiting-review",
+  "created": "2026-06-10T16:55:00Z",
+  "meta": [
+    {"key": "tag", "value": "v0.2.6"},
+    {"key": "commits", "value": "faec79b..1d68164 (9)"},
+    {"key": "waves", "value": "bug-fix (v0.2.5) + arch hardening"}
+  ],
+  "blocks": [
+    {
+      "type": "prose",
+      "title": "why these need you",
+      "markdown": "v0.2.6 ships the arch-hardening wave on top of v0.2.5's bug-fix wave. Everything below is already covered by the automated suite (`go test ./...` + `-race` green) and Playwright runs against a fixture server — **except** the behaviors that only exist on your real install: the upgraded binary under launchd, your real reports, your subscribed phone, and the rendered GitHub README. These six checks close that gap.\n\nWork through them top to bottom (1 gates the rest), then answer the approval at the bottom. If anything fails, request changes and put the failing check number in the note."
+    },
+    {
+      "type": "callout",
+      "level": "info",
+      "tag": "before you start",
+      "markdown": "Wait for the v0.2.6 release workflow to finish (the agent is watching it — today's runs hit a transient GitHub 401 once already). After `brew upgrade`, **restart the running server** so it serves the new binary — the LaunchAgent keeps the old process alive otherwise."
+    },
+    {
+      "type": "table",
+      "title": "the six checks",
+      "columns": ["#", "check", "steps", "expect"],
+      "rows": [
+        ["1", "upgrade lands", "brew update && brew upgrade harness-deck, then hdeck version; restart the serve service", "version prints 0.2.6 and the dashboard still loads at your usual URL"],
+        ["2", "draft-guarded live reload", "Open THIS report in the dashboard. Type something into the approval note box (don't submit). In a terminal: touch ~/git/harness-deck/.harness/20260610-v026-verify/report.json — then wait ~3s", "page does NOT reload; a 'report updated — tap to reload' chip appears bottom-right; tapping it reloads. Repeat with an empty note box: page auto-reloads within ~3s, no chip"],
+        ["3", "g-chord matrix", "On the dashboard: g i, g p (view switches in place); pin a report with p, pin a second, then g t repeatedly; gg; ?", "g i/g p swap inbox↔projects without a page jump; g t cycles your pinned reports (this was dead before v0.2.5); gg scrolls to top with no side effect; ? lists the chords"],
+        ["4", "phone push fires exactly once", "With your phone subscribed, run the probe one-liner from the next panel, then watch the lock screen for ~30s", "exactly ONE push for the new ask (no repeats on later 2s ticks — digest recompute is now signature-gated); tapping it deep-links to the report; answering from the phone writes responses.json and the desktop inbox count drops"],
+        ["5", "scan log stays quiet", "After 10+ minutes of the new server running, check the server log (launchd stdout / wherever hdeck serve logs go) for 'scan:' lines", "no per-2s scan spam (scans under 100ms are silent); no 'WARN slow scan' lines on a healthy install"],
+        ["6", "README on GitHub", "Open github.com/TaylorFinklea/harness-deck", "three dark v0.2.x screenshots render (dashboard, report, projects — projects.png is new); Status section no longer says 'Early build'"]
+      ]
+    },
+    {
+      "type": "prose",
+      "title": "check 4 — push probe one-liner",
+      "markdown": "Publishes a minimal yes/no ask under the central dir; delete the run directory afterwards (or archive it from the dashboard):\n\n```sh\nd=~/.harness/reports/harness-deck/push-probe-$(date +%H%M%S) && mkdir -p \"$d\" && cat > \"$d/report.json\" <<EOF\n{\n  \"schema\": \"harness-deck/report@1\",\n  \"id\": \"$(basename $d)\",\n  \"project\": \"harness-deck\",\n  \"harness\": \"agent\",\n  \"title\": \"push probe — single-fire test\",\n  \"status\": \"awaiting-review\",\n  \"created\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\n  \"blocks\": [{\"type\": \"ask\", \"id\": \"probe\", \"mode\": \"yesno\", \"prompt\": \"Did exactly one push arrive for this ask?\"}]\n}\nEOF\necho \"published $d\"\n```"
+    },
+    {
+      "type": "callout",
+      "level": "warn",
+      "tag": "what failure looks like",
+      "markdown": "**#2** reloading mid-typing or no chip → draft guard regression (live.js). **#4** duplicate pushes → the signature gate is recomputing digests when it shouldn't (server tick). **#4** *no* push at all → check the probe report validates (`hdeck validate`) and your subscription is alive (settings view). Either way: leave the run dir in place and request changes with the check number — the artifacts are the repro."
+    },
+    {
+      "type": "approval",
+      "id": "v026-signoff",
+      "prompt": "All six checks pass on your real install? Approve to close the release-verification loop; request changes with the failing check number(s) in the note."
+    }
+  ]
+}
