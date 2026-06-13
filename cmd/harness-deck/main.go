@@ -69,7 +69,7 @@ usage:
   harness-deck render <report.json> [-o f]   render a manifest to HTML
   harness-deck serve                         start the dashboard server
   harness-deck open [--print]                open the dashboard in a dedicated window
-  harness-deck new --project P --title T     scaffold a starter report.json
+  harness-deck new --title T [--template K]   scaffold a starter report.json
   harness-deck register <path>               add a project root to the config
   harness-deck contract [--publishing]       print the embedded report contract
   harness-deck mcp                           start a stdio MCP server (optional)

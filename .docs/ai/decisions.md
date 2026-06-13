@@ -544,3 +544,45 @@ conflict.
   unchanged; `runTimeout` a package var as a test seam) **and** moved the
   notify call after `Scan`+`broadcast` so a slow-but-bounded command can't
   delay the SSE refresh.
+
+## 2026-06-13 — Report templates (`new --template`)
+
+First post-launch feature (the launch-funnel compounder picked 2026-06-10).
+`new --template audit|review|progress|decision|idea` pre-fills the block shapes
+each kind usually needs. Built + adversarially reviewed (3-lens workflow) before
+commit.
+
+- **Opt-in, not default.** No `--template` still yields the single placeholder
+  prose block (the `TestNewScaffoldsValidManifest` invariant). Templates are a
+  richer opt-in scaffold, so backward compat is exact.
+- **One-flag UX.** A template supplies a default `--title` and defaults `--kind`
+  to the template name (both overridden by an explicit flag, detected via
+  `fs.Visit`/`flagSet`). `new --template audit` works alone. `kind` is
+  free-form (not enum-validated), so `review`/`decision` are valid kinds.
+- **Hand-built JSON, type-first.** Template blocks are hand-written JSON
+  constants (matching `starterReport`'s existing %q style and field order — the
+  file is the first example the user edits), not struct-marshaled: the body
+  structs embed an **unexported** `blockHead`, so package `main` can't
+  construct them, and `map[string]any` marshaling would alphabetize keys
+  (type-last). The safety net is `TestNewTemplatesValidate`, which parses +
+  strict-validates every template to zero problems — a typo fails the build.
+  `templateOrder` vs the `reportTemplates` map are kept in sync by
+  `TestTemplateRegistrySync` (mirrors `TestRegistryCrossCheck`).
+- **Interactive templates stay `draft` + flag the status flip.** review/decision/
+  idea ship an interactive block but scaffold as `draft` (awaiting-review would
+  falsely assert the placeholder question is real). The success message branches
+  on `interactive` to remind the user to flip status. Interactive blocks carry a
+  `title` so they don't render as the bare type name.
+- **Declined (deliberate):** kept the audit findings `table` over a `risks`
+  block — the `where` (file:line) column is high-value and a free-text severity
+  is friendlier in a scaffold than the `risks` severity enum (a mistyped
+  severity would fail validation). Left the no-template default's backtick/
+  imperative voice as-is (it showcases code spans). Did not refactor cmdNew's
+  `os.Exit` error paths into a pure helper for testability (consistent with the
+  file's existing style; the realistic drift — template list vs map — is covered
+  by the cross-check test instead).
+- **Discovered, routed not fixed:** a `draft` report with an interactive block
+  still counts as an open ask and fires push — so an interactive template
+  scaffolded into a watched dir notifies for placeholder content. App-wide
+  behavior change, so it's a roadmap Next item (decision needed), not folded
+  into this feature.

@@ -35,7 +35,8 @@ harness-deck register .
 
 # 3. Write a starter manifest. --in-repo puts it in `.harness/<id>/` next to
 #    your code, so it ships with the repo rather than landing in the central
-#    reports dir.
+#    reports dir. Add --template <kind> to start from a pre-filled skeleton
+#    (see "Start from a template" below) instead of a blank prose block.
 harness-deck new --in-repo --title "hello from <your-tool>"
 
 # 4. Validate it before publishing — strict schema check.
@@ -51,6 +52,31 @@ it. Edit the JSON file and the dashboard live-reloads (~2s).
 For full host setup — persistent service, Linux `loginctl` linger, macOS
 LaunchAgent, Tailscale HTTPS, and phone push — see
 [`docs/SETUP.md`](SETUP.md).
+
+## Start from a template
+
+`harness-deck new --template <kind>` scaffolds a report already shaped for a
+common kind of work, so you fill in placeholders instead of assembling the
+block list by hand. The template also supplies a default `--title` and
+`--kind` (both overridable), so the common case is one flag.
+
+| `--template` | pre-filled blocks |
+|---|---|
+| `audit` | prose summary · findings `table` · `recommendations` · `warn` callout |
+| `review` | prose scope · `recommendations` (comments) · `approval` sign-off |
+| `progress` | prose status · `recommendations` (next steps) |
+| `decision` | prose context · `decision` (A/B) |
+| `idea` | prose pitch · yes/no `ask` |
+
+```sh
+harness-deck new --template audit                 # title + kind default from the template
+harness-deck new --template decision --title "Adopt X?"
+```
+
+Templates that carry an interactive block (`review`, `decision`, `idea`)
+scaffold as `status: "draft"`; fill in the placeholders, then flip `status`
+to `awaiting-review` so the question surfaces on the dashboard. Without
+`--template` you get a single placeholder prose block.
 
 ## Where to write the file
 
