@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
@@ -110,6 +111,69 @@ func TestScanRecordsParseErrors(t *testing.T) {
 	}
 	if len(s.Errors()) != 1 {
 		t.Fatalf("got %d scan errors, want 1", len(s.Errors()))
+	}
+}
+
+// TestScanReportsProjectRunCollision checks that two reports mapping to the
+// same (project,run) key from different files surface the collision in
+// Errors() rather than the second silently shadowing the first.
+func TestScanReportsProjectRunCollision(t *testing.T) {
+	central := t.TempDir()
+	// Same project + id, two distinct run directories => same key,
+	// different Path.
+	writeReport(t, filepath.Join(central, "dup-a"), "r1", "acme", "done")
+	writeReport(t, filepath.Join(central, "dup-b"), "r1", "acme", "done")
+
+	s := New(config.Config{CentralDir: central})
+	s.Scan(nil)
+
+	if len(s.Entries()) != 1 {
+		t.Fatalf("entries = %d, want 1 (first wins, second shadowed)", len(s.Entries()))
+	}
+	found := false
+	for _, e := range s.Errors() {
+		if strings.Contains(e, "duplicate (project,run)") && strings.Contains(e, "acme/r1") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("collision not surfaced in Errors(): %v", s.Errors())
+	}
+}
+
+// TestScanSerializesConcurrentCalls runs many overlapping Scan calls against
+// the same store, concurrent with Entries()/Signature() reads. scanMu must
+// serialize each scan's walk+commit so the final committed index is a complete
+// one (all 8 reports), and -race must find no data race between the
+// concurrent scans and the index reads.
+func TestScanSerializesConcurrentCalls(t *testing.T) {
+	central := t.TempDir()
+	for i := 0; i < 8; i++ {
+		writeReport(t, filepath.Join(central, fmt.Sprintf("p%d", i)), fmt.Sprintf("r%d", i), "proj", "done")
+	}
+	s := New(config.Config{CentralDir: central})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.Scan(nil)
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = s.Entries()
+			_ = s.Signature()
+			_ = s.Errors()
+		}()
+	}
+	wg.Wait()
+
+	// A complete scan indexes all 8 reports; a clobbered/partial commit
+	// would leave fewer.
+	if got := len(s.Entries()); got != 8 {
+		t.Fatalf("entries = %d, want 8 (a partial walk clobbered a complete index)", got)
 	}
 }
 

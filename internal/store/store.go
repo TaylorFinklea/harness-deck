@@ -56,6 +56,7 @@ func (e Entry) Sig() string {
 // Store holds the discovered report index. It is safe for concurrent use.
 type Store struct {
 	cfg     config.Config
+	scanMu  sync.Mutex // serializes Scan so walk+commit is atomic across callers
 	mu      sync.RWMutex
 	entries []Entry
 	errs    []string // paths that failed to parse, with the reason
@@ -70,9 +71,14 @@ func New(cfg config.Config) *Store { return &Store{cfg: cfg} }
 // which projects count — typically the enabled set from the projects
 // package.
 func (s *Store) Scan(projectRoots []string) {
+	// Serialize scans so a slower/partial walk can never commit over a
+	// complete one (the walk runs unlocked; only the commit takes s.mu).
+	s.scanMu.Lock()
+	defer s.scanMu.Unlock()
+
 	var entries []Entry
 	var errs []string
-	seen := map[string]bool{} // project\x00run — central wins ties (scanned first)
+	seen := map[string]string{} // project\x00run -> first-seen Path; central wins ties (scanned first)
 
 	collect := func(root, source string) {
 		_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -100,10 +106,16 @@ func (s *Store) Scan(projectRoots []string) {
 				errs = append(errs, warn)
 			}
 			key := e.Project + "\x00" + e.Run
-			if seen[key] {
+			if first, ok := seen[key]; ok {
+				if first != e.Path {
+					// Two reports claim the same (project,run) from
+					// different files. The first wins; surface the
+					// collision instead of silently shadowing.
+					errs = append(errs, fmt.Sprintf("%s: duplicate (project,run) %s/%s already indexed from %s", e.Path, e.Project, e.Run, first))
+				}
 				return nil
 			}
-			seen[key] = true
+			seen[key] = e.Path
 			entries = append(entries, e)
 			return nil
 		})
