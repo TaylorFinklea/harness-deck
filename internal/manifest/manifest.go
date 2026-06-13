@@ -40,6 +40,11 @@ type Report struct {
 	// still displays but as static, not pulsing.
 	Live   *LiveStatus `json:"live,omitempty"`
 	Blocks []Block     `json:"blocks"`
+
+	// raw retains the original document bytes (set by Parse) so Validate can
+	// strict-decode the top level and catch unknown top-level keys, mirroring
+	// how each Block retains its Raw for the per-block strict re-decode.
+	raw json.RawMessage `json:"-"`
 }
 
 // LiveStatus is the in-flight telemetry attached to an active run. Every
@@ -269,5 +274,6 @@ func Parse(data []byte) (*Report, error) {
 	if err := json.Unmarshal(data, &r); err != nil {
 		return nil, err
 	}
+	r.raw = append(json.RawMessage(nil), data...)
 	return &r, nil
 }

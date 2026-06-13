@@ -26,6 +26,17 @@ func (r *Report) Validate() []Problem {
 	var ps []Problem
 	add := func(path, msg string) { ps = append(ps, Problem{path, msg}) }
 
+	// Strict re-decode of the whole document catches unknown top-level keys
+	// that the lenient Parse silently dropped, mirroring the per-block strict
+	// re-decode below. Block decoding stays lenient (Block.UnmarshalJSON does
+	// its own non-strict unmarshal), so unknown block fields are reported by
+	// validateBlock, not here.
+	if r.raw != nil {
+		if err := strictDecode(r.raw, &Report{}); err != nil {
+			add("", "invalid fields: "+err.Error())
+		}
+	}
+
 	ps = append(ps, checkSchemaStrict(r.Schema)...)
 	for field, val := range map[string]string{
 		"id": r.ID, "project": r.Project, "harness": r.Harness,

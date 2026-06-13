@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -208,14 +209,16 @@ func (s *Server) toolPublishReport(_ context.Context, raw json.RawMessage) (Tool
 		return toolErr("mkdir: " + err.Error()), nil
 	}
 	target := filepath.Join(dir, "report.json")
-	// Pretty-print on the way out so a human reading the file sees the same
-	// shape the file-path harnesses produce. Marshal of *Report uses the
-	// canonical field order we've documented in CONTRACT.md.
-	pretty, err := json.MarshalIndent(rep, "", "  ")
-	if err != nil {
-		return toolErr("marshal: " + err.Error()), nil
+	// Write the publisher's own bytes through, only re-indenting for a
+	// consistent on-disk shape. Re-marshaling the parsed *Report would lose
+	// the publisher's exact field order and any forward-compatible keys the
+	// struct doesn't model; json.Indent preserves both while normalizing
+	// whitespace the way a human reader expects.
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, args.Manifest, "", "  "); err != nil {
+		return toolErr("indent: " + err.Error()), nil
 	}
-	if err := jsonfile.AtomicWrite(target, append(pretty, '\n'), 0o644); err != nil {
+	if err := jsonfile.AtomicWrite(target, append(pretty.Bytes(), '\n'), 0o644); err != nil {
 		return toolErr("write: " + err.Error()), nil
 	}
 	return toolOK(fmt.Sprintf("wrote %s (%d block(s))", target, len(rep.Blocks))), nil
@@ -355,9 +358,15 @@ func (s *Server) toolUpdateStatus(_ context.Context, raw json.RawMessage) (ToolC
 	if err != nil {
 		return toolErr(err.Error()), nil
 	}
-	// jsonfile.Patch preserves any field we don't know about (newer
-	// manifest field added by a future renderer, future Live block, …)
-	// and keeps number literals exact across the rewrite.
+	// jsonfile.Patch round-trips through map[string]any, so it preserves any
+	// field we don't know about (newer manifest field added by a future
+	// renderer, future Live block, …) and keeps number literals exact across
+	// the rewrite. The deliberate trade-off: json.Marshal emits map keys in
+	// alphabetical order, so the rewrite re-sorts top-level keys rather than
+	// preserving the publisher's authored order. We accept that churn because
+	// forward-compatible field preservation and number fidelity matter more
+	// than key order for a status/live patch — re-marshaling from *Report to
+	// keep a canonical order would instead silently drop unmodeled fields.
 	err = jsonfile.Patch(filepath.Join(dir, "report.json"), func(doc map[string]any) error {
 		doc["status"] = args.Status
 		return nil
@@ -395,6 +404,12 @@ func (s *Server) toolUpdateLive(_ context.Context, raw json.RawMessage) (ToolCal
 		return toolErr(err.Error()), nil
 	}
 	updated := time.Now().UTC().Format(time.RFC3339)
+	// Same trade-off as toolUpdateStatus: the map[string]any round-trip in
+	// jsonfile.Patch preserves unmodeled fields and exact number literals but
+	// re-sorts top-level keys alphabetically (json.Marshal map ordering). We
+	// keep authored order out of the equation deliberately — preserving
+	// forward-compatible fields beats canonical key order for a telemetry
+	// patch fired every few seconds.
 	err = jsonfile.Patch(filepath.Join(dir, "report.json"), func(doc map[string]any) error {
 		live, _ := doc["live"].(map[string]any)
 		if live == nil {

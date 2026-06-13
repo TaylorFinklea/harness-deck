@@ -200,6 +200,53 @@ func TestPublishReportWritesFile(t *testing.T) {
 	}
 }
 
+func TestPublishReportPreservesInputBytes(t *testing.T) {
+	// publish_report must write the publisher's own bytes through (only
+	// re-indenting), not re-marshal the parsed struct. Re-marshaling *Report
+	// would re-emit fields in struct-declaration order; writing the input
+	// bytes preserves the publisher's authored order exactly, formatting
+	// aside.
+	dir := t.TempDir()
+	cfg := config.Default()
+	cfg.CentralDir = dir
+
+	// Deliberately non-canonical field order: title and status lead, schema
+	// trails — the opposite of the struct's declaration order.
+	manifest := `{"title":"Order matters","status":"draft","schema":"harness-deck/report@1",` +
+		`"id":"run-bytes","project":"acme","harness":"test",` +
+		`"created":"2026-05-26T10:00:00Z",` +
+		`"blocks":[{"type":"prose","markdown":"hello"}]}`
+	args, _ := json.Marshal(map[string]any{"manifest": json.RawMessage(manifest)})
+	req := map[string]any{"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": map[string]any{"name": "publish_report", "arguments": json.RawMessage(args)}}
+	line, _ := json.Marshal(req)
+
+	r := runOne(t, cfg, string(line))
+	if r.Error != nil {
+		t.Fatalf("protocol error: %+v", r.Error)
+	}
+	res := r.Result.(map[string]any)
+	if got, _ := res["isError"].(bool); got {
+		t.Fatalf("publish failed: %v", res["content"])
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "acme", "run-bytes", "report.json"))
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	// Re-indent the original input the same way the tool does and compare
+	// byte-for-byte: identical means the publisher's exact bytes (and field
+	// order) round-tripped, formatting aside. A struct re-marshal would lead
+	// with "schema" and fail this.
+	var want bytes.Buffer
+	if err := json.Indent(&want, []byte(manifest), "", "  "); err != nil {
+		t.Fatal(err)
+	}
+	want.WriteByte('\n')
+	if string(data) != want.String() {
+		t.Errorf("published bytes differ from indented input\n got: %s\nwant: %s", data, want.String())
+	}
+}
+
 func TestPublishReportRejectsPathTraversal(t *testing.T) {
 	dir := t.TempDir()
 	cfg := config.Default()

@@ -117,6 +117,45 @@ func hasProblem(ps []Problem, substr string) bool {
 	return false
 }
 
+func TestValidateRejectsUnknownTopLevelKey(t *testing.T) {
+	// The lenient Parse silently drops an unknown top-level key; Validate's
+	// strict top-level re-decode must flag it (mirroring the per-block strict
+	// pass that catches an unknown block field).
+	src := `{"schema":"harness-deck/report@1","id":"r1","project":"p","harness":"h",
+	         "title":"t","status":"draft","created":"2026-05-18T18:39:50Z",
+	         "totally_bogus":"x",
+	         "blocks":[{"type":"prose","markdown":"ok"}]}`
+	r, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("Parse should tolerate an unknown top-level key: %v", err)
+	}
+	ps := r.Validate()
+	if !hasProblem(ps, "invalid fields") {
+		t.Errorf("Validate should flag an unknown top-level key; problems: %v", ps)
+	}
+	if !hasProblem(ps, "totally_bogus") {
+		t.Errorf("the problem should name the offending key; problems: %v", ps)
+	}
+}
+
+func TestValidateAcceptsKnownTopLevelKeys(t *testing.T) {
+	// A manifest using every modeled top-level field (including the optional
+	// ones) must pass the strict top-level decode.
+	src := `{"schema":"harness-deck/report@1","id":"r1","project":"p","harness":"h",
+	         "agent":"m","title":"t","scope":"s","kind":"audit","status":"draft",
+	         "created":"2026-05-18T18:39:50Z","verdict":"ok",
+	         "meta":[{"key":"cost","value":"$1"}],"archived":false,
+	         "live":{"updated":"2026-05-18T18:39:50Z","step":"x"},
+	         "blocks":[{"type":"prose","markdown":"ok"}]}`
+	r, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if ps := r.Validate(); len(ps) != 0 {
+		t.Fatalf("expected no problems for a fully-populated valid manifest, got: %v", ps)
+	}
+}
+
 func TestParseLenientOnKnownBlockFieldTypeMismatch(t *testing.T) {
 	// The graceful-degradation rule: an unknown block TYPE keeps the report
 	// alive with a fallback panel. A known type with one mistyped field must
