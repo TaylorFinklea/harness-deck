@@ -72,10 +72,11 @@ func Default() Config {
 	}
 }
 
-// Path is the config file location. The HARNESS_DECK_CONFIG env var overrides it.
+// Path is the config file location. The HARNESS_DECK_CONFIG env var overrides
+// it; a leading ~ in the override is expanded to the user's home directory.
 func Path() string {
 	if p := os.Getenv("HARNESS_DECK_CONFIG"); p != "" {
-		return p
+		return Expand(p)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {

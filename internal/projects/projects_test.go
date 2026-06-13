@@ -45,6 +45,87 @@ func TestStatePathFollowsConfigOverride(t *testing.T) {
 	}
 }
 
+// TestStatePathExpandsTildeInOverride checks that a HARNESS_DECK_CONFIG
+// override with a leading ~ is expanded so projects.json lands beside the
+// resolved config file rather than under a literal "~" directory.
+func TestStatePathExpandsTildeInOverride(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home dir: %v", err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", "~/hd/config.json")
+	want := filepath.Join(home, "hd", "projects.json")
+	if got := StatePath(); got != want {
+		t.Errorf("StatePath() = %q, want %q", got, want)
+	}
+}
+
+// TestDiscoverDedupsByPathNotBasename checks that two project roots sharing a
+// basename (e.g. git/foo and work/foo) both survive discovery with distinct,
+// disambiguated display names — neither is silently dropped.
+func TestDiscoverDedupsByPathNotBasename(t *testing.T) {
+	gitRoot := filepath.Join(t.TempDir(), "git")
+	workRoot := filepath.Join(t.TempDir(), "work")
+	mkProject(t, gitRoot, "foo", true)
+	mkProject(t, workRoot, "foo", true)
+
+	m := NewManager([]string{gitRoot, workRoot}, nil, filepath.Join(t.TempDir(), "projects.json"))
+
+	got := m.Discovered()
+	if len(got) != 2 {
+		t.Fatalf("Discovered() = %v, want 2 projects", got)
+	}
+	names := map[string]string{} // name -> path
+	for _, p := range got {
+		if prev, ok := names[p.Name]; ok {
+			t.Fatalf("duplicate display name %q for %q and %q", p.Name, prev, p.Path)
+		}
+		names[p.Name] = p.Path
+	}
+	if _, ok := names["foo (git)"]; !ok {
+		t.Errorf("missing disambiguated name %q in %v", "foo (git)", names)
+	}
+	if _, ok := names["foo (work)"]; !ok {
+		t.Errorf("missing disambiguated name %q in %v", "foo (work)", names)
+	}
+}
+
+// TestDiscoverDuplicatePathDeduped checks that listing the same root twice
+// (once via a scan root, once explicit) yields a single project, not two.
+func TestDiscoverDuplicatePathDeduped(t *testing.T) {
+	root := t.TempDir()
+	proj := mkProject(t, root, "alpha", true)
+
+	m := NewManager([]string{root}, []string{proj}, filepath.Join(t.TempDir(), "projects.json"))
+
+	got := m.Discovered()
+	if len(got) != 1 || got[0].Name != "alpha" {
+		t.Fatalf("Discovered() = %v, want single [alpha]", got)
+	}
+}
+
+// TestToggleDisambiguatedName checks that the disambiguated display name is the
+// persistence key: toggling "foo (work)" hides only that root, and the state
+// survives into a fresh Manager.
+func TestToggleDisambiguatedName(t *testing.T) {
+	gitRoot := filepath.Join(t.TempDir(), "git")
+	workRoot := filepath.Join(t.TempDir(), "work")
+	gitFoo := mkProject(t, gitRoot, "foo", true)
+	mkProject(t, workRoot, "foo", true)
+	state := filepath.Join(t.TempDir(), "projects.json")
+
+	if err := NewManager([]string{gitRoot, workRoot}, nil, state).Toggle("foo (work)"); err != nil {
+		t.Fatalf("Toggle: %v", err)
+	}
+
+	for _, p := range NewManager([]string{gitRoot, workRoot}, nil, state).Discovered() {
+		wantEnabled := p.Path == gitFoo
+		if p.Enabled != wantEnabled {
+			t.Errorf("%s (%s): Enabled=%t, want %t", p.Name, p.Path, p.Enabled, wantEnabled)
+		}
+	}
+}
+
 // TestDiscoveredFindsOnlyDirsWithDocsAI checks depth-1 discovery: a direct
 // child of a scan root counts only if it holds a .docs/ai directory. Files
 // and dotfile directories are ignored, and new projects default to enabled.

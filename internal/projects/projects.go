@@ -41,7 +41,7 @@ type Manager struct {
 // and config together (handy for the fixture-based manual test setup).
 func StatePath() string {
 	if c := os.Getenv("HARNESS_DECK_CONFIG"); c != "" {
-		return filepath.Join(filepath.Dir(c), "projects.json")
+		return filepath.Join(filepath.Dir(config.Expand(c)), "projects.json")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -217,19 +217,24 @@ func (m *Manager) saveState(set map[string]bool, order []string) error {
 
 // discover returns project roots: depth-1 children of each scan root that
 // hold a .docs/ai directory, plus every explicit root. Results are deduped by
-// name (first wins) and sorted. Every Project comes back enabled.
+// absolute path (first wins) and sorted by name. Every Project comes back
+// enabled. When two distinct roots share a basename (e.g. ~/git/foo and
+// ~/work/foo) their display names are disambiguated with a parent-directory
+// hint so neither is dropped and each keeps a stable persistence key.
 func discover(scanRoots, explicit []string) []Project {
-	byName := map[string]Project{}
+	byPath := map[string]Project{}
+	order := []string{}
 	add := func(path string) {
 		abs, err := filepath.Abs(config.Expand(path))
 		if err != nil {
 			return
 		}
-		name := filepath.Base(abs)
-		if _, seen := byName[name]; seen {
+		if _, seen := byPath[abs]; seen {
 			return
 		}
-		byName[name] = Project{Name: name, Path: abs, Enabled: true}
+		name := filepath.Base(abs)
+		byPath[abs] = Project{Name: name, Path: abs, Enabled: true}
+		order = append(order, abs)
 	}
 	for _, root := range scanRoots {
 		dir := config.Expand(root)
@@ -250,10 +255,54 @@ func discover(scanRoots, explicit []string) []Project {
 	for _, p := range explicit {
 		add(p)
 	}
-	out := make([]Project, 0, len(byName))
-	for _, p := range byName {
-		out = append(out, p)
+	disambiguate(byPath, order)
+	out := make([]Project, 0, len(byPath))
+	for _, abs := range order {
+		out = append(out, byPath[abs])
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Path < out[j].Path
+	})
 	return out
+}
+
+// disambiguate rewrites the display Name of any projects whose bare basename
+// collides with another discovered project, appending a parent-directory hint
+// (e.g. "foo (git)" / "foo (work)") so each project keeps a distinct, stable
+// name. Non-colliding basenames are left untouched, preserving the common-case
+// persistence keys in projects.json. A residual collision (two roots that also
+// share a parent basename) gets a numeric suffix so names stay globally unique
+// and no project is silently dropped. order lists abs paths in discovery order
+// and is used to walk byPath deterministically.
+func disambiguate(byPath map[string]Project, order []string) {
+	byBase := map[string][]string{}
+	for _, abs := range order {
+		byBase[byPath[abs].Name] = append(byBase[byPath[abs].Name], abs)
+	}
+	for _, paths := range byBase {
+		if len(paths) < 2 {
+			continue
+		}
+		for _, abs := range paths {
+			p := byPath[abs]
+			p.Name = fmt.Sprintf("%s (%s)", p.Name, filepath.Base(filepath.Dir(abs)))
+			byPath[abs] = p
+		}
+	}
+	taken := map[string]bool{}
+	for _, abs := range order {
+		p := byPath[abs]
+		name := p.Name
+		for n := 2; taken[name]; n++ {
+			name = fmt.Sprintf("%s (%d)", p.Name, n)
+		}
+		taken[name] = true
+		if name != p.Name {
+			p.Name = name
+			byPath[abs] = p
+		}
+	}
 }

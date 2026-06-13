@@ -27,6 +27,29 @@ func TestLoadReadsScanRoots(t *testing.T) {
 	}
 }
 
+// TestPathExpandsTildeInOverride checks that a HARNESS_DECK_CONFIG override
+// with a leading ~ is expanded to a home-relative path so the file is found.
+func TestPathExpandsTildeInOverride(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home dir: %v", err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", "~/hd/config.json")
+	want := filepath.Join(home, "hd", "config.json")
+	if got := Path(); got != want {
+		t.Errorf("Path() = %q, want %q", got, want)
+	}
+}
+
+// TestPathPlainOverrideUnchanged checks that an override without a leading ~
+// passes through untouched.
+func TestPathPlainOverrideUnchanged(t *testing.T) {
+	t.Setenv("HARNESS_DECK_CONFIG", "/tmp/hd-test/config.json")
+	if got, want := Path(), "/tmp/hd-test/config.json"; got != want {
+		t.Errorf("Path() = %q, want %q", got, want)
+	}
+}
+
 // TestLoadDefaultsBind ensures the bind address falls back to 127.0.0.1
 // when not set in the config file (preserving the local-only default).
 func TestLoadDefaultsBind(t *testing.T) {
