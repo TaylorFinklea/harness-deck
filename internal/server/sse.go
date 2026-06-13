@@ -90,6 +90,13 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// askRetainTicks is how many consecutive ticks an open ask may be missing
+// from the recomputed digest before it is dropped from the notified baseline.
+// A transiently-unreadable report (a momentary store.Get failure, a half-
+// written file) makes its asks vanish for a tick or two; retaining them keeps
+// the reappearing ask out of the "new" delta so it doesn't re-fire a push.
+const askRetainTicks = 3
+
 // watchState carries the inter-tick state threaded through tick() calls.
 // Keeping it as a plain struct makes the loop body a pure function of
 // inputs + side-effects, which is what lets tests drive it directly.
@@ -97,6 +104,7 @@ type watchState struct {
 	lastSig     string                 // changeFingerprint after the last scan
 	prevAsks    map[string]askDigest   // ask digest set from the previous tick
 	prevEntries map[string]store.Entry // entry map from the previous tick
+	askMisses   map[string]int         // key:id → consecutive ticks an ask has been missing from cur
 }
 
 // initWatchState captures the baseline snapshot — identical to what the
@@ -105,7 +113,42 @@ type watchState struct {
 func (s *Server) initWatchState() watchState {
 	sig := s.changeFingerprint()
 	prevAsks, prevEntries := s.currentAskDigests()
-	return watchState{lastSig: sig, prevAsks: prevAsks, prevEntries: prevEntries}
+	return watchState{lastSig: sig, prevAsks: prevAsks, prevEntries: prevEntries, askMisses: map[string]int{}}
+}
+
+// mergeRetainedAsks builds the next notified baseline from the freshly
+// recomputed digests, carrying forward any open ask that was in the previous
+// baseline but is transiently absent from cur — up to askRetainTicks ticks.
+// This keeps a briefly-vanished ask out of the next tick's "new" delta so its
+// reappearance does not re-fire a notification. It returns the merged digest
+// set and the updated miss counter.
+func mergeRetainedAsks(prev, cur map[string]askDigest, misses map[string]int) (map[string]askDigest, map[string]int) {
+	merged := map[string]askDigest{}
+	nextMisses := map[string]int{}
+	for key, d := range cur {
+		cp := askDigest{}
+		for id, prompt := range d {
+			cp[id] = prompt
+		}
+		merged[key] = cp
+	}
+	for key, d := range prev {
+		for id, prompt := range d {
+			if _, present := cur[key][id]; present {
+				continue
+			}
+			tag := key + ":" + id
+			if misses[tag]+1 >= askRetainTicks {
+				continue
+			}
+			nextMisses[tag] = misses[tag] + 1
+			if merged[key] == nil {
+				merged[key] = askDigest{}
+			}
+			merged[key][id] = prompt
+		}
+	}
+	return merged, nextMisses
 }
 
 // tick is one watcher iteration: scan, detect changes, broadcast SSE when
@@ -128,24 +171,25 @@ func (s *Server) tick(ws watchState) watchState {
 	cur := s.changeFingerprint()
 	changed := cur != ws.lastSig
 
-	var curAsks map[string]askDigest
-	var curEntries map[string]store.Entry
+	nextAsks := ws.prevAsks
+	nextEntries := ws.prevEntries
+	nextMisses := ws.askMisses
 	if changed {
 		// Only recompute digests when the store actually changed — no-op
 		// ticks cost nothing beyond the scan itself.
 		if s.testDigestCountFn != nil {
 			s.testDigestCountFn()
 		}
-		curAsks, curEntries = s.currentAskDigests()
+		curAsks, curEntries := s.currentAskDigests()
 		s.notifyNewAsks(ws.prevAsks, curAsks, curEntries)
 		s.hub.broadcast("reports")
-	} else {
-		// No change — preserve the previous digest set unchanged.
-		curAsks = ws.prevAsks
-		curEntries = ws.prevEntries
+		// Carry forward briefly-vanished open asks so a transient read
+		// failure does not re-fire their push when they reappear.
+		nextAsks, nextMisses = mergeRetainedAsks(ws.prevAsks, curAsks, ws.askMisses)
+		nextEntries = curEntries
 	}
 
-	return watchState{lastSig: cur, prevAsks: curAsks, prevEntries: curEntries}
+	return watchState{lastSig: cur, prevAsks: nextAsks, prevEntries: nextEntries, askMisses: nextMisses}
 }
 
 // logScanTiming emits a scan-duration log line when the scan took longer

@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/TaylorFinklea/harness-deck/internal/manifest"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
@@ -14,6 +14,27 @@ import (
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
+
+// maxPushBody caps a notification body before encryption. Web Push limits the
+// aes128gcm record (the encrypt path advertises a 4096-byte record), and the
+// push service silently drops an oversized payload. 2000 bytes leaves ample
+// room for the title, tag, URL, and JSON overhead while still delivering a
+// usable preview of a large ask prompt.
+const maxPushBody = 2000
+
+// truncateBody returns body unchanged when it fits within maxPushBody bytes,
+// otherwise a rune-boundary-safe prefix with a trailing ellipsis.
+func truncateBody(body string) string {
+	if len(body) <= maxPushBody {
+		return body
+	}
+	const ellipsis = "…"
+	cut := maxPushBody - len(ellipsis)
+	for cut > 0 && !utf8.RuneStart(body[cut]) {
+		cut--
+	}
+	return body[:cut] + ellipsis
+}
 
 // pushEnabled reports whether VAPID keys are loaded. Endpoints return 503
 // when disabled so the settings UI can suggest running `harness-deck vapid`.
@@ -119,6 +140,7 @@ func (s *Server) currentAskDigests() (map[string]askDigest, map[string]store.Ent
 		entries[key] = e
 		rep, _, err := s.store.Get(e.Project, e.Run)
 		if err != nil || rep == nil {
+			log.Printf("harness-deck: ask digest skip %s: %v", key, err)
 			continue
 		}
 		answers, _ := respond.Load(e.Dir)
@@ -173,11 +195,15 @@ func (s *Server) notifyNewAsks(prev, cur map[string]askDigest, entries map[strin
 			if title == "" {
 				title = entry.Run
 			}
+			// Cap the body before it reaches the encrypted push payload:
+			// Web Push limits the aes128gcm record, so an oversized body is
+			// silently dropped by the push service. A preview still delivers.
+			body := truncateBody(prompt)
 			reportPath := "/r/" + entry.Project + "/" + entry.Run
 			if havePush {
 				go s.deliverPush(push.Payload{
 					Title:   entry.Project + " — " + title,
-					Body:    prompt,
+					Body:    body,
 					Tag:     key + ":" + id,
 					URL:     reportPath, // service worker resolves against origin
 					Project: entry.Project,
@@ -192,7 +218,7 @@ func (s *Server) notifyNewAsks(prev, cur map[string]askDigest, entries map[strin
 				s.notifMu.RUnlock()
 				notify.Fanout(context.Background(), notify.Notification{
 					Title:   entry.Project + " — " + title,
-					Body:    prompt,
+					Body:    body,
 					Tag:     key + ":" + id,
 					URL:     s.publicReportURL(entry.Project, entry.Run),
 					Project: entry.Project,
@@ -205,20 +231,11 @@ func (s *Server) notifyNewAsks(prev, cur map[string]askDigest, entries map[strin
 
 // publicReportURL builds an absolute, externally-reachable URL for a
 // report — what Slack / Discord need so a click in chat lands on the
-// dashboard page. Prefers cfg.PublicURL when set; otherwise falls back
-// to bind+port+TLS-scheme, which works for localhost but produces
-// "0.0.0.0:7420" for an open bind (links won't resolve externally — the
-// PublicURL field exists to fix that).
+// dashboard page. It defers to cfg.BaseURL() for the canonical origin
+// (PublicURL when set, otherwise scheme://host:port with a loopback
+// substitution for an unspecified bind), then appends the report path.
 func (s *Server) publicReportURL(project, run string) string {
-	base := s.cfg.PublicURL
-	if base == "" {
-		scheme := "http"
-		if s.cfg.TLS.Enabled() {
-			scheme = "https"
-		}
-		base = fmt.Sprintf("%s://%s:%d", scheme, s.cfg.Bind, s.cfg.Port)
-	}
-	return base + "/r/" + project + "/" + run
+	return s.cfg.BaseURL() + "/r/" + project + "/" + run
 }
 
 // deliverPush sends one payload to every stored subscription, dropping
@@ -239,7 +256,9 @@ func (s *Server) deliverPush(payload push.Payload) {
 			log.Printf("harness-deck: push send error: %v", err)
 		case status == 404 || status == 410:
 			log.Printf("harness-deck: dropping gone subscription %s", sub.Endpoint)
-			_ = s.subs.Remove(sub.Endpoint)
+			// Match on endpoint+keys so a fresh re-subscription that reused
+			// the same endpoint URL with new keys is not pruned by mistake.
+			_ = s.subs.RemoveIfMatches(sub.Endpoint, sub.Keys)
 		case status >= 400:
 			log.Printf("harness-deck: push rejected %d for %s", status, sub.Endpoint)
 		}

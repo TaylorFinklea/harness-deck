@@ -66,6 +66,24 @@ func (s *Store) Remove(endpoint string) error {
 	return s.save(out)
 }
 
+// RemoveIfMatches deletes the subscription only when both the endpoint and
+// the keys match. Pruning a 410-Gone subscription this way avoids deleting a
+// fresh re-subscription that reused the same endpoint URL with new keys. A
+// non-matching endpoint or keys is a no-op.
+func (s *Store) RemoveIfMatches(endpoint string, keys SubscriptionKeys) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	subs := s.load()
+	out := subs[:0]
+	for _, x := range subs {
+		if x.Endpoint == endpoint && x.Keys == keys {
+			continue
+		}
+		out = append(out, x)
+	}
+	return s.save(out)
+}
+
 // Count returns the number of stored subscriptions.
 func (s *Store) Count() int {
 	return len(s.All())

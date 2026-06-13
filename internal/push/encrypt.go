@@ -120,9 +120,10 @@ func hkdfExpand(prk, info []byte, length int) []byte {
 	return h.Sum(nil)[:length]
 }
 
-// addPaddingTrim accepts either standard or url-safe base64, with or
-// without padding, and returns a form RawURLEncoding can decode. Browsers
-// hand us un-padded url-safe; some libraries pad.
+// addPaddingTrim strips any trailing '=' padding so the result is the
+// un-padded url-safe base64 form RawURLEncoding expects. Browsers hand us
+// un-padded url-safe keys; some libraries pad. It does not transcode the
+// alphabet — callers pass url-safe input.
 func addPaddingTrim(s string) string {
 	// Strip any padding the caller included.
 	for len(s) > 0 && s[len(s)-1] == '=' {
