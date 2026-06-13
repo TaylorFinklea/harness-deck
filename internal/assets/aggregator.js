@@ -1243,15 +1243,6 @@
     clearDropMarkers();
   });
 
-  /* number keys 1-4 switch views, unless vim-nav owns the keystroke */
-  document.addEventListener('keydown', function (e) {
-    var t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-    if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
-    var v = VIEWS.find(function (x) { return x.key === e.key; });
-    if (v) { showView(v.id); e.preventDefault(); }
-  });
-
   /* --- v0.2.0 phase 3: chord state machine ---
      The dashboard supports two prefix chords:
        Space (leader): Space + s/t/? → settings / theme / cheat
@@ -1370,8 +1361,7 @@
   function switchToTabN(n) {
     if (window.HD_REPORT) return false; // report page owns digits
     try {
-      var raw = localStorage.getItem('harness-deck:tabs');
-      var tabs = raw ? JSON.parse(raw) : [];
+      var tabs = pinnedItems();
       // Tab 1 is the dashboard itself (always present), tabs 2..N+1 are
       // the pinned reports in order. So digit i picks index i-1 across
       // the combined list (dashboard first).
@@ -1657,6 +1647,10 @@
   window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
   migrateLegacyURL();
   registerCommands();
+  // Seed the inbox cursor from sessionStorage before the first render so
+  // ensureFocused() (inside refresh → render) keeps the saved row instead
+  // of snapping to the top on initial load.
+  restoreFocus();
   refresh();
   connectEvents();
 })();
