@@ -15,9 +15,11 @@ import (
 // Dependency-free so the binary builds with no module downloads.
 
 var (
-	reCode   = regexp.MustCompile("`([^`]+)`")
-	reBold   = regexp.MustCompile(`\*\*([^*]+)\*\*`)
-	reItalic = regexp.MustCompile(`\*([^*]+)\*`)
+	reCode = regexp.MustCompile("`([^`]+)`")
+	reBold = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+	// reItalic requires a non-space character immediately inside the `*…*`
+	// fence so spaced-out asterisks (`a * b`) aren't turned into emphasis.
+	reItalic = regexp.MustCompile(`\*([^\s*](?:[^*]*[^\s*])?)\*`)
 	reBullet = regexp.MustCompile(`^[-*] +`)
 	reQuote  = regexp.MustCompile(`^> ?`)
 	// reTask matches the GitHub task-list prefix: after the bullet's `- ` has
@@ -44,11 +46,24 @@ var (
 
 // inlineMarkdown escapes HTML then applies inline marks. The replacement tags
 // are inserted after escaping, so user text can never inject markup. Order
-// matters: links/autolinks come before bold/italic so an asterisk inside a
-// link's text or URL doesn't get mistakenly styled.
+// matters: links/autolinks/code are emitted first and parked behind NUL-wrapped
+// placeholders so the bold/italic pass can't see their contents — an asterisk
+// or underscore inside a link's URL, or a `*` inside a code span, would
+// otherwise be mistaken for emphasis. The placeholders are restored last.
 func inlineMarkdown(s string) string {
 	s = html.EscapeString(s)
-	s = reAutolink.ReplaceAllString(s, `<a href="$1" rel="noopener">$1</a>`)
+	var spans []string
+	park := func(htmlFrag string) string {
+		spans = append(spans, htmlFrag)
+		return "\x00" + fmt.Sprintf("%d", len(spans)-1) + "\x00"
+	}
+	s = reAutolink.ReplaceAllStringFunc(s, func(m string) string {
+		parts := reAutolink.FindStringSubmatch(m)
+		url := parts[1]
+		// Autolink text is the URL itself; park the whole element so neither
+		// the href nor the visible URL is touched by the emphasis passes.
+		return park(`<a href="` + url + `" rel="noopener">` + url + `</a>`)
+	})
 	s = reLink.ReplaceAllStringFunc(s, func(m string) string {
 		parts := reLink.FindStringSubmatch(m)
 		text, url := parts[1], parts[2]
@@ -57,11 +72,20 @@ func inlineMarkdown(s string) string {
 			// markdown — already HTML-escaped, visibly not a link.
 			return m
 		}
-		return `<a href="` + url + `" rel="noopener">` + text + `</a>`
+		// Park only the opening tag (which carries the href) so the URL is
+		// shielded from the emphasis passes, but leave the display text in the
+		// stream so *italic*/**bold** inside link text still render.
+		return park(`<a href="`+url+`" rel="noopener">`) + text + "</a>"
 	})
-	s = reCode.ReplaceAllString(s, "<code>$1</code>")
+	s = reCode.ReplaceAllStringFunc(s, func(m string) string {
+		parts := reCode.FindStringSubmatch(m)
+		return park("<code>" + parts[1] + "</code>")
+	})
 	s = reBold.ReplaceAllString(s, "<b>$1</b>")
 	s = reItalic.ReplaceAllString(s, "<i>$1</i>")
+	for i := len(spans) - 1; i >= 0; i-- {
+		s = strings.Replace(s, "\x00"+fmt.Sprintf("%d", i)+"\x00", spans[i], 1)
+	}
 	return s
 }
 
