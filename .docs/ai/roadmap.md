@@ -64,6 +64,11 @@ findings). Sequencing decision: release → fix highs → launch.
 4. - [x] **Arch hardening wave** _(done 2026-06-10)_ — all five bullets +
      GH Actions Node 24 bump; commits faec79b..5232af7. See
      `.docs/ai/phases/arch-hardening-wave-report.md`.
+5. - [ ] **Browser-verify the 3 frontend audit fixes** (commit 2b3c78a, no JS
+     test harness): (a) move inbox cursor off the top row, hard-reload →
+     cursor returns to same row; (b) pin 2+ reports, press digits 2-9 → jumps
+     to each pinned report, 1 → dashboard; (c) digit nav still works after the
+     dead-handler removal. Go-side bundle test already green.
 
 ## Next
 
@@ -83,68 +88,25 @@ findings). Sequencing decision: release → fix highs → launch.
 
 ## Backlog
 
-Self-contained items from the 2026-06-10 audit (mediums, then lows). Full
-traces in `.harness/20260610-bug-bash-audit/report.json`. Default Verify:
-`go build ./... && go test ./...` unless noted.
+All 20 audit items (2026-06-10 bug bash, mediums + lows) **cleared 2026-06-13**
+— 9 file-disjoint clusters, each TDD-verified, full `go test -race ./...`
+green; commits 2293e2b..67d5ae2. Rationale + the agents' non-obvious choices:
+decisions.md "Audit-backlog clear-out". Original traces:
+`.harness/20260610-bug-bash-audit/report.json`. (One pending: browser-verify
+the 3 frontend fixes — Now item 5.)
 
-- [ ] **Validate top-level strictness + publish_report byte fidelity** —
-  strict-decode the top-level doc in Validate (shadow struct); make MCP
-  publish_report write the validated `args.Manifest` bytes (json.Indent)
-  instead of re-marshaling the struct. Files: internal/manifest/validate.go,
-  internal/mcp/tools.go:212. Sonnet.
-- [ ] **Ask-delta re-fire on transient disappearance** — merge cur into prev
-  (retain vanished keys a few ticks) or keep a notified-set keyed by Tag.
-  Files: internal/server/sse.go:100, push.go:176-187. Sonnet — coordinate
-  with the watcher tick() refactor.
-- [ ] **Markdown italic pass corrupts hrefs** — placeholder-token the
-  link/code spans before bold/italic; require non-space inside `*…*`.
-  Files: internal/render/markdown.go:49-57. Sonnet.
-- [ ] **Inbox cursor not restored on initial load** — call restoreFocus()
-  before the first ensureFocused() at bootstrap. Files:
-  internal/assets/aggregator.js:1059-1111. Verify: browser. Sonnet.
-- [ ] **MCP: oversized line kills session** — detect bufio.ErrTooLong, drain
-  the line, emit one -32700, continue. Files: internal/mcp/protocol.go:201,
-  228-230. Sonnet.
-- [ ] **Push payload >4KB silently rejected** — truncate Body to a preview
-  length before encrypt (also caps Slack/Discord bodies). Files:
-  internal/push/encrypt.go:72-99, internal/server/push.go:200. Sonnet.
-- [ ] **410-prune can delete a fresh re-subscription** — RemoveIfMatches
-  (endpoint + keys) instead of Remove(endpoint). Files:
-  internal/server/push.go:246-265, internal/push/store.go. Sonnet.
-- [ ] **publicReportURL diverges from BaseURL** — delete the hand-rolled
-  builder; call s.cfg.BaseURL() + path. Files: internal/server/push.go:231.
-  Haiku candidate.
-- [ ] **Project discovery dedups by basename** — key on absolute path,
-  disambiguate display names, surface dropped duplicates. Files:
-  internal/projects/projects.go:234-258. Sonnet — touches persistence keys.
-- [ ] **(project,run) collisions silently shadow** — when seen[key] differs
-  in Path, append to errs. Files: internal/store/store.go:96-100. Haiku
-  candidate.
-- [ ] **store.Scan last-writer-wins** — scanMu across walk+commit, or
-  generation counter. Files: internal/store/store.go:72-116. Sonnet.
-- [ ] **notify.Run no timeout blocks respond handler** — CommandContext w/
-  10s timeout (mirror handleNotificationsTest) or run after broadcast.
-  Files: internal/notify/notify.go, internal/server/server.go:277. Haiku.
-- [ ] **switchToTabN reads deleted legacy key** — point at HDPins.load() or
-  delete the branch. Files: internal/assets/aggregator.js:1370-1384.
-  Verify: browser digits 2-9. Haiku.
-- [ ] **JSON-RPC: don't reply to malformed notifications** — gate writeError
-  on IsNotification. Files: internal/mcp/protocol.go:220-223. Haiku.
-- [ ] **update tools alphabetize report.json keys** — decide: struct
-  re-marshal for canonical order vs document the trade-off. Files:
-  internal/mcp/tools.go:364-373,410-436. Sonnet.
-- [ ] **addPaddingTrim doc lies** — make it convert standard→urlsafe (doc
-  says it does) or fix the doc. Files: internal/push/encrypt.go:123-132.
-  Haiku.
-- [ ] **currentAskDigests missing promised log line** — add log.Printf in
-  the err branch. Files: internal/server/push.go:120-123. Haiku.
-- [ ] **HARNESS_DECK_CONFIG not tilde-expanded** — run through
-  config.Expand in config.Path() and projects.StatePath(). Files:
-  internal/config/config.go:77, internal/projects/projects.go:42. Haiku.
-- [ ] **Dead legacy view-switch handler** — delete aggregator.js:1246-1253.
-  Verify: browser digit nav. Haiku.
-- [ ] **new.go hardcodes the schema literal** — reference manifest.Schema;
-  update new_test.go:36. Haiku.
+New low-priority items surfaced during the clear-out:
+
+- [ ] **Other hardcoded `harness-deck/report@1` literals** — grep fixtures /
+  docs / MCP for the schema string; re-point Go code at `manifest.Schema`
+  where applicable (non-Go references stay literal). `tier_floor`: junior.
+  `complexity`: S.
+- [ ] **Order-preserving JSON patch in `internal/jsonfile`** — only if
+  authored top-level key order in report.json ever matters. Today
+  update_status/update_live alphabetize via the `map[string]any` round-trip in
+  jsonfile.Patch (documented trade-off, not a bug). A token-stream rewrite
+  that replaces only the targeted scalar is the real fix. `tier_floor`:
+  senior. `complexity`: M.
 
 ## Later / parking lot
 
@@ -161,6 +123,12 @@ traces in `.harness/20260610-bug-bash-audit/report.json`. Default Verify:
   ~1-2k active reports; measure first.
 - **hd-dom.js** — shared el()/htmlToNodes so the no-innerHTML discipline is
   a helper, not a convention.
+- **Micro-followups from the audit clear-out** (all tiny, do opportunistically):
+  defense-in-depth size guard in `push.Sender.Send`; make `askRetainTicks`
+  (sse.go) configurable / wall-clock-based; a test-only injection hook to make
+  store.Scan's stale-walk clobber deterministically testable; refine the
+  `Project.Name` "directory basename" doc comment; trim the now-redundant
+  dashboard digit handler in tabs.js (still needed on report pages).
 
 ## Out of scope
 

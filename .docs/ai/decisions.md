@@ -484,3 +484,63 @@ review locked these decisions:
 - **Arch adoptions:** watcher tick() + delta/CRUD tests, registry
   cross-check test (+ absorbing blockPrompt/blockText into manifest),
   assets bundle-invariants test, schema versioning mechanism.
+
+## 2026-06-13 — Audit-backlog clear-out (20 items, 9 clusters)
+
+Cleared the entire mediums+lows backlog from the 2026-06-10 audit in one wave.
+Commits 2293e2b..67d5ae2; full `go test -race ./...` green.
+
+**Orchestration.** Grouped the 20 items into 9 **file-disjoint** clusters so
+implementation could fan out in parallel without collisions, then integrated
+serially. Each cluster ran as a subagent in an **isolated git worktree**
+(implement → TDD → `go build && go test`), and the authoritative diffs were
+pulled straight from the worktree filesystems rather than the agents' returned
+JSON (the round-tripped diff strings were HTML-entity-escaped — `&amp;` for
+`&` — and would have corrupted Go source if applied). Integration (apply →
+full-suite verify → one commit per cluster) stayed in the main loop for
+oversight. The only cross-cluster file overlap was `mcp_test.go` (C1+C3, both
+appending test funcs); `git apply`'s context search placed them without
+conflict.
+
+**Per-cluster choices worth keeping:**
+
+- **C1 (manifest/mcp).** `update_status`/`update_live` alphabetize report.json
+  keys because the reorder originates in `jsonfile.Patch`'s `map[string]any`
+  round-trip. Chose to **document** the trade-off at both call sites rather
+  than re-marshal from the struct — re-marshaling would defeat jsonfile.Patch's
+  two guarantees (preserve unmodeled forward-compat fields; keep number
+  literals byte-exact via UseNumber). Strict top-level Validate is implemented
+  by retaining the document bytes (`Report.raw`) in Parse and strict-decoding
+  them — mirrors the per-block `Block.Raw` pattern. Note the interaction:
+  publish_report now runs Validate before writing, so an unmodeled top-level
+  key is rejected at publish (was silently dropped); byte-fidelity is therefore
+  about authored **field order**, not smuggling unknown keys.
+- **C2 (push/server).** Truncation lives at the Body-construction site
+  (`notifyNewAsks`), **not** `encrypt()` — encrypt receives opaque marshaled
+  bytes that can't be cut. Ask-delta re-fire fixed with a **decaying retention
+  window** (`askRetainTicks=3`) over a permanent notified-Tag set, because a
+  permanent set would break the documented "answered ask replaced by a fresh
+  same-id ask still re-fires" behavior. `publicReportURL`→`BaseURL()` changes
+  the URL for an unspecified bind from `0.0.0.0` to loopback (intended).
+- **C4 (store).** `scanMu` held across walk+commit over a generation counter
+  (smaller, obviously correct; separate from `s.mu` so index reads stay
+  uncontended — no lock-order inversion). Collision policy: first-seen wins
+  (central scanned first) **and** the collision surfaces in `Errors()`.
+  Honest caveat: the last-writer-wins defect is a **logical** clobber, not a
+  data race (the existing `s.mu` already passes `-race`), so its test is a
+  regression guard, not a fail-before/pass-after — a true repro needs an
+  out-of-scope timing hook (parked in Later).
+- **C5 (render).** NUL-delimited placeholders (`\x00N\x00`) park links/
+  autolinks/code spans before the emphasis passes; `html.EscapeString` never
+  emits NUL so the markers are unambiguous. For `[text](url)` only the opening
+  tag is parked, so `*italic*` inside link text still renders.
+- **C7 (projects/config).** Kept `Project.Name` as the projects.json
+  persistence key but made it **unique-on-collision** (parent-dir hint, numeric
+  fallback) — no on-disk schema change, no migration, and the common
+  no-collision case is byte-identical. Avoided adding a new key field that
+  would ripple into the server/frontend toggle/reorder identifiers.
+- **C8 (notify/server).** Applied **both** offered fixes: a 10s
+  `context.WithTimeout` + `exec.CommandContext` in `notify.Run` (signature
+  unchanged; `runTimeout` a package var as a test seam) **and** moved the
+  notify call after `Scan`+`broadcast` so a slow-but-bounded command can't
+  delay the SSE refresh.
