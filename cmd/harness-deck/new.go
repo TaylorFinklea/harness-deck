@@ -10,6 +10,7 @@ import (
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/jsonfile"
+	"github.com/TaylorFinklea/harness-deck/internal/manifest"
 )
 
 // cmdNew scaffolds a starter report.json — id, created timestamp, status
@@ -107,7 +108,7 @@ func starterReport(project, id, title, harness, agent, kind string) []byte {
 	created := time.Now().UTC().Format(time.RFC3339)
 	var b strings.Builder
 	b.WriteString("{\n")
-	fmt.Fprintf(&b, "  %q: %q,\n", "schema", "harness-deck/report@1")
+	fmt.Fprintf(&b, "  %q: %q,\n", "schema", manifest.Schema)
 	fmt.Fprintf(&b, "  %q: %q,\n", "id", id)
 	fmt.Fprintf(&b, "  %q: %q,\n", "project", project)
 	fmt.Fprintf(&b, "  %q: %q,\n", "harness", harness)

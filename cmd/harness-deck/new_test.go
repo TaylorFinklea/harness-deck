@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/TaylorFinklea/harness-deck/internal/manifest"
 )
 
 // runNew invokes cmdNew with args inside a fresh tempdir-isolated config
@@ -33,7 +35,7 @@ func TestNewScaffoldsValidManifest(t *testing.T) {
 	if err := json.Unmarshal(data, &rep); err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if rep["schema"] != "harness-deck/report@1" {
+	if rep["schema"] != manifest.Schema {
 		t.Errorf("schema = %v", rep["schema"])
 	}
 	if rep["project"] != "demo" || rep["title"] != "first" || rep["id"] != "r1" {
