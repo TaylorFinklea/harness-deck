@@ -294,12 +294,14 @@ func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not record response: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := notify.Run(s.cfg.NotifyCommand, entry.Dir, project, run, req.Block); err != nil {
-		log.Printf("harness-deck: notify command failed: %v", err)
-	}
 	// Reindex so OpenAsks counts drop, and tell the dashboard to refresh.
 	s.store.Scan(s.enabledRoots())
 	s.hub.broadcast("reports")
+	// Fire the notify command after the broadcast so a slow (but
+	// timeout-bounded) command can't delay the user-visible refresh.
+	if err := notify.Run(s.cfg.NotifyCommand, entry.Dir, project, run, req.Block); err != nil {
+		log.Printf("harness-deck: notify command failed: %v", err)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"ok":true}`))
