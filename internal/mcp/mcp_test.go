@@ -328,6 +328,81 @@ func TestUpdateLivePreservesLargeIntegerLiterals(t *testing.T) {
 	}
 }
 
+// serveLines runs Serve directly over the given input and returns every
+// non-empty JSON-RPC response line parsed. Unlike runOne it does not stop at
+// the first response, so a test can assert on the full output stream.
+func serveLines(t *testing.T, input string) []Response {
+	t.Helper()
+	srv := New(config.Default(), "test")
+	var out bytes.Buffer
+	if err := Serve(context.Background(), strings.NewReader(input), &out, srv.tools, srv.resources, srv.info, srv.instructions); err != nil {
+		t.Fatalf("serve: %v", err)
+	}
+	var got []Response
+	for _, line := range strings.Split(out.String(), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var r Response
+		if err := json.Unmarshal([]byte(line), &r); err != nil {
+			t.Fatalf("parse response %q: %v", line, err)
+		}
+		got = append(got, r)
+	}
+	return got
+}
+
+func TestOversizedLineYieldsParseErrorAndKeepsSession(t *testing.T) {
+	// A single line past the 4MB scanner cap must not kill the session: the
+	// server emits one -32700 parse error, drains the oversized line, and goes
+	// on to answer the next valid request.
+	oversized := `{"junk":"` + strings.Repeat("x", 5<<20) + `"}`
+	valid := `{"jsonrpc":"2.0","id":7,"method":"ping"}`
+	got := serveLines(t, oversized+"\n"+valid+"\n")
+
+	if len(got) != 2 {
+		t.Fatalf("want 2 responses (one parse error, one ping reply), got %d: %+v", len(got), got)
+	}
+
+	parseErr := got[0]
+	if parseErr.Error == nil || parseErr.Error.Code != errParse {
+		t.Fatalf("first response should be a -32700 parse error, got %+v", parseErr)
+	}
+	if string(parseErr.ID) != "null" {
+		t.Errorf("parse error id should be null, got %s", parseErr.ID)
+	}
+
+	pong := got[1]
+	if pong.Error != nil {
+		t.Fatalf("ping after oversized line should succeed, got error %+v", pong.Error)
+	}
+	if string(pong.ID) != "7" {
+		t.Errorf("ping reply id = %s, want 7", pong.ID)
+	}
+}
+
+func TestMalformedNotificationGetsNoResponse(t *testing.T) {
+	// A notification (no id) with a bad jsonrpc field must be dropped
+	// silently — JSON-RPC 2.0 forbids replying to a notification even on
+	// error.
+	got := serveLines(t, `{"jsonrpc":"1.0","method":"whatever"}`+"\n")
+	if len(got) != 0 {
+		t.Fatalf("malformed notification must produce no response, got %+v", got)
+	}
+
+	// A malformed *request* (carrying an id) still gets answered, proving the
+	// gate keys on the notification distinction and not on swallowing all
+	// bad-jsonrpc lines.
+	got = serveLines(t, `{"jsonrpc":"1.0","id":3,"method":"whatever"}`+"\n")
+	if len(got) != 1 {
+		t.Fatalf("malformed request should get exactly one reply, got %+v", got)
+	}
+	if got[0].Error == nil || got[0].Error.Code != errInvalidRequest {
+		t.Errorf("malformed request reply should be -32600, got %+v", got[0])
+	}
+}
+
 func TestListReportsSeesScanRootsProjects(t *testing.T) {
 	// The dashboard scans projects discovered under scan_roots; list_reports
 	// must see the same world, or an agent that publishes into a discovered

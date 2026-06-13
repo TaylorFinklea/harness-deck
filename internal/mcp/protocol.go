@@ -194,14 +194,33 @@ type toolDef struct {
 // simpler to reason about. If a tool becomes long-running we'll move it
 // to goroutines + a write mutex.
 func Serve(ctx context.Context, in io.Reader, out io.Writer, tools map[string]toolDef, resources []resourceDef, info ServerInfo, instructions string) error {
-	scanner := bufio.NewScanner(in)
-	// Reports can be large (long markdown blocks, big diffs). Default buf is
-	// 64KB which trips on real-world manifests — bump to 4MB which covers
-	// every report we've seen in fixtures and tests.
-	scanner.Buffer(make([]byte, 0, 1<<16), 4<<20)
+	// Read through a bufio.Reader so we can drain past an oversized line
+	// after the scanner trips ErrTooLong — the scanner only consumed the
+	// buffer-bounded prefix; the rest of that line stays unread in br.
+	br := bufio.NewReader(in)
+	scanner := newLineScanner(br)
 
 	enc := json.NewEncoder(out)
-	for scanner.Scan() {
+	for {
+		if !scanner.Scan() {
+			if err := scanner.Err(); err != nil {
+				if errors.Is(err, bufio.ErrTooLong) {
+					// One line blew past the buffer cap. Emit a single parse
+					// error, drain the rest of the line, and keep the session
+					// alive for the next request.
+					if _, derr := br.ReadBytes('\n'); derr != nil && !errors.Is(derr, io.EOF) {
+						return derr
+					}
+					writeError(enc, nil, errParse, "parse error: line exceeds maximum size")
+					scanner = newLineScanner(br)
+					continue
+				}
+				if !errors.Is(err, io.EOF) {
+					return err
+				}
+			}
+			return nil
+		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -218,17 +237,28 @@ func Serve(ctx context.Context, in io.Reader, out io.Writer, tools map[string]to
 			continue
 		}
 		if req.JSONRPC != "2.0" {
-			writeError(enc, req.ID, errInvalidRequest, `jsonrpc must be "2.0"`)
+			// A malformed notification (no id) must never get a reply per
+			// JSON-RPC 2.0 — drop it silently instead of answering.
+			if !req.IsNotification() {
+				writeError(enc, req.ID, errInvalidRequest, `jsonrpc must be "2.0"`)
+			}
 			continue
 		}
 		if err := dispatch(ctx, enc, req, tools, resources, info, instructions); err != nil {
 			log.Printf("mcp: dispatch %q: %v", req.Method, err)
 		}
 	}
-	if err := scanner.Err(); err != nil && !errors.Is(err, io.EOF) {
-		return err
-	}
-	return nil
+}
+
+// newLineScanner builds the newline-delimited scanner used by Serve. Reports
+// can be large (long markdown blocks, big diffs); the default 64KB buffer
+// trips on real-world manifests, so we bump the cap to 4MB which covers every
+// report we've seen in fixtures and tests. A line past the cap surfaces as
+// bufio.ErrTooLong, which Serve recovers from rather than dying.
+func newLineScanner(r io.Reader) *bufio.Scanner {
+	s := bufio.NewScanner(r)
+	s.Buffer(make([]byte, 0, 1<<16), 4<<20)
+	return s
 }
 
 // dispatch routes one request to the right handler. Notifications (no id)
