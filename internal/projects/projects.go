@@ -57,6 +57,18 @@ func NewManager(scanRoots, explicit []string, statePath string) *Manager {
 	return &Manager{scanRoots: scanRoots, explicit: explicit, statePath: statePath}
 }
 
+// SetRoots replaces the discovery roots — used when config.json changes at
+// runtime (e.g. `harness-deck register` added a project) so the watcher picks
+// up the new roots without a restart. The next Discovered/Enabled recomputes
+// against them. Safe for concurrent use; copies the inputs so a later mutation
+// of the caller's slices can't alias the Manager's state.
+func (m *Manager) SetRoots(scanRoots, explicit []string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.scanRoots = append([]string(nil), scanRoots...)
+	m.explicit = append([]string(nil), explicit...)
+}
+
 // Discovered returns every project found, sorted by name, with Enabled
 // reflecting the persisted hidden set.
 func (m *Manager) Discovered() []Project {

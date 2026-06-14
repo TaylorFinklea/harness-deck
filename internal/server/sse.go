@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
+	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
 
@@ -109,6 +111,7 @@ type watchState struct {
 	prevAsks    map[string]askDigest   // ask digest set from the previous tick
 	prevEntries map[string]store.Entry // entry map from the previous tick
 	askMisses   map[string]int         // key:id → consecutive ticks an ask has been missing from cur
+	configMod   time.Time              // config.json mtime at the last tick (zero if absent)
 }
 
 // initWatchState captures the baseline snapshot — identical to what the
@@ -117,7 +120,17 @@ type watchState struct {
 func (s *Server) initWatchState() watchState {
 	sig := s.changeFingerprint()
 	prevAsks, prevEntries := s.currentAskDigests()
-	return watchState{lastSig: sig, prevAsks: prevAsks, prevEntries: prevEntries, askMisses: map[string]int{}}
+	return watchState{lastSig: sig, prevAsks: prevAsks, prevEntries: prevEntries, askMisses: map[string]int{}, configMod: configModTime()}
+}
+
+// configModTime is config.json's mtime, or the zero time if it is absent
+// (running on defaults). The watcher compares it across ticks to reload the
+// discovery roots when the config file changes.
+func configModTime() time.Time {
+	if fi, err := os.Stat(config.Path()); err == nil {
+		return fi.ModTime()
+	}
+	return time.Time{}
 }
 
 // mergeRetainedAsks builds the next notified baseline from the freshly
@@ -188,6 +201,18 @@ func (s *Server) closedAskKeys() map[string]bool {
 //
 // tick is deliberately free of time.Sleep so tests can drive it directly.
 func (s *Server) tick(ws watchState) watchState {
+	// Reload discovery roots when config.json changed (e.g. `register` added a
+	// project) so the dashboard picks it up without a restart. Only the roots
+	// are reloaded live; other config (bind, TLS, notifications) still needs a
+	// restart.
+	nextConfigMod := ws.configMod
+	if mod := configModTime(); !mod.Equal(ws.configMod) {
+		if cfg, err := config.Load(); err == nil {
+			s.projects.SetRoots(cfg.ScanRoots, cfg.Projects)
+		}
+		nextConfigMod = mod
+	}
+
 	scanStart := time.Now()
 	s.store.Scan(s.enabledRoots())
 	elapsed := time.Since(scanStart)
@@ -221,7 +246,7 @@ func (s *Server) tick(ws watchState) watchState {
 		nextEntries = curEntries
 	}
 
-	return watchState{lastSig: cur, prevAsks: nextAsks, prevEntries: nextEntries, askMisses: nextMisses}
+	return watchState{lastSig: cur, prevAsks: nextAsks, prevEntries: nextEntries, askMisses: nextMisses, configMod: nextConfigMod}
 }
 
 // logScanTiming emits a scan-duration log line when the scan took longer
