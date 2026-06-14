@@ -548,7 +548,7 @@
       if (hist.length) {
         var total = p.history_total || hist.length;
         var label = total > hist.length
-          ? 'history — newest ' + hist.length + ' of ' + total + ' (?all=1 for all)'
+          ? 'history — newest ' + hist.length + ' of ' + total
           : 'history';
         body.push(el('div', { class: 'proj-sec', text: label }));
         body.push(el('div', { class: 'history' }, hist.map(historyRow)));

@@ -454,7 +454,7 @@
 
   /* Footer usage monitors (CodexBar-style). Dark-on-blue by default; warn/crit
      get a pill so severity reads against the blue statusline. */
-  .statusline .usage { gap: 12px; font-weight: 600; flex: 0 1 auto; overflow: hidden; }
+  .statusline .usage { gap: 12px; font-weight: 600; flex: 0 1 auto; overflow-x: auto; }
   .statusline .usage-seg { display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .statusline .usage-seg b { font-weight: 700; }
   .statusline .usage-warn { padding: 0 4px; border-radius: 3px; background: var(--tn-yellow); color: var(--tn-bg); }
