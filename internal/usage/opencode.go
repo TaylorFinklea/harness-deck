@@ -107,32 +107,57 @@ func (o openCodeProvider) serverGet(ctx context.Context, id, args string) (strin
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", &httpError{status: resp.StatusCode, body: string(body)}
+		return "", &httpError{status: resp.StatusCode}
 	}
 	return string(body), nil
 }
 
 // extractOpenCodeUsage finds a named usage block (rollingUsage / weeklyUsage)
 // in the _server response and pulls its usagePercent + resetInSec. The body is
-// text/javascript, not guaranteed clean JSON, so this is a tolerant scan rather
-// than a struct decode.
+// text/javascript, not guaranteed clean JSON, so this is a tolerant scan — but
+// it is bounded to the target block's own braces so a sibling block's numbers
+// can never leak in (an empty/partial block degrades to ok:false instead).
 func extractOpenCodeUsage(body, key string) (percent float64, resetSec int64, ok bool) {
-	idx := strings.Index(body, `"`+key+`"`)
-	if idx < 0 {
+	block, found := jsonBlockAfter(body, `"`+key+`"`)
+	if !found {
 		return 0, 0, false
 	}
-	end := idx + 300
-	if end > len(body) {
-		end = len(body)
-	}
-	seg := body[idx:end]
-	pm := reUsagePercent.FindStringSubmatch(seg)
+	pm := reUsagePercent.FindStringSubmatch(block)
 	if pm == nil {
 		return 0, 0, false
 	}
 	percent, _ = strconv.ParseFloat(pm[1], 64)
-	if rm := reResetInSec.FindStringSubmatch(seg); rm != nil {
+	if rm := reResetInSec.FindStringSubmatch(block); rm != nil {
 		resetSec, _ = strconv.ParseInt(rm[1], 10, 64)
 	}
 	return percent, resetSec, true
+}
+
+// jsonBlockAfter returns the brace-balanced {…} object that follows the first
+// occurrence of marker, so a scan stays within one block. (Good enough for the
+// numeric usage blocks; it does not account for braces inside string values,
+// which these blocks don't contain.)
+func jsonBlockAfter(body, marker string) (string, bool) {
+	i := strings.Index(body, marker)
+	if i < 0 {
+		return "", false
+	}
+	open := strings.IndexByte(body[i:], '{')
+	if open < 0 {
+		return "", false
+	}
+	open += i
+	depth := 0
+	for j := open; j < len(body); j++ {
+		switch body[j] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return body[open : j+1], true
+			}
+		}
+	}
+	return "", false
 }

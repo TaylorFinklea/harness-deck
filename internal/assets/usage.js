@@ -9,7 +9,7 @@
     if (pct == null) return '';
     if (pct >= 90) return 'usage-crit';
     if (pct >= 70) return 'usage-warn';
-    return 'usage-ok';
+    return ''; // ok: default dark-on-blue, no class
   }
 
   // fmtReset turns an ISO8601 reset into a compact countdown ("3h12m", "2d").
@@ -69,8 +69,15 @@
   }
 
   function start() {
-    poll();
-    setInterval(poll, 30000);
+    // First fetch decides whether to keep polling: an empty array means no
+    // providers are configured, so don't poll a permanently-empty endpoint.
+    fetch('/api/usage', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (samples) {
+        render(samples);
+        if (samples && samples.length) setInterval(poll, 30000);
+      })
+      .catch(function () {});
   }
 
   if (document.readyState === 'loading') {

@@ -47,12 +47,15 @@ func (o openRouterProvider) Sample(ctx context.Context) Sample {
 	detail := fmt.Sprintf("today %s · wk %s · mo %s",
 		money(d.UsageDaily), money(d.UsageWeekly), money(d.UsageMonthly))
 	if d.Limit != nil && *d.Limit > 0 {
-		used := d.Usage / *d.Limit * 100
-		s.Percent = pct(used)
+		// Meter off the authoritative remaining figure, not lifetime `usage`:
+		// usage keeps climbing past a raised/topped-up limit, but
+		// limit_remaining always reflects the current cap.
 		remaining := *d.Limit - d.Usage
 		if d.LimitRemaining != nil {
 			remaining = *d.LimitRemaining
 		}
+		used := (*d.Limit - remaining) / *d.Limit * 100
+		s.Percent = pct(used)
 		s.Text = money(remaining) + " left"
 		detail += fmt.Sprintf(" · %.0f%% of %s", used, money(*d.Limit))
 	} else {

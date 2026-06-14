@@ -225,6 +225,9 @@
   .statusline { padding: 4px 8px; font-size: 11px; }
   .statusline .pos { display: none; }
   .statusline .info { display: none; }
+  /* Usage segments can outgrow a phone footer; scroll rather than silently
+     clip the trailing providers. */
+  .statusline .usage { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
 /* Hide the mobile menu button on wide screens; it's part of every page

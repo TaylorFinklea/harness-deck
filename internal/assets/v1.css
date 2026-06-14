@@ -457,7 +457,7 @@
   .statusline .usage { gap: 12px; font-weight: 600; flex: 0 1 auto; overflow: hidden; }
   .statusline .usage-seg { display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .statusline .usage-seg b { font-weight: 700; }
-  .statusline .usage-warn { padding: 0 4px; border-radius: 3px; background: rgba(0,0,0,.14); }
+  .statusline .usage-warn { padding: 0 4px; border-radius: 3px; background: var(--tn-yellow); color: var(--tn-bg); }
   .statusline .usage-crit { padding: 0 4px; border-radius: 3px; background: var(--tn-red); color: #fff; }
 
   /* ---------- keyhints in titlebar ---------- */

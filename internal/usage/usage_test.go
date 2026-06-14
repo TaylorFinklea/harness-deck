@@ -161,6 +161,31 @@ func TestOpenRouterCappedAndUncapped(t *testing.T) {
 			t.Errorf("no key should not be OK: %+v", s)
 		}
 	})
+	t.Run("topped-up key meters off remaining", func(t *testing.T) {
+		// usage (150, lifetime) exceeds limit (100) after a top-up, but 40
+		// remain. usage/limit would read 150%→clamp 100%; the remaining-based
+		// meter correctly reads 60%.
+		srv := jsonServer(t, `{"data":{"usage":150,"limit":100,"limit_remaining":40,"usage_monthly":30}}`)
+		defer srv.Close()
+		swap(&openRouterURL, srv.URL)
+		s := openRouterProvider{key: "k"}.Sample(context.Background())
+		if s.Percent == nil || *s.Percent != 60 {
+			t.Errorf("percent = %v, want 60 (from limit_remaining, not usage)", s.Percent)
+		}
+		if s.Text != "$40 left" {
+			t.Errorf("text = %q, want $40 left", s.Text)
+		}
+	})
+}
+
+func TestBuildDedups(t *testing.T) {
+	ps := Build(Options{Providers: []string{"codex", "codex", "claude", "claude-code"}})
+	if len(ps) != 2 {
+		t.Fatalf("got %d providers, want 2 (codex + claude-code deduped)", len(ps))
+	}
+	if ps[0].Tool() != "codex" || ps[1].Tool() != "claude-code" {
+		t.Errorf("tools = %q,%q want codex,claude-code", ps[0].Tool(), ps[1].Tool())
+	}
 }
 
 // --- Claude (httptest + env token, no keychain) ---
@@ -227,6 +252,17 @@ func TestExtractOpenCodeUsage(t *testing.T) {
 	}
 	if _, _, ok := extractOpenCodeUsage(body, "missing"); ok {
 		t.Error("missing key should not be ok")
+	}
+
+	// An empty target block must NOT leak the next sibling's numbers.
+	leak := `{"rollingUsage":{},"weeklyUsage":{"usagePercent":80,"resetInSec":86400}}`
+	if _, _, ok := extractOpenCodeUsage(leak, "rollingUsage"); ok {
+		t.Error("empty rollingUsage must degrade to ok:false, not borrow weeklyUsage")
+	}
+	// A partial target block must not borrow the sibling's resetInSec.
+	partial := `{"rollingUsage":{"usagePercent":55},"weeklyUsage":{"usagePercent":80,"resetInSec":86400}}`
+	if p, r, ok := extractOpenCodeUsage(partial, "rollingUsage"); !ok || p != 55 || r != 0 {
+		t.Errorf("partial rollingUsage = (%v,%v,%v), want 55,0,true (no reset leak)", p, r, ok)
 	}
 }
 

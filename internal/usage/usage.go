@@ -80,18 +80,26 @@ func Build(o Options) []Provider {
 		orKey = os.Getenv("OPENROUTER_API_KEY")
 	}
 	var ps []Provider
+	seen := map[string]bool{}
+	add := func(p Provider) {
+		if seen[p.Tool()] { // a tool listed twice (or via an alias) shows once
+			return
+		}
+		seen[p.Tool()] = true
+		ps = append(ps, p)
+	}
 	for _, name := range o.Providers {
 		switch strings.TrimSpace(name) {
 		case "codex":
-			ps = append(ps, &codexProvider{})
+			add(&codexProvider{})
 		case "openrouter":
-			ps = append(ps, &openRouterProvider{key: orKey})
+			add(&openRouterProvider{key: orKey})
 		case "claude-code", "claude":
-			ps = append(ps, &claudeProvider{})
+			add(&claudeProvider{})
 		case "copilot":
-			ps = append(ps, &copilotProvider{})
+			add(&copilotProvider{})
 		case "opencode":
-			ps = append(ps, &openCodeProvider{cookie: o.OpenCodeCookie, workspaceID: o.OpenCodeWorkspaceID})
+			add(&openCodeProvider{cookie: o.OpenCodeCookie, workspaceID: o.OpenCodeWorkspaceID})
 		}
 	}
 	return ps
@@ -211,22 +219,21 @@ func getJSON(ctx context.Context, url string, headers map[string]string, v any) 
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return &httpError{status: resp.StatusCode, body: string(body)}
+		return &httpError{status: resp.StatusCode}
 	}
 	return json.Unmarshal(body, v)
 }
 
+// httpError carries only the status code — deliberately NOT the response body.
+// A Sample's Err is served over the unauthenticated /api/usage endpoint, so
+// echoing an external API's raw error body (which can carry account/org/rate
+// detail) would broaden disclosure beyond the host that holds the credential.
 type httpError struct {
 	status int
-	body   string
 }
 
 func (e *httpError) Error() string {
-	b := e.body
-	if len(b) > 160 {
-		b = b[:160]
-	}
-	return "http " + itoa(e.status) + ": " + b
+	return "http " + itoa(e.status)
 }
 
 func itoa(n int) string {
