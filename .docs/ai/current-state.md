@@ -2,17 +2,18 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main, **18 commits ahead of origin (unpushed — user pushes)**.
+- Branch: main, **25 commits ahead of origin (unpushed — user pushes)**.
   Build + `go test -race ./...` green.
-- **v0.2.6 released.** Since: audit backlog cleared, report templates,
-  draft-gating (all 2026-06-13).
-- **Usage monitors shipped 2026-06-14** — CodexBar-style footer for
-  codex/openrouter/claude-code/copilot/opencode (opt-in `usage.providers`);
-  3-lens reviewed; commits 3292e4a + b074c6b. decisions.md "Usage monitors";
-  spec phases/usage-monitors-spec.md.
-- **Perf wave complete 2026-06-14** — incremental scan (~6.9×, 67b247b) +
-  /api/projects history cap (50, ?all=1) + mtime-cached doc render.
-  decisions.md "Perf wave".
+- **v0.2.6 released.** Since (2026-06-13): audit backlog cleared, report
+  templates, draft-gating.
+- **2026-06-14:** usage monitors (CodexBar footer, opt-in `usage.providers`;
+  decisions.md "Usage monitors"); perf wave complete (incremental scan ~6.9×,
+  /api/projects history cap, mtime-cached doc render; "Perf wave"); **session-
+  code audit + tiered clear-out** (5-lens audit → Opus/Sonnet/Haiku fixes;
+  fixed a major draft↔awaiting-review re-notification bug + nits + test gaps;
+  decisions.md "Session-code audit").
+- Backlog: now only deferred-with-rationale items (jsonfile order-preserving
+  patch + a few micro-followups) — see roadmap Backlog.
 
 ## Plan
 

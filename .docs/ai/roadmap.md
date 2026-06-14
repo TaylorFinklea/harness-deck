@@ -105,18 +105,26 @@ decisions.md "Audit-backlog clear-out". Original traces:
 `.harness/20260610-bug-bash-audit/report.json`. (One pending: browser-verify
 the 3 frontend fixes — Now item 5.)
 
-New low-priority items surfaced during the clear-out:
+**Session-code audit + tiered clear-out 2026-06-14** (5-lens Sonnet audit of
+the perf wave / draft-gating / usage internals; fixes routed Opus/Sonnet/Haiku;
+commits d2b5a95, 6167957, e850943, 40ed9b3, fb0d173, e5d6ef0). decisions.md
+"Session-code audit". Headline: a major draft↔awaiting-review re-notification
+bug (ask-retention defeated draft-gating) — fixed. Plus renderDoc TOCTOU,
+docCache eviction, push Send body cap, dead ?all=1 hint, footer overflow, and
+the store-cache / projects / usage test gaps.
 
-- [ ] **Other hardcoded `harness-deck/report@1` literals** — grep fixtures /
-  docs / MCP for the schema string; re-point Go code at `manifest.Schema`
-  where applicable (non-Go references stay literal). `tier_floor`: junior.
-  `complexity`: S.
-- [ ] **Order-preserving JSON patch in `internal/jsonfile`** — only if
-  authored top-level key order in report.json ever matters. Today
-  update_status/update_live alphabetize via the `map[string]any` round-trip in
-  jsonfile.Patch (documented trade-off, not a bug). A token-stream rewrite
-  that replaces only the targeted scalar is the real fix. `tier_floor`:
-  senior. `complexity`: M.
+- [x] **Other hardcoded `harness-deck/report@1` literals** — audit found NO
+  remaining Go sites (only the canonical `manifest.Schema` const + a doc
+  comment); non-Go fixtures/docs stay literal. No-op.
+- [ ] **Order-preserving JSON patch in `internal/jsonfile`** — DEFERRED (Lead):
+  an in-house ordered JSON pretty-printer in the central atomic-write helper
+  (blast radius: every report/response/config write) for a cosmetic benefit,
+  on an item gated "only if it ever matters" (hasn't). The trade-off stays
+  documented. `tier_floor`: senior. `complexity`: M. (Override to do it anyway.)
+- Deferred micro-followups (Lead): make `askRetainTicks` configurable (YAGNI
+  surface); a store.Scan stale-walk test hook (prod test-scaffolding for a
+  marginal deterministic test); trim the redundant dashboard digit handler in
+  tabs.js (harmless redundancy, browser-verify risk, zero functional gain).
 
 ## Later / parking lot
 
@@ -133,12 +141,10 @@ New low-priority items surfaced during the clear-out:
   ~1-2k active reports; measure first.
 - **hd-dom.js** — shared el()/htmlToNodes so the no-innerHTML discipline is
   a helper, not a convention.
-- **Micro-followups from the audit clear-out** (all tiny, do opportunistically):
-  defense-in-depth size guard in `push.Sender.Send`; make `askRetainTicks`
-  (sse.go) configurable / wall-clock-based; a test-only injection hook to make
-  store.Scan's stale-walk clobber deterministically testable; refine the
-  `Project.Name` "directory basename" doc comment; trim the now-redundant
-  dashboard digit handler in tabs.js (still needed on report pages).
+- **Micro-followups** — dispositioned 2026-06-14: push.Sender.Send size guard
+  (done, 40ed9b3) and the Project.Name doc (done, e5d6ef0); the remaining three
+  (askRetainTicks config, store stale-walk test hook, tabs.js digit-handler
+  trim) deferred — see Backlog.
 
 ## Out of scope
 

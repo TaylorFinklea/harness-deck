@@ -675,3 +675,37 @@ Three changes, all measure-first / cache-by-mtime, no behavior change:
 Tests: BenchmarkScanCold/Warm + the store suite; `TestProjectsHistoryCapped`
 and `TestRenderDocCachesByMtime` (the latter pins both cache-hit-by-mtime and
 invalidation via `os.Chtimes`). Full suite + `-race` green.
+
+## 2026-06-14 — Session-code audit + tiered backlog clear-out
+
+A 5-lens Sonnet bug-bash audit of this session's under-audited code (perf wave,
+draft-gating, usage internals — the per-feature reviews hadn't covered their
+interaction). Findings triaged by the Lead (Opus) and routed by tier per the
+user's mapping (Haiku = junior, Sonnet = senior, Opus = lead). Commits
+d2b5a95, 6167957, e850943, 40ed9b3, fb0d173, e5d6ef0.
+
+- **Headline (major, Opus-implemented):** ask-retention (C2) defeated
+  draft-gating (this session). A report seen awaiting-review → drafted →
+  re-published never re-fired its push: the retained ask looked "already seen."
+  The subtle part is distinguishing a *transient* disappearance (report gone
+  from the index — must retain, guards TestTickReappearingAskNoRefire) from an
+  *intentional* close (report indexed but OpenAsks==0/archived — must drop so a
+  re-open fires). Fix keys on `closedAskKeys()` (the full store), not
+  `curEntries` (which omits draft reports). Lead implemented this directly
+  rather than delegating — too subtle for the junior tier and a delegation
+  round-trip wasn't worth it for the critical fix.
+- **Routing:** B (store-cache correctness tests) → Sonnet; C (renderDoc
+  TOCTOU + docCache eviction + tests), D (push body cap + usage error/edge
+  tests), E (frontend hint/overflow) → Haiku. Deferred with rationale: the
+  jsonfile order-preserving patch (risk≫benefit on the central write helper),
+  askRetainTicks-config (YAGNI), a store stale-walk test hook (prod
+  test-scaffolding), and the tabs.js digit-handler trim (harmless redundancy).
+  B1 (hardcoded schema literals) was a no-op — no Go sites remained.
+- **Workflow gotcha (important for future runs):** `isolation: 'worktree'`
+  branches worktrees from a stale ref (here `1d68164`, the last-pushed-ish
+  base), NOT current `HEAD`. The Sonnet B agent noticed and fast-forwarded (its
+  diff applied cleanly); the Haiku C/D/E agents worked on the stale base, so
+  their returned diffs reverted most of the session and were unusable. The Lead
+  re-implemented C/D/E directly on `main` from the specs (the agents' work was
+  reference only). Takeaway: for worktree fan-outs on an unpushed branch,
+  verify each worktree's base or have agents fast-forward first.
