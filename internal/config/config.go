@@ -52,6 +52,31 @@ type Config struct {
 	// misconfig surfaces immediately rather than silently dropping
 	// notifications later.
 	Notifications []notify.Destination `json:"notifications,omitempty"`
+	// Usage configures the footer usage monitors (CodexBar-style). Opt-in:
+	// nothing reads credentials or hits the network unless a provider is
+	// listed in Usage.Providers.
+	Usage UsageConfig `json:"usage,omitempty"`
+}
+
+// UsageConfig drives the footer usage indicators. It is fully opt-in: an empty
+// Providers list means the feature is off.
+type UsageConfig struct {
+	// Providers lists the tools to monitor, in footer order. Known ids:
+	// "codex", "openrouter", "claude-code", "copilot", "opencode". Several
+	// touch credentials (Keychain) or the network, so listing is the consent.
+	Providers []string `json:"providers,omitempty"`
+	// OpenRouterKey authenticates the OpenRouter usage GET; falls back to the
+	// OPENROUTER_API_KEY environment variable when empty.
+	OpenRouterKey string `json:"openrouter_key,omitempty"`
+	// OpenCodeCookie is the opencode.ai "auth" session cookie value, required
+	// for the OpenCode subscription-usage scrape (it has no usage API).
+	OpenCodeCookie string `json:"opencode_cookie,omitempty"`
+	// OpenCodeWorkspaceID optionally pins the workspace id, skipping the
+	// lookup that breaks when opencode.ai redeploys.
+	OpenCodeWorkspaceID string `json:"opencode_workspace_id,omitempty"`
+	// RefreshSec is the poll cadence in seconds (default 60). HTTP providers
+	// count against their service's rate limits, so keep it sane.
+	RefreshSec int `json:"refresh_sec,omitempty"`
 }
 
 // TLSConfig points at the cert + key files used when HTTPS is enabled.

@@ -64,7 +64,8 @@
   <span class="seg file">dashboard</span>
   <span class="seg info">harness-deck</span>
   <span class="spacer"></span>
-  <span class="seg pos">127.0.0.1</span>
+  <span class="seg usage" id="usage"></span>
+  <span class="seg pos">{{.Addr}}</span>
 </div>
 
 <script>{{.VimJS}}</script>
@@ -72,6 +73,7 @@
 <script>{{.MobileJS}}</script>
 <script>{{.TabsJS}}</script>
 <script>{{.SearchJS}}</script>
+<script>{{.UsageJS}}</script>
 <script>
   setInterval(() => {
     const d = new Date(), p = (n) => String(n).padStart(2, '0');

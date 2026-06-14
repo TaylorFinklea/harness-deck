@@ -48,6 +48,9 @@ var LiveBannerJS string
 //go:embed search.js
 var SearchJS string
 
+//go:embed usage.js
+var UsageJS string
+
 //go:embed html-block.js
 var HTMLBlockJS string
 
@@ -121,6 +124,9 @@ var LiveBannerJSInline = strings.ReplaceAll(LiveBannerJS, "</script", `<\/script
 
 // SearchJSInline is search.js with </script escaped for safe inlining.
 var SearchJSInline = strings.ReplaceAll(SearchJS, "</script", `<\/script`)
+
+// UsageJSInline is usage.js with </script escaped for safe inlining.
+var UsageJSInline = strings.ReplaceAll(UsageJS, "</script", `<\/script`)
 
 // HTMLBlockJSInline is html-block.js with </script escaped for safe inlining.
 var HTMLBlockJSInline = strings.ReplaceAll(HTMLBlockJS, "</script", `<\/script`)

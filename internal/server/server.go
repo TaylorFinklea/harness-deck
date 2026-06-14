@@ -3,6 +3,7 @@
 package server
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/TaylorFinklea/harness-deck/internal/render"
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
+	"github.com/TaylorFinklea/harness-deck/internal/usage"
 )
 
 //go:embed shell.html.tmpl
@@ -43,6 +46,9 @@ type Server struct {
 	// when nil the push endpoints return 503 and the watcher skips notifying.
 	pushKeys *push.Keys
 	subs     *push.Store
+	// usage is the footer usage monitor, or nil when no usage providers are
+	// configured. Serve starts it; /api/usage serves its cached samples.
+	usage *usage.Monitor
 	// notifMu guards cfg.Notifications + cfg.PublicURL against concurrent
 	// reads from the watcher and writes from /api/notifications/* CRUD.
 	notifMu sync.RWMutex
@@ -93,6 +99,14 @@ func New(cfg config.Config) (*Server, error) {
 	s := &Server{cfg: cfg, store: st, projects: pm, renderer: renderer, shell: shell, hub: newHub(), pushKeys: keys, subs: subs}
 	s.store.Scan(s.enabledRoots())
 
+	// Footer usage monitors (CodexBar-style). nil when no providers configured.
+	s.usage = usage.NewMonitor(usage.Build(usage.Options{
+		Providers:           cfg.Usage.Providers,
+		OpenRouterKey:       cfg.Usage.OpenRouterKey,
+		OpenCodeCookie:      cfg.Usage.OpenCodeCookie,
+		OpenCodeWorkspaceID: cfg.Usage.OpenCodeWorkspaceID,
+	}), time.Duration(cfg.Usage.RefreshSec)*time.Second)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleShell)
 	mux.HandleFunc("GET /api/reports", s.handleReports)
@@ -109,6 +123,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("POST /r/{project}/{run}/unarchive", s.handleReportUnarchive)
 	mux.HandleFunc("DELETE /r/{project}/{run}", s.handleReportDelete)
 	mux.HandleFunc("GET /api/search", s.handleSearch)
+	mux.HandleFunc("GET /api/usage", s.handleUsage)
 	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
 	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)
@@ -155,6 +170,7 @@ func (s *Server) Handler() http.Handler { return s.mux }
 // reachable interface (e.g. a Tailscale address or "0.0.0.0") to expose the
 // dashboard to a phone.
 func (s *Server) Serve() error {
+	s.usage.Start(context.Background())
 	go s.watch(pollInterval)
 	addr := fmt.Sprintf("%s:%d", s.cfg.Bind, s.cfg.Port)
 	if s.cfg.TLS.Enabled() {
@@ -172,9 +188,10 @@ func (s *Server) Serve() error {
 func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.shell.ExecuteTemplate(w, "shell", struct {
-		CSS                                      template.CSS
-		VimJS, AppJS, MobileJS, TabsJS, SearchJS template.JS
-		Favicon                                  template.URL
+		CSS                                               template.CSS
+		VimJS, AppJS, MobileJS, TabsJS, SearchJS, UsageJS template.JS
+		Favicon                                           template.URL
+		Addr                                              string
 	}{
 		CSS:      template.CSS(assets.DeckUICSS),
 		VimJS:    template.JS(assets.VimNavJSInline),
@@ -182,11 +199,35 @@ func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 		MobileJS: template.JS(assets.MobileJSInline),
 		TabsJS:   template.JS(assets.TabsJSInline),
 		SearchJS: template.JS(assets.SearchJSInline),
+		UsageJS:  template.JS(assets.UsageJSInline),
 		Favicon:  template.URL(assets.FaviconDataURI),
+		Addr:     statusAddr(s.cfg),
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// handleUsage serves the cached footer usage samples (CodexBar-style). The
+// array is empty when no usage providers are configured; entries with ok:false
+// carry an err for diagnostics and are skipped by the footer.
+func (s *Server) handleUsage(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	samples := s.usage.Samples() // nil-safe
+	if samples == nil {
+		samples = []usage.Sample{}
+	}
+	_ = json.NewEncoder(w).Encode(samples)
+}
+
+// statusAddr is the host:port shown in the footer — the dashboard's reachable
+// address, scheme stripped (the footer's previous value was hardcoded).
+func statusAddr(cfg config.Config) string {
+	u := cfg.BaseURL()
+	if i := strings.Index(u, "://"); i >= 0 {
+		return u[i+3:]
+	}
+	return u
 }
 
 // handleManifest serves the PWA web app manifest.
