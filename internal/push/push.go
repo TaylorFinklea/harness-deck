@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+	"unicode/utf8"
 )
 
 // Subscription is the shape the browser's PushSubscription.toJSON()
@@ -77,6 +78,11 @@ func NewSender(keys *Keys, subject string) *Sender {
 // Send delivers payload to sub. It returns the HTTP status code so the
 // caller can prune subscriptions the push service reports as Gone (404/410).
 func (s *Sender) Send(ctx context.Context, sub Subscription, payload Payload) (int, error) {
+	// Defense-in-depth: bound the body so the encrypted payload stays under the
+	// aes128gcm record cap (see recordSize in encrypt.go) — a push service
+	// silently drops an oversized payload. The dashboard already caps the body
+	// before calling Send; this protects any other caller.
+	payload.Body = boundBody(payload.Body)
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return 0, fmt.Errorf("marshal payload: %w", err)
@@ -107,6 +113,26 @@ func (s *Sender) Send(ctx context.Context, sub Subscription, payload Payload) (i
 	defer resp.Body.Close()
 	io.Copy(io.Discard, resp.Body)
 	return resp.StatusCode, nil
+}
+
+// maxPayloadBody bounds a notification body before encryption. The aes128gcm
+// record is capped (recordSize in encrypt.go) and a push service silently
+// drops an oversized payload; 3000 bytes leaves ample room for the title, tag,
+// URL, and JSON + encryption overhead within that record.
+const maxPayloadBody = 3000
+
+// boundBody returns body unchanged when it fits maxPayloadBody bytes, else a
+// rune-boundary-safe prefix with a trailing ellipsis.
+func boundBody(body string) string {
+	if len(body) <= maxPayloadBody {
+		return body
+	}
+	const ellipsis = "…"
+	cut := maxPayloadBody - len(ellipsis)
+	for cut > 0 && !utf8.RuneStart(body[cut]) {
+		cut--
+	}
+	return body[:cut] + ellipsis
 }
 
 // audienceOf returns scheme://host for use as the JWT "aud" claim.

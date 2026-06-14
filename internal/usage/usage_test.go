@@ -327,3 +327,71 @@ func indexOf(s, sub string) int {
 	}
 	return -1
 }
+
+// errServer returns a server that always replies with the given status.
+func errServer(t *testing.T, status int) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(`{"error":"nope"}`))
+	}))
+}
+
+// TestOpenRouterHTTPError: a non-2xx response yields OK:false (getJSON's
+// non-2xx branch), not a panic or a bogus sample.
+func TestOpenRouterHTTPError(t *testing.T) {
+	srv := errServer(t, 401)
+	defer srv.Close()
+	swap(&openRouterURL, srv.URL)
+	if s := (openRouterProvider{key: "k"}).Sample(context.Background()); s.OK {
+		t.Errorf("401 must not be OK: %+v", s)
+	}
+}
+
+// copilotHome points HOME at a temp dir holding a valid apps.json token so the
+// Copilot provider reaches its HTTP call.
+func copilotHome(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	dir := filepath.Join(home, ".config", "github-copilot")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "apps.json"),
+		[]byte(`{"github.com:Iv1.abc":{"oauth_token":"ghu_test"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+}
+
+func TestCopilotUnlimited(t *testing.T) {
+	copilotHome(t)
+	srv := jsonServer(t, `{"copilot_plan":"business","quota_snapshots":{"premium_interactions":{"unlimited":true}}}`)
+	defer srv.Close()
+	swap(&copilotUsageURL, srv.URL)
+	s := copilotProvider{}.Sample(context.Background())
+	if !s.OK || s.Kind != KindBudget || s.Text != "unlimited" {
+		t.Errorf("unlimited plan: got %+v", s)
+	}
+}
+
+func TestCopilotNoPremium(t *testing.T) {
+	copilotHome(t)
+	srv := jsonServer(t, `{"copilot_plan":"free","quota_snapshots":{"premium_interactions":{"entitlement":0}}}`)
+	defer srv.Close()
+	swap(&copilotUsageURL, srv.URL)
+	s := copilotProvider{}.Sample(context.Background())
+	if !s.OK || s.Kind != KindBudget || s.Text != "no premium" {
+		t.Errorf("no-premium plan: got %+v", s)
+	}
+}
+
+func TestCopilotHTTPError(t *testing.T) {
+	copilotHome(t)
+	srv := errServer(t, 403)
+	defer srv.Close()
+	swap(&copilotUsageURL, srv.URL)
+	if s := (copilotProvider{}).Sample(context.Background()); s.OK {
+		t.Errorf("403 must not be OK: %+v", s)
+	}
+}
