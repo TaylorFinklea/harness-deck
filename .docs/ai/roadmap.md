@@ -46,6 +46,10 @@ One line each; detail in decisions.md + git log.
   audit|review|progress|decision|idea` pre-fills the block shapes each kind
   needs; title + kind default from the template. decisions.md "Report
   templates".
+- **Draft reports don't surface as open asks** _(2026-06-13)_ — a `draft`
+  report's interactive blocks no longer count in OpenAsks or fire push (they
+  still render + stay answerable); aligns with the documented status lifecycle.
+  decisions.md "Draft reports don't surface as open asks".
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
@@ -76,15 +80,6 @@ findings). Sequencing decision: release → fix highs → launch.
 
 ## Next
 
-- **Draft reports shouldn't surface as open asks / fire push** _(found
-  2026-06-13 during the templates review; decision needed — app-wide behavior
-  change)_. A `status: draft` report with an interactive block still counts in
-  OpenAsks and fires Web Push + fanout, so scaffolding an interactive template
-  (review/decision/idea) into a watched dir notifies for placeholder content.
-  Fix: gate OpenAsks on `status != "draft"` so draft means "not surfaced yet,"
-  matching PUBLISHING.md's documented lifecycle. Files: internal/store/store.go
-  (OpenAsks counting ~228-238), internal/server/push.go currentAskDigests
-  (~136). `tier_floor`: senior, `complexity`: M.
 - **Perf wave** (measure first via the scan-timing log): mtime-keyed
   incremental scan in store.Scan (measured ~6× tick reduction); cap
   /api/projects history (~50 runs + `?all=1`); cache rendered roadmap/

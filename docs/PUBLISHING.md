@@ -235,7 +235,10 @@ just an empty answer set.
 The `status` field changes the report's accent in the inbox. You're free to
 set it however your harness models a run; a typical progression is:
 
-- `draft` — written but not ready for the user yet.
+- `draft` — written but not ready for the user yet. Interactive blocks in a
+  `draft` do **not** count as open asks or fire notifications; they still
+  render and stay answerable on the report page. Flip to `awaiting-review` when
+  the questions are real.
 - `awaiting-review` — questions are live, the user should look.
 - `answered` — user has responded, harness has not yet acted on it.
 - `done` — terminal state.

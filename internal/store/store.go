@@ -236,6 +236,15 @@ func loadEntry(path, source string) (Entry, string, error) {
 		}
 		e.OpenAsks++
 	}
+	// A draft report is "not ready for the user yet" (the status lifecycle in
+	// docs/PUBLISHING.md), so its asks must not surface as open asks or fire a
+	// push — a freshly scaffolded `new --template decision` shouldn't notify
+	// for placeholder content. The asks still render and stay answerable on the
+	// report page; they just don't count until the author flips status off
+	// draft. (Push and the inbox/projects/MCP counters all key off OpenAsks.)
+	if e.Status == "draft" {
+		e.OpenAsks = 0
+	}
 	if e.Project == "" {
 		e.Project = "(unknown)"
 	}

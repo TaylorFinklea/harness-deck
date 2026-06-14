@@ -25,6 +25,47 @@ func writeReport(t *testing.T, dir, id, project, status string) {
 	}
 }
 
+// writeAskReport writes a report carrying one unanswered yes/no ask at the
+// given status — used to exercise the OpenAsks counter.
+func writeAskReport(t *testing.T, dir, id, project, status string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rep := fmt.Sprintf(`{"schema":"harness-deck/report@1","id":%q,"project":%q,
+	  "harness":"claude-code","title":"t","status":%q,
+	  "created":"2026-05-18T18:39:50Z",
+	  "blocks":[{"type":"ask","id":"a1","prompt":"ok?","mode":"yesno"}]}`,
+		id, project, status)
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(rep), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestScanDraftReportSuppressesOpenAsks guards the lifecycle rule: a draft
+// report's interactive blocks do not count as open asks (so they neither
+// surface in the inbox/projects/MCP counters nor fire a push), while the same
+// report at awaiting-review does count.
+func TestScanDraftReportSuppressesOpenAsks(t *testing.T) {
+	central := t.TempDir()
+	writeAskReport(t, filepath.Join(central, "draft-r"), "draft-r", "demo", "draft")
+	writeAskReport(t, filepath.Join(central, "live-r"), "live-r", "demo", "awaiting-review")
+
+	s := New(config.Config{CentralDir: central})
+	s.Scan(nil)
+
+	got := map[string]int{}
+	for _, e := range s.Entries() {
+		got[e.Run] = e.OpenAsks
+	}
+	if got["draft-r"] != 0 {
+		t.Errorf("draft report OpenAsks = %d, want 0 (draft must not surface asks)", got["draft-r"])
+	}
+	if got["live-r"] != 1 {
+		t.Errorf("awaiting-review report OpenAsks = %d, want 1", got["live-r"])
+	}
+}
+
 func TestScanFindsCentralAndProjectReports(t *testing.T) {
 	central := t.TempDir()
 	proj := t.TempDir()

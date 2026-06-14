@@ -584,5 +584,27 @@ commit.
 - **Discovered, routed not fixed:** a `draft` report with an interactive block
   still counts as an open ask and fires push — so an interactive template
   scaffolded into a watched dir notifies for placeholder content. App-wide
-  behavior change, so it's a roadmap Next item (decision needed), not folded
-  into this feature.
+  behavior change, so it was a roadmap Next item (decision needed), not folded
+  into this feature. → resolved same day, see below.
+
+## 2026-06-13 — Draft reports don't surface as open asks
+
+Follow-up to the templates review (user chose "fix it now"). A `status: draft`
+report's interactive blocks no longer count toward `Entry.OpenAsks`, so they
+don't show in the inbox/projects/MCP open-ask counters and don't fire Web Push
+or fan-out. The asks still render and stay answerable on the report page; they
+start surfacing the moment the author flips status off `draft`.
+
+- **Gated at the single computation point** (`internal/store/store.go`,
+  `entryFromReport`: `if e.Status == "draft" { e.OpenAsks = 0 }`) rather than at
+  each consumer. Every surface (the `/api/reports` inbox badge, `push.go`'s
+  `currentAskDigests` gate, `projects.go`, `mcp` `list_reports`) reads
+  `OpenAsks`, so one change covers them all and redefines the field to "open
+  asks that are ready for the user." The report-page ask list is computed
+  separately in `render.go`, so a draft's asks still render on its own page.
+- **Why this is correct, not just convenient:** it aligns behavior with the
+  status lifecycle already documented in docs/PUBLISHING.md ("draft = not ready
+  for the user yet"). Flipping to `awaiting-review` makes the asks appear in the
+  digest and fires the push once — the intended "now it's ready" signal.
+- No test relied on a draft surfacing asks (full suite + `-race` stayed green);
+  `TestScanDraftReportSuppressesOpenAsks` is the new guard.
