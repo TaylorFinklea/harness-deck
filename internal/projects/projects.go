@@ -23,7 +23,7 @@ import (
 
 // Project is one discovered project root.
 type Project struct {
-	Name    string `json:"name"`    // directory basename
+	Name    string `json:"name"`    // display name (directory basename; disambiguated with a parent-dir hint on collision) — also the persistence key
 	Path    string `json:"path"`    // absolute path to the project root
 	Enabled bool   `json:"enabled"` // false when the user has hidden it
 }
