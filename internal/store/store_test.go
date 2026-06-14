@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 )
@@ -303,5 +304,158 @@ func TestScanSurfacesCorruptResponsesWithoutDroppingReport(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("corrupt responses.json not surfaced in Errors(): %v", s.Errors())
+	}
+}
+
+// TestScanCacheHitServesStaleUntilMtimeChanges proves that the mtime-keyed
+// cache reuses a prior Entry when report.json's mtime is unchanged (cache hit)
+// and re-parses only after the mtime advances (cache invalidation).
+func TestScanCacheHitServesStaleUntilMtimeChanges(t *testing.T) {
+	central := t.TempDir()
+	dir := filepath.Join(central, "proj", "r1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	reportPath := filepath.Join(dir, "report.json")
+
+	// Write the initial report with title "old-title".
+	v1 := `{"schema":"harness-deck/report@1","id":"r1","project":"proj",` +
+		`"harness":"claude-code","title":"old-title","status":"awaiting-review",` +
+		`"created":"2026-05-18T18:39:50Z","blocks":[{"type":"prose","markdown":"x"}]}`
+	if err := os.WriteFile(reportPath, []byte(v1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Warm the cache.
+	s := New(config.Config{CentralDir: central})
+	s.Scan(nil)
+
+	// Capture the mtime the cache keyed on.
+	fi, err := os.Stat(reportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalMtime := fi.ModTime()
+
+	// Overwrite with a different title but pin the mtime back to the original.
+	v2 := `{"schema":"harness-deck/report@1","id":"r1","project":"proj",` +
+		`"harness":"claude-code","title":"new-title","status":"awaiting-review",` +
+		`"created":"2026-05-18T18:39:50Z","blocks":[{"type":"prose","markdown":"x"}]}`
+	if err := os.WriteFile(reportPath, []byte(v2), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(reportPath, originalMtime, originalMtime); err != nil {
+		t.Fatal(err)
+	}
+
+	// Scan: mtime unchanged → cache hit → must still show old-title.
+	s.Scan(nil)
+	entries := s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if entries[0].Title != "old-title" {
+		t.Errorf("cache hit: title = %q, want %q (cache must serve the prior parse)", entries[0].Title, "old-title")
+	}
+
+	// Advance the mtime so the cache key changes → must re-parse and see new-title.
+	future := originalMtime.Add(2 * time.Second)
+	if err := os.Chtimes(reportPath, future, future); err != nil {
+		t.Fatal(err)
+	}
+
+	s.Scan(nil)
+	entries = s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if entries[0].Title != "new-title" {
+		t.Errorf("cache invalidation: title = %q, want %q (mtime change must trigger re-parse)", entries[0].Title, "new-title")
+	}
+}
+
+// TestScanCacheInvalidatesOnResponsesChange proves that when responses.json is
+// written (answering an ask), the next Scan re-parses the entry (because the
+// responses-mtime component of the cache key changed) and returns OpenAsks==0.
+func TestScanCacheInvalidatesOnResponsesChange(t *testing.T) {
+	central := t.TempDir()
+	dir := filepath.Join(central, "proj", "r1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	reportPath := filepath.Join(dir, "report.json")
+	responsesPath := filepath.Join(dir, "responses.json")
+
+	// Write a report with one unanswered ask at awaiting-review (not draft,
+	// so OpenAsks is counted).
+	report := `{"schema":"harness-deck/report@1","id":"r1","project":"proj",` +
+		`"harness":"claude-code","title":"t","status":"awaiting-review",` +
+		`"created":"2026-05-18T18:39:50Z",` +
+		`"blocks":[{"type":"ask","id":"a1","prompt":"ok?","mode":"yesno"}]}`
+	if err := os.WriteFile(reportPath, []byte(report), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Warm the cache; the ask must be open.
+	s := New(config.Config{CentralDir: central})
+	s.Scan(nil)
+	entries := s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if entries[0].OpenAsks != 1 {
+		t.Fatalf("before response: OpenAsks = %d, want 1", entries[0].OpenAsks)
+	}
+
+	// Write responses.json answering the ask (bumps its mtime).
+	resp := `{"run":"r1","project":"proj","updated":"2026-05-18T19:00:00Z",` +
+		`"responses":{"a1":{"block":"a1","value":"yes","at":"2026-05-18T19:00:00Z"}}}`
+	if err := os.WriteFile(responsesPath, []byte(resp), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Scan again; the responses-mtime changed so the cache is invalid and the
+	// entry is re-parsed — OpenAsks must now be 0.
+	s.Scan(nil)
+	entries = s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if entries[0].OpenAsks != 0 {
+		t.Errorf("after response: OpenAsks = %d, want 0 (cache must re-parse on responses change)", entries[0].OpenAsks)
+	}
+}
+
+// TestScanDeletedReportDropsFromCache proves that a run directory removed
+// between scans is not served from the stale cache — the deleted report must
+// vanish from Entries() on the next scan.
+func TestScanDeletedReportDropsFromCache(t *testing.T) {
+	central := t.TempDir()
+	dir1 := filepath.Join(central, "proj", "r1")
+	dir2 := filepath.Join(central, "proj", "r2")
+	writeReport(t, dir1, "r1", "proj", "done")
+	writeReport(t, dir2, "r2", "proj", "done")
+
+	// Warm: both reports indexed.
+	s := New(config.Config{CentralDir: central})
+	s.Scan(nil)
+	if got := len(s.Entries()); got != 2 {
+		t.Fatalf("after warm: entries = %d, want 2", got)
+	}
+
+	// Delete one run directory.
+	if err := os.RemoveAll(dir2); err != nil {
+		t.Fatal(err)
+	}
+
+	// Scan again: the deleted report must not appear (the cache must not serve
+	// a path that no longer exists on disk).
+	s.Scan(nil)
+	entries := s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("after delete: entries = %d, want 1", len(entries))
+	}
+	if entries[0].Run != "r1" {
+		t.Errorf("after delete: remaining run = %q, want %q", entries[0].Run, "r1")
 	}
 }
