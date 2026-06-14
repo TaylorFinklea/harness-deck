@@ -6,11 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/render"
 	"github.com/TaylorFinklea/harness-deck/internal/respond"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
+
+// historyCap bounds the per-project run timeline in /api/projects by default;
+// the full set is available with ?all=1. Capping keeps a project with a deep
+// history from loading every responses.json on every poll.
+const historyCap = 50
 
 // historyRun is one run as the project-history timeline shows it: the entry
 // fields the inbox already exposes, plus the responses recorded against it
@@ -36,14 +42,47 @@ type projectView struct {
 	HasState         bool          `json:"has_state"`
 	RoadmapHTML      string        `json:"roadmap_html"` // rendered roadmap.md
 	HasRoadmap       bool          `json:"has_roadmap"`
-	Reports          []store.Entry `json:"reports"` // reports of kind "roadmap"
-	History          []historyRun  `json:"history"` // every run, newest first
+	Reports          []store.Entry `json:"reports"`       // reports of kind "roadmap"
+	History          []historyRun  `json:"history"`       // runs, newest first (capped unless ?all=1)
+	HistoryTotal     int           `json:"history_total"` // total runs before the cap
+}
+
+// docCacheEntry is one rendered project markdown file, memoized by mtime.
+type docCacheEntry struct {
+	mod  time.Time
+	html string
+}
+
+// renderDoc returns the rendered HTML of a project markdown file, reusing the
+// cached render when the file's mtime is unchanged. ok is false when the file
+// is absent or unreadable.
+func (s *Server) renderDoc(path string) (string, bool) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return "", false
+	}
+	s.docMu.Lock()
+	defer s.docMu.Unlock()
+	if c, ok := s.docCache[path]; ok && c.mod.Equal(fi.ModTime()) {
+		return c.html, true
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	html := string(render.Markdown(string(data)))
+	s.docCache[path] = docCacheEntry{mod: fi.ModTime(), html: html}
+	return html, true
 }
 
 // handleProjects renders the projects view: for every enabled project its
 // current-state.md and roadmap.md, plus reports of kind "roadmap". It also
 // returns the full discovered list so the settings panel can show toggles.
-func (s *Server) handleProjects(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
+	limit := historyCap
+	if r.URL.Query().Get("all") == "1" {
+		limit = 0 // 0 = no cap
+	}
 	// Group reports by project. Two slices per project:
 	//   - roadmapReports: kind="roadmap", non-archived — the "plan" panel.
 	//   - allReports: every entry (any kind, including archived) — the
@@ -66,19 +105,21 @@ func (s *Server) handleProjects(w http.ResponseWriter, _ *http.Request) {
 		if !p.Enabled {
 			continue
 		}
+		hist, total := buildHistory(allReports[p.Name], limit)
 		pv := projectView{
-			Project: p.Name,
-			Reports: roadmapReports[p.Name],
-			History: buildHistory(allReports[p.Name]),
+			Project:      p.Name,
+			Reports:      roadmapReports[p.Name],
+			History:      hist,
+			HistoryTotal: total,
 		}
 		aiDir := filepath.Join(p.Path, ".docs", "ai")
-		if data, err := os.ReadFile(filepath.Join(aiDir, "current-state.md")); err == nil {
+		if html, ok := s.renderDoc(filepath.Join(aiDir, "current-state.md")); ok {
 			pv.HasState = true
-			pv.CurrentStateHTML = string(render.Markdown(string(data)))
+			pv.CurrentStateHTML = html
 		}
-		if data, err := os.ReadFile(filepath.Join(aiDir, "roadmap.md")); err == nil {
+		if html, ok := s.renderDoc(filepath.Join(aiDir, "roadmap.md")); ok {
 			pv.HasRoadmap = true
-			pv.RoadmapHTML = string(render.Markdown(string(data)))
+			pv.RoadmapHTML = html
 		}
 		views = append(views, pv)
 	}
@@ -90,10 +131,12 @@ func (s *Server) handleProjects(w http.ResponseWriter, _ *http.Request) {
 		if known[name] {
 			continue
 		}
+		hist, total := buildHistory(reports, limit)
 		views = append(views, projectView{
-			Project: name,
-			Reports: roadmapReports[name],
-			History: buildHistory(reports),
+			Project:      name,
+			Reports:      roadmapReports[name],
+			History:      hist,
+			HistoryTotal: total,
 		})
 	}
 
@@ -105,13 +148,21 @@ func (s *Server) handleProjects(w http.ResponseWriter, _ *http.Request) {
 }
 
 // buildHistory turns a project's entry list into the retrospective timeline:
-// every run newest-first, with its responses.json inlined. Each entry's
-// responses load is a single file read — the watcher already touches every
-// responses.json into the store fingerprint, so the kernel page cache makes
-// this nearly free in practice.
-func buildHistory(entries []store.Entry) []historyRun {
-	runs := make([]historyRun, 0, len(entries))
-	for _, e := range entries {
+// runs newest-first, with each run's responses.json inlined. It sorts first,
+// then applies limit (0 = no cap), then loads responses only for the kept runs
+// — so a deep history doesn't read every responses.json on every poll. It
+// returns the kept runs plus the total before capping (for "N of M" display).
+func buildHistory(entries []store.Entry, limit int) (runs []historyRun, total int) {
+	sorted := append([]store.Entry(nil), entries...)
+	// store.Entries() is already sorted by Created desc, but the per-project
+	// slices were built in that traversal order; re-sort to be defensive.
+	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Created > sorted[j].Created })
+	total = len(sorted)
+	if limit > 0 && len(sorted) > limit {
+		sorted = sorted[:limit]
+	}
+	runs = make([]historyRun, 0, len(sorted))
+	for _, e := range sorted {
 		var resps []respond.Response
 		if file, err := respond.Load(e.Dir); err == nil {
 			resps = make([]respond.Response, 0, len(file.Responses))
@@ -134,10 +185,7 @@ func buildHistory(entries []store.Entry) []historyRun {
 			Responses: resps,
 		})
 	}
-	// store.Entries() is already sorted by Created desc, but the per-project
-	// slices were built in that traversal order; re-sort to be defensive.
-	sort.SliceStable(runs, func(i, j int) bool { return runs[i].Created > runs[j].Created })
-	return runs
+	return runs, total
 }
 
 // projectToggleRequest is the POST body for hiding or showing a project.

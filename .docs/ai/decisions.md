@@ -652,3 +652,26 @@ the statusline. Full data-source research + per-tool fields:
   disclosure beyond the credential host.
 - **Drive-by:** the footer address was hardcoded `127.0.0.1`; now shows the
   real bind/URL via `statusAddr(cfg.BaseURL())`.
+
+## 2026-06-14 — Perf wave (scan + projects endpoint)
+
+Three changes, all measure-first / cache-by-mtime, no behavior change:
+
+- **Incremental scan** (`store.Scan`) — reuse the previous scan's parsed Entry
+  when a report's `(path, mtime, respMtime)` is unchanged, keying on the exact
+  tuple `Signature()` already trusts, so no new staleness. ~6.9× faster warm
+  ticks on realistic manifests (BenchmarkScanCold/Warm). The retained soft
+  warning (corrupt responses.json) is cached too so it keeps surfacing.
+- **/api/projects history cap** — `buildHistory` sorts, caps to `historyCap`
+  (50) by default, then loads `responses.json` only for the kept runs (the cap
+  is applied *before* the per-run file reads — the actual win, since the
+  endpoint is re-fetched on every SSE refresh). `?all=1` removes the cap;
+  `history_total` is surfaced so the footer/panel shows "newest 50 of N".
+- **Rendered-doc cache** — project `roadmap.md`/`current-state.md` markdown is
+  rendered once and memoized by file mtime (`Server.docCache`, guarded by
+  `docMu`), instead of re-running the in-house renderer for every project on
+  every poll. Invalidates when mtime changes; cache is bounded by project count.
+
+Tests: BenchmarkScanCold/Warm + the store suite; `TestProjectsHistoryCapped`
+and `TestRenderDocCachesByMtime` (the latter pins both cache-hit-by-mtime and
+invalidation via `os.Chtimes`). Full suite + `-race` green.

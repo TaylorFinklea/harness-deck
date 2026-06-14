@@ -546,7 +546,11 @@
       (p.reports || []).forEach(function (r) { body.push(itemRow(r)); });
       var hist = p.history || [];
       if (hist.length) {
-        body.push(el('div', { class: 'proj-sec', text: 'history' }));
+        var total = p.history_total || hist.length;
+        var label = total > hist.length
+          ? 'history — newest ' + hist.length + ' of ' + total + ' (?all=1 for all)'
+          : 'history';
+        body.push(el('div', { class: 'proj-sec', text: label }));
         body.push(el('div', { class: 'history' }, hist.map(historyRow)));
       }
       var n = (p.reports || []).length;

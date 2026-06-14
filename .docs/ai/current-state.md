@@ -2,7 +2,7 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main, **17 commits ahead of origin (unpushed — user pushes)**.
+- Branch: main, **18 commits ahead of origin (unpushed — user pushes)**.
   Build + `go test -race ./...` green.
 - **v0.2.6 released.** Since: audit backlog cleared, report templates,
   draft-gating (all 2026-06-13).
@@ -10,9 +10,9 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   codex/openrouter/claude-code/copilot/opencode (opt-in `usage.providers`);
   3-lens reviewed; commits 3292e4a + b074c6b. decisions.md "Usage monitors";
   spec phases/usage-monitors-spec.md.
-- **Perf wave** (roadmap Next): incremental mtime-keyed scan done (67b247b,
-  ~6.9×). Remaining parked: projects-history cap (~50 + ?all=1), render-HTML
-  mtime cache.
+- **Perf wave complete 2026-06-14** — incremental scan (~6.9×, 67b247b) +
+  /api/projects history cap (50, ?all=1) + mtime-cached doc render.
+  decisions.md "Perf wave".
 
 ## Plan
 

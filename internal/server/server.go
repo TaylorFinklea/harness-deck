@@ -49,6 +49,12 @@ type Server struct {
 	// usage is the footer usage monitor, or nil when no usage providers are
 	// configured. Serve starts it; /api/usage serves its cached samples.
 	usage *usage.Monitor
+
+	// docCache memoizes rendered project markdown (roadmap.md / current-state.md)
+	// keyed by file path, invalidated by mtime, so /api/projects doesn't
+	// re-render every doc on every poll. Guarded by docMu.
+	docMu    sync.Mutex
+	docCache map[string]docCacheEntry
 	// notifMu guards cfg.Notifications + cfg.PublicURL against concurrent
 	// reads from the watcher and writes from /api/notifications/* CRUD.
 	notifMu sync.RWMutex
@@ -96,7 +102,7 @@ func New(cfg config.Config) (*Server, error) {
 	}
 	subs := push.NewStore(filepath.Join(config.Dir(), "subscriptions.json"))
 
-	s := &Server{cfg: cfg, store: st, projects: pm, renderer: renderer, shell: shell, hub: newHub(), pushKeys: keys, subs: subs}
+	s := &Server{cfg: cfg, store: st, projects: pm, renderer: renderer, shell: shell, hub: newHub(), pushKeys: keys, subs: subs, docCache: map[string]docCacheEntry{}}
 	s.store.Scan(s.enabledRoots())
 
 	// Footer usage monitors (CodexBar-style). nil when no providers configured.
