@@ -50,6 +50,10 @@ One line each; detail in decisions.md + git log.
   report's interactive blocks no longer count in OpenAsks or fire push (they
   still render + stay answerable); aligns with the documented status lifecycle.
   decisions.md "Draft reports don't surface as open asks".
+- **Config live-reload of project roots** _(2026-06-14, 0ac9ea6)_ — the watcher
+  stats config.json each tick and reloads scan_roots/projects via
+  Manager.SetRoots, so `register` is picked up without a restart (was a Next
+  item; the --help claim is now true). Roots only; other config still restart.
 - **Perf wave** _(2026-06-14, complete)_ — (1) incremental mtime-keyed scan in
   store.Scan, ~6.9× faster warm ticks (67b247b); (2) /api/projects history
   capped to 50 newest (+`?all=1`, `history_total` surfaced), responses loaded
@@ -92,9 +96,6 @@ findings). Sequencing decision: release → fix highs → launch.
 - **aggregator.js split** along comment seams via Go-side concatenation
   (settings/push/destinations chunk first); `CustomEvent('hd:pins-changed')`
   replaces the single-slot HDPinsChanged; drop the HDTabs shim.
-- **register/config reload asymmetry** — `register --help` claims the watcher
-  picks it up; it doesn't. Either fix the text or stat config.json in tick()
-  and reload roots.
 
 ## Backlog
 

@@ -2,16 +2,19 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main, **25 commits ahead of origin (unpushed — user pushes)**.
-  Build + `go test -race ./...` green.
-- **v0.2.6 released.** Since (2026-06-13): audit backlog cleared, report
-  templates, draft-gating.
+- Branch: main; origin/main pushed through `89b3f5e`. Unpushed: `0ac9ea6`
+  (config root live-reload) + this doc commit. Build + `go test -race ./...`
+  green.
+- **v0.2.6 released + approved** (2026-06-14 dashboard sign-off).
+- **v0.2.6 era (2026-06-13):** audit backlog cleared, report templates,
+  draft-gating.
 - **2026-06-14:** usage monitors (CodexBar footer, opt-in `usage.providers`;
   decisions.md "Usage monitors"); perf wave complete (incremental scan ~6.9×,
   /api/projects history cap, mtime-cached doc render; "Perf wave"); **session-
   code audit + tiered clear-out** (5-lens audit → Opus/Sonnet/Haiku fixes;
   fixed a major draft↔awaiting-review re-notification bug + nits + test gaps;
-  decisions.md "Session-code audit").
+  decisions.md "Session-code audit"); config live-reload of project roots
+  (`register` now works without restart; 0ac9ea6).
 - Backlog: now only deferred-with-rationale items (jsonfile order-preserving
   patch + a few micro-followups) — see roadmap Backlog.
 
