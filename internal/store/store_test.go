@@ -11,6 +11,56 @@ import (
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 )
 
+// benchReports populates dir with n report run directories (half also carry a
+// responses.json) for the scan benchmarks. Each manifest carries a realistic
+// few-KB markdown body so the benchmark reflects real parse cost, not a
+// degenerate one-line report.
+func benchReports(b *testing.B, dir string, n int) {
+	b.Helper()
+	body := strings.Repeat("Lorem ipsum **dolor** sit amet, `consectetur` adipiscing elit. ", 40)
+	for i := 0; i < n; i++ {
+		d := filepath.Join(dir, fmt.Sprintf("proj%d", i%10), fmt.Sprintf("run%d", i))
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			b.Fatal(err)
+		}
+		rep := fmt.Sprintf(`{"schema":"harness-deck/report@1","id":"run%d","project":"proj%d","harness":"h","title":"t","status":"awaiting-review","created":"2026-05-18T18:39:50Z","blocks":[{"type":"prose","title":"summary","markdown":%q},{"type":"prose","title":"detail","markdown":%q},{"type":"recommendations","items":[{"id":"r1","markdown":"do a thing"},{"id":"r2","markdown":"do another"}]},{"type":"ask","id":"a1","prompt":"ok?","mode":"yesno"}]}`, i, i%10, body, body)
+		if err := os.WriteFile(filepath.Join(d, "report.json"), []byte(rep), 0o644); err != nil {
+			b.Fatal(err)
+		}
+		if i%2 == 0 {
+			_ = os.WriteFile(filepath.Join(d, "responses.json"), []byte(`{"run":"x","project":"y","responses":{}}`), 0o644)
+		}
+	}
+}
+
+// BenchmarkScanCold is a scan with an empty cache — every report is read and
+// parsed. This is the first-scan cost and the pre-incremental-cache behavior.
+func BenchmarkScanCold(b *testing.B) {
+	dir := b.TempDir()
+	benchReports(b, dir, 500)
+	cfg := config.Config{CentralDir: dir}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		New(cfg).Scan(nil) // fresh store ⇒ empty cache ⇒ full re-parse
+	}
+}
+
+// BenchmarkScanWarm is a repeated scan of an unchanged report set — the common
+// watcher tick. After the first scan the mtime-keyed cache serves every entry,
+// so only the walk + stats run.
+func BenchmarkScanWarm(b *testing.B) {
+	dir := b.TempDir()
+	benchReports(b, dir, 500)
+	s := New(config.Config{CentralDir: dir})
+	s.Scan(nil) // warm the cache
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.Scan(nil)
+	}
+}
+
 func writeReport(t *testing.T, dir, id, project, status string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
