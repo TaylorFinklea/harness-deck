@@ -1,0 +1,12 @@
+{
+  "run": "20260610-v026-verify",
+  "project": "harness-deck",
+  "updated": "2026-06-14T21:17:43Z",
+  "responses": {
+    "v026-signoff": {
+      "block": "v026-signoff",
+      "value": "approved",
+      "at": "2026-06-14T21:17:43Z"
+    }
+  }
+}

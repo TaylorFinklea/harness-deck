@@ -17,8 +17,8 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Plan
 
-- [?] awaiting human verify — v0.2.6 six-check matrix; approval in
-  `.harness/20260610-v026-verify/`.
+- [x] v0.2.6 six-check matrix — **approved 2026-06-14** (dashboard sign-off,
+  report auto-archived).
 - [?] awaiting human verify — 3 frontend audit fixes (commit 2b3c78a),
   roadmap Now item 5.
 
