@@ -67,6 +67,28 @@ func TestProjectsHistoryCapped(t *testing.T) {
 	}
 }
 
+// TestProjectsHistoryAtExactCap checks the boundary: exactly historyCap runs
+// are NOT truncated (the cap is a strict `len > limit`), and history_total
+// equals the count.
+func TestProjectsHistoryAtExactCap(t *testing.T) {
+	central := t.TempDir()
+	for i := 0; i < historyCap; i++ {
+		minimalReport(t, central, "exact", "run"+itoa3(i))
+	}
+	s := newTestServerFull(t, config.Config{CentralDir: central})
+
+	p := findProject(getProjects(t, s, "/api/projects"), "exact")
+	if p == nil {
+		t.Fatal("project 'exact' not found")
+	}
+	if len(p.History) != historyCap {
+		t.Errorf("history len = %d, want %d (exactly cap → no truncation)", len(p.History), historyCap)
+	}
+	if p.HistoryTotal != historyCap {
+		t.Errorf("history_total = %d, want %d", p.HistoryTotal, historyCap)
+	}
+}
+
 // TestRenderDocCachesByMtime verifies the doc cache serves a memoized render
 // while the file's mtime is unchanged and re-renders once it changes.
 func TestRenderDocCachesByMtime(t *testing.T) {

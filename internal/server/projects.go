@@ -57,12 +57,15 @@ type docCacheEntry struct {
 // cached render when the file's mtime is unchanged. ok is false when the file
 // is absent or unreadable.
 func (s *Server) renderDoc(path string) (string, bool) {
+	// Stat under the lock so the mtime stored in the cache always matches the
+	// content read below — no TOCTOU window where a concurrent write leaves a
+	// pre-write mtime keying post-write content (a permanently-missing slot).
+	s.docMu.Lock()
+	defer s.docMu.Unlock()
 	fi, err := os.Stat(path)
 	if err != nil {
 		return "", false
 	}
-	s.docMu.Lock()
-	defer s.docMu.Unlock()
 	if c, ok := s.docCache[path]; ok && c.mod.Equal(fi.ModTime()) {
 		return c.html, true
 	}
@@ -73,6 +76,18 @@ func (s *Server) renderDoc(path string) (string, bool) {
 	html := string(render.Markdown(string(data)))
 	s.docCache[path] = docCacheEntry{mod: fi.ModTime(), html: html}
 	return html, true
+}
+
+// pruneDocCache drops cached renders whose path is not in the active set, so a
+// hidden or removed project's docs don't linger in the cache forever.
+func (s *Server) pruneDocCache(active map[string]bool) {
+	s.docMu.Lock()
+	defer s.docMu.Unlock()
+	for path := range s.docCache {
+		if !active[path] {
+			delete(s.docCache, path)
+		}
+	}
 }
 
 // handleProjects renders the projects view: for every enabled project its
@@ -98,7 +113,8 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	discovered := s.projects.Discovered()
-	known := map[string]bool{} // every discovered name, hidden or not
+	known := map[string]bool{}      // every discovered name, hidden or not
+	activeDocs := map[string]bool{} // doc paths rendered this request (for cache pruning)
 	views := []projectView{}
 	for _, p := range discovered {
 		known[p.Name] = true
@@ -113,16 +129,21 @@ func (s *Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 			HistoryTotal: total,
 		}
 		aiDir := filepath.Join(p.Path, ".docs", "ai")
-		if html, ok := s.renderDoc(filepath.Join(aiDir, "current-state.md")); ok {
+		csPath := filepath.Join(aiDir, "current-state.md")
+		rmPath := filepath.Join(aiDir, "roadmap.md")
+		activeDocs[csPath] = true
+		activeDocs[rmPath] = true
+		if html, ok := s.renderDoc(csPath); ok {
 			pv.HasState = true
 			pv.CurrentStateHTML = html
 		}
-		if html, ok := s.renderDoc(filepath.Join(aiDir, "roadmap.md")); ok {
+		if html, ok := s.renderDoc(rmPath); ok {
 			pv.HasRoadmap = true
 			pv.RoadmapHTML = html
 		}
 		views = append(views, pv)
 	}
+	s.pruneDocCache(activeDocs)
 	// Projects seen only through reports (e.g. a central-dir report whose
 	// project has no discovered root) still get an entry — but a discovered
 	// project the user hid stays hidden. The history needs the full report
