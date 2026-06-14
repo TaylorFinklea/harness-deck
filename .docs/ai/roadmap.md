@@ -50,6 +50,13 @@ One line each; detail in decisions.md + git log.
   report's interactive blocks no longer count in OpenAsks or fire push (they
   still render + stay answerable); aligns with the documented status lifecycle.
   decisions.md "Draft reports don't surface as open asks".
+- **Incremental mtime-keyed scan** _(2026-06-14)_ — store.Scan reuses unchanged
+  reports' parsed entries; ~6.9× faster warm ticks (67b247b). Part of the perf
+  wave; rest still in Next.
+- **Usage monitors** _(2026-06-14)_ — CodexBar-style footer for
+  codex/openrouter/claude-code/copilot/opencode, opt-in via `usage.providers`;
+  3-lens reviewed. decisions.md "Usage monitors"; spec
+  phases/usage-monitors-spec.md; config docs in docs/SETUP.md §8.
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
@@ -80,9 +87,9 @@ findings). Sequencing decision: release → fix highs → launch.
 
 ## Next
 
-- **Perf wave** (measure first via the scan-timing log): mtime-keyed
-  incremental scan in store.Scan (measured ~6× tick reduction); cap
-  /api/projects history (~50 runs + `?all=1`); cache rendered roadmap/
+- **Perf wave** (measure first via the scan-timing log): ✅ mtime-keyed
+  incremental scan in store.Scan (done 2026-06-14, ~6.9×, 67b247b). Remaining:
+  cap /api/projects history (~50 runs + `?all=1`); cache rendered roadmap/
   current-state HTML by mtime.
 - **aggregator.js split** along comment seams via Go-side concatenation
   (settings/push/destinations chunk first); `CustomEvent('hd:pins-changed')`

@@ -2,15 +2,17 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main, **13 commits ahead of origin (unpushed — user pushes)**.
+- Branch: main, **17 commits ahead of origin (unpushed — user pushes)**.
   Build + `go test -race ./...` green.
-- **v0.2.6 released.** Audit backlog **fully cleared 2026-06-13** (9 clusters,
-  commits 2293e2b..67d5ae2).
-- **Report templates shipped 2026-06-13** — `new --template
-  audit|review|progress|decision|idea`; reviewed via 3-lens workflow.
-  decisions.md "Report templates"; phases/report-templates-report.md.
-- **Draft reports no longer surface as open asks** _(2026-06-13)_ — gated
-  OpenAsks on status != draft (decisions.md). Templates-review follow-up.
+- **v0.2.6 released.** Since: audit backlog cleared, report templates,
+  draft-gating (all 2026-06-13).
+- **Usage monitors shipped 2026-06-14** — CodexBar-style footer for
+  codex/openrouter/claude-code/copilot/opencode (opt-in `usage.providers`);
+  3-lens reviewed; commits 3292e4a + b074c6b. decisions.md "Usage monitors";
+  spec phases/usage-monitors-spec.md.
+- **Perf wave** (roadmap Next): incremental mtime-keyed scan done (67b247b,
+  ~6.9×). Remaining parked: projects-history cap (~50 + ?all=1), render-HTML
+  mtime cache.
 
 ## Plan
 
@@ -29,4 +31,6 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
+- Enable usage monitors: add tools to `usage.providers` in config (Claude needs
+  a one-time Keychain allow; OpenCode needs a pasted cookie). docs/SETUP.md §8.
 - Launch post (e) per docs/launch/community-posts.md.

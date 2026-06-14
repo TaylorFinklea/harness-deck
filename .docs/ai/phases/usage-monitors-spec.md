@@ -1,5 +1,9 @@
 # Usage monitors — spec / research notes (2026-06-13)
 
+**Status: shipped 2026-06-14** (commits 3292e4a + b074c6b; `internal/usage`).
+Config docs: docs/SETUP.md §8. Rationale: decisions.md "Usage monitors".
+This file remains the data-source reference (verified live) for future edits.
+
 Goal: CodexBar-style usage indicators in the dashboard footer (the vim
 statusline, `shell.html.tmpl:62-68`, next to the address segment). Tools to
 support: Claude Code, Codex, OpenCode, Copilot, OpenRouter.

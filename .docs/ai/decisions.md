@@ -608,3 +608,47 @@ start surfacing the moment the author flips status off `draft`.
   digest and fires the push once — the intended "now it's ready" signal.
 - No test relied on a draft surfacing asks (full suite + `-race` stayed green);
   `TestScanDraftReportSuppressesOpenAsks` is the new guard.
+
+## 2026-06-14 — Usage monitors (CodexBar-style footer)
+
+Added a footer usage indicator (next to the address) for five tools:
+codex, openrouter, claude-code, copilot, opencode. New `internal/usage`
+package: a `Provider` per tool, a `Monitor` that refreshes them concurrently
+and caches `Sample`s, served at `GET /api/usage` and rendered by `usage.js` in
+the statusline. Full data-source research + per-tool fields:
+`phases/usage-monitors-spec.md`. Config: `docs/SETUP.md` §8.
+
+- **Opt-in per provider.** Nothing reads credentials or hits the network
+  unless the tool is listed in `config.usage.providers`. Several providers
+  touch a Keychain (claude) or a remote API (openrouter/copilot/opencode), so
+  listing *is* the consent. Empty list ⇒ feature off (the poller doesn't even
+  start). Graceful degradation: a provider with no data returns
+  `Sample{OK:false}` and is omitted from the footer.
+- **Two usage shapes, one Sample.** `window` (rate-limit % + reset: codex,
+  claude, copilot) vs `budget` (spend/credits: openrouter; copilot
+  free/unlimited). The footer renders `% ` (severity-tinted) or `text`.
+- **Stdlib-only, like the rest of the repo.** os/exec (`security` for the
+  Claude Keychain token) + net/http + encoding/json. No SQLite driver, no SDKs.
+  This is why OpenCode uses the web `_server` scrape (cookie) over its local
+  SQLite db — a driver would breach the zero-dep rule.
+- **Provider-specific, decided with the user after CodexBar-source research:**
+  - claude-code true % needs the OAuth token, which on macOS lives **only** in
+    the Keychain → one-time `security` "Always Allow", then silent (token
+    auto-refreshes). `$CLAUDE_CODE_OAUTH_TOKEN` / file creds avoid the prompt.
+    No `claude` CLI usage command exists (open upstream request).
+  - copilot uses the **undocumented** `copilot_internal/user` endpoint — the
+    only per-user source (GitHub's billing API is org/enterprise-only); flagged
+    as ToS-gray in `copilot.go` and SETUP.md; opt-in is the consent.
+  - opencode has **no** usage API (open request anomalyco/opencode#10448); the
+    `_server` hash IDs are opencode.ai build fingerprints that drift on their
+    deploys, so this provider is expected to break periodically and degrades to
+    hidden — accepted trade-off for the CodexBar-style subscription %.
+- **Review fixes (3-lens adversarial pass):** meter OpenRouter off
+  `limit_remaining/limit` (not lifetime `usage`, which drifts past a topped-up
+  cap); bound the OpenCode regex to the target block's braces so a partial
+  block can't borrow a sibling's numbers; and **drop the external response body
+  from `httpError`** — `Sample.Err` is served on the unauthenticated
+  `/api/usage`, so echoing a provider's raw 4xx/5xx body would broaden
+  disclosure beyond the credential host.
+- **Drive-by:** the footer address was hardcoded `127.0.0.1`; now shows the
+  real bind/URL via `statusAddr(cfg.BaseURL())`.

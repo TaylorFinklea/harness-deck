@@ -228,6 +228,35 @@ Other MCP-capable harnesses, including Codex, should register a stdio MCP
 server named `harness-deck` with command `hdeck` and args `["mcp"]`, or command
 `harness-deck` and args `["mcp"]` when installed without Homebrew.
 
+## 8. Optional: usage monitors (footer)
+
+The dashboard footer can show CodexBar-style usage for AI coding tools next to
+the address. It is **opt-in**: nothing reads credentials or hits the network
+unless a provider is listed in `usage.providers`. A provider with no data or
+credential simply drops off the footer.
+
+```jsonc
+"usage": {
+  "providers": ["codex", "openrouter", "claude-code", "copilot", "opencode"],
+  "openrouter_key": "",            // else read from $OPENROUTER_API_KEY
+  "opencode_cookie": "",           // opencode.ai "auth" session cookie value
+  "opencode_workspace_id": "",     // optional; skips the workspace lookup
+  "refresh_sec": 60                // poll cadence (default 60)
+}
+```
+
+Per provider:
+
+| id | shows | setup |
+|---|---|---|
+| `codex` | true 5h + weekly % + reset | none — reads `~/.codex` session logs |
+| `openrouter` | credit budget + spend | `OPENROUTER_API_KEY` env, or `usage.openrouter_key` |
+| `claude-code` | true 5h + weekly % + reset | reads the OAuth token from the macOS **Keychain** (`security`) — one "Always Allow" prompt on first read, silent after. `$CLAUDE_CODE_OAUTH_TOKEN` or file creds (`~/.claude/.credentials.json`) avoid the prompt. |
+| `copilot` | premium-request % + monthly reset | reads the local `ghu_` token (`~/.config/github-copilot/apps.json`). **Uses GitHub's undocumented `copilot_internal/user` endpoint — may be against Copilot ToS for non-official clients; opt in knowingly.** |
+| `opencode` | subscription rolling/weekly % | paste the opencode.ai `auth` cookie into `opencode_cookie`. Fragile: opencode has no usage API, so this scrapes an internal endpoint whose IDs change on their deploys — it degrades to hidden when they shift. |
+
+Restart the service after changing `usage`. Verify with `GET /api/usage`.
+
 ## Agent checklist
 
 - Install with Homebrew when available.
