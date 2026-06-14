@@ -93,8 +93,12 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 // askRetainTicks is how many consecutive ticks an open ask may be missing
 // from the recomputed digest before it is dropped from the notified baseline.
 // A transiently-unreadable report (a momentary store.Get failure, a half-
-// written file) makes its asks vanish for a tick or two; retaining them keeps
-// the reappearing ask out of the "new" delta so it doesn't re-fire a push.
+// written file, a report that briefly vanishes from the scan) makes its asks
+// disappear for a tick or two; retaining them keeps the reappearing ask out of
+// the "new" delta so it doesn't re-fire a push. Retention applies ONLY to such
+// transient disappearances — an ask whose report is still indexed but
+// intentionally closed (draft, answered, or archived) is dropped immediately
+// so a later re-open fires exactly once.
 const askRetainTicks = 3
 
 // watchState carries the inter-tick state threaded through tick() calls.
@@ -120,9 +124,18 @@ func (s *Server) initWatchState() watchState {
 // recomputed digests, carrying forward any open ask that was in the previous
 // baseline but is transiently absent from cur — up to askRetainTicks ticks.
 // This keeps a briefly-vanished ask out of the next tick's "new" delta so its
-// reappearance does not re-fire a notification. It returns the merged digest
-// set and the updated miss counter.
-func mergeRetainedAsks(prev, cur map[string]askDigest, misses map[string]int) (map[string]askDigest, map[string]int) {
+// reappearance does not re-fire a notification.
+//
+// closed is the set of keys whose report is still indexed but intentionally
+// not open (draft, answered, or archived). Such a disappearance is NOT
+// transient — the report was deliberately closed — so its asks are dropped
+// from the baseline immediately rather than retained, ensuring a later re-open
+// (e.g. flipping draft → awaiting-review) fires exactly once. Only a report
+// that vanished from the index entirely, or is indexed-and-open but failed to
+// read this tick, is treated as transient and retained.
+//
+// It returns the merged digest set and the updated miss counter.
+func mergeRetainedAsks(prev, cur map[string]askDigest, misses map[string]int, closed map[string]bool) (map[string]askDigest, map[string]int) {
 	merged := map[string]askDigest{}
 	nextMisses := map[string]int{}
 	for key, d := range cur {
@@ -133,6 +146,9 @@ func mergeRetainedAsks(prev, cur map[string]askDigest, misses map[string]int) (m
 		merged[key] = cp
 	}
 	for key, d := range prev {
+		if closed[key] {
+			continue // intentionally closed — don't retain; let a re-open re-fire
+		}
 		for id, prompt := range d {
 			if _, present := cur[key][id]; present {
 				continue
@@ -149,6 +165,20 @@ func mergeRetainedAsks(prev, cur map[string]askDigest, misses map[string]int) (m
 		}
 	}
 	return merged, nextMisses
+}
+
+// closedAskKeys is the set of indexed reports that are intentionally not open
+// this tick — OpenAsks==0 (draft or fully answered) or archived — keyed the
+// same way as the ask digests (project/run). mergeRetainedAsks uses it to tell
+// an intentional close from a transient disappearance.
+func (s *Server) closedAskKeys() map[string]bool {
+	closed := map[string]bool{}
+	for _, e := range s.store.Entries() {
+		if e.OpenAsks == 0 || e.Archived {
+			closed[e.Project+"/"+e.Run] = true
+		}
+	}
+	return closed
 }
 
 // tick is one watcher iteration: scan, detect changes, broadcast SSE when
@@ -184,8 +214,10 @@ func (s *Server) tick(ws watchState) watchState {
 		s.notifyNewAsks(ws.prevAsks, curAsks, curEntries)
 		s.hub.broadcast("reports")
 		// Carry forward briefly-vanished open asks so a transient read
-		// failure does not re-fire their push when they reappear.
-		nextAsks, nextMisses = mergeRetainedAsks(ws.prevAsks, curAsks, ws.askMisses)
+		// failure does not re-fire their push when they reappear — but not
+		// asks whose report was intentionally closed (draft/answered/archived),
+		// so flipping such a report back to open fires exactly once.
+		nextAsks, nextMisses = mergeRetainedAsks(ws.prevAsks, curAsks, ws.askMisses, s.closedAskKeys())
 		nextEntries = curEntries
 	}
 

@@ -341,3 +341,86 @@ func TestProjectTogglePersistsAndSurvivesReload(t *testing.T) {
 		t.Errorf("after reload discovered = %+v, want larkline enabled=false", resp.Discovered)
 	}
 }
+
+// writeAskStatus writes (or overwrites) a report with one open ask "q1" at the
+// given status — used to drive draft↔awaiting-review transitions.
+func writeAskStatus(t *testing.T, dir, project, id, status string) {
+	t.Helper()
+	p := filepath.Join(dir, project, id)
+	if err := os.MkdirAll(p, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"schema":"harness-deck/report@1","id":"` + id + `","project":"` + project +
+		`","harness":"claude-code","title":"needs input","status":"` + status +
+		`","created":"2026-01-02T00:00:00Z","blocks":[{"type":"ask","id":"q1","prompt":"Pick one","mode":"choice","options":["a","b"]}]}`
+	if err := os.WriteFile(filepath.Join(p, "report.json"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestTickDraftToLiveFiresPush guards the ask-retention × draft-gating
+// interaction: a report seen as awaiting-review, drafted, then re-published as
+// awaiting-review must fire its push again — the draft period must not leave
+// the ask retained in the baseline as "already seen".
+func TestTickDraftToLiveFiresPush(t *testing.T) {
+	central := t.TempDir()
+	s := newTestServerFull(t, config.Config{CentralDir: central})
+	var fires int64
+	s.testNotifyFn = func() { atomic.AddInt64(&fires, 1) }
+
+	ws := s.initWatchState() // empty baseline
+
+	// Ask appears (awaiting-review) → fires once.
+	writeAskStatus(t, central, "proj", "ask1", "awaiting-review")
+	ws = s.tick(ws)
+	if got := atomic.LoadInt64(&fires); got != 1 {
+		t.Fatalf("after first publish: fires=%d, want 1", got)
+	}
+
+	// Drafted → suppressed, no fire; the ask must NOT linger in the baseline.
+	writeAskStatus(t, central, "proj", "ask1", "draft")
+	ws = s.tick(ws)
+	if got := atomic.LoadInt64(&fires); got != 1 {
+		t.Fatalf("after draft: fires=%d, want 1 (draft suppressed)", got)
+	}
+
+	// Re-published → must fire again (the bug: it used to stay silent).
+	writeAskStatus(t, central, "proj", "ask1", "awaiting-review")
+	ws = s.tick(ws)
+	if got := atomic.LoadInt64(&fires); got != 2 {
+		t.Fatalf("after re-publish: fires=%d, want 2 (re-open fires)", got)
+	}
+
+	// Steady state — no further fire.
+	ws = s.tick(ws)
+	if got := atomic.LoadInt64(&fires); got != 2 {
+		t.Errorf("steady state: fires=%d, want 2", got)
+	}
+	_ = ws
+}
+
+// TestMergeRetainedAsksExpiresAfterNTicks pins the retention boundary and the
+// closed-key short-circuit directly.
+func TestMergeRetainedAsksExpiresAfterNTicks(t *testing.T) {
+	prev := map[string]askDigest{"k": {"x": "p"}}
+	cur := map[string]askDigest{} // ask absent this tick
+	noClosed := map[string]bool{} // transient: report not intentionally closed
+
+	// Transient disappearance: retained until the askRetainTicks-th miss.
+	misses := map[string]int{}
+	for i := 1; i < askRetainTicks; i++ {
+		merged, next := mergeRetainedAsks(prev, cur, misses, noClosed)
+		if _, ok := merged["k"]["x"]; !ok {
+			t.Fatalf("miss %d: ask should still be retained", i)
+		}
+		misses = next
+	}
+	if merged, _ := mergeRetainedAsks(prev, cur, misses, noClosed); merged["k"]["x"] != "" {
+		t.Errorf("ask should expire on miss %d", askRetainTicks)
+	}
+
+	// Intentional close: dropped immediately regardless of miss count.
+	if merged, _ := mergeRetainedAsks(prev, cur, map[string]int{}, map[string]bool{"k": true}); merged["k"]["x"] != "" {
+		t.Errorf("a closed (draft/answered/archived) report's ask must not be retained")
+	}
+}
