@@ -5,8 +5,9 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 - Branch: main; origin/main pushed through `89b3f5e`. Unpushed: config root
   live-reload (0ac9ea6), aggregator.js decouple+split (5445f85, 6b45ad9),
   hd-dom.js shared el()/htmlToNodes (6d5f908), search.js→HDDom.el +
-  HDDom-in-ReportJS (89c1797), aggregator-help.js separate-IIFE module
-  (latest), + doc commits. Build + `go test -race ./...` green.
+  HDDom-in-ReportJS (89c1797), aggregator-help.js (d9b2789) +
+  aggregator-tree.js (latest) separate-IIFE modules, + doc commits. Build +
+  `go test -race ./...` green.
 - **v0.2.6 released + approved** (2026-06-14 dashboard sign-off).
 - **v0.2.6 era (2026-06-13):** audit backlog cleared, report templates,
   draft-gating.
@@ -19,9 +20,9 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   (`register` works without restart; 0ac9ea6); aggregator.js pin/tabs decouple
   (CustomEvent, drop HDTabs) + settings-chunk split (5445f85, 6b45ad9);
   hd-dom.js shared el()/htmlToNodes namespace (6d5f908).
-- Roadmap **Now empty**; **Next** = follow-ups (search.js→HDDom **done**;
-  aggregator help-overlay split **done**; tree-chunk split remains — heavier,
-  plan shared state first). Rest is Backlog (deferred) + Later.
+- Roadmap **Now empty**; **Next** follow-ups all done (search.js→HDDom;
+  aggregator help + tree splits). No obvious next aggregator chunk — rest of
+  core is data-coupled. Rest is Backlog (deferred) + Later.
 - Backlog: now only deferred-with-rationale items (jsonfile order-preserving
   patch + a few micro-followups) — see roadmap Backlog.
 

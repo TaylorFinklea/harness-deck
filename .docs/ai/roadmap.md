@@ -110,13 +110,20 @@ _(empty — Now/Next cleared. Pull from Backlog or Later when starting fresh.)_
 Possible follow-ups (not yet scheduled):
 
 - **Further aggregator.js splits** — settings chunk extracted (5445f85,
-  6b45ad9) and `hd-dom.js` now provides a shared `el()` (6d5f908), so further
-  chunks can be true separate-IIFE modules binding `HDDom.el` (no more
-  fragment-in-one-IIFE trick). **help-overlay chunk DONE** — `aggregator-help.js`
-  is the first true separate-IIFE module, exposing `window.HDHelp = {open,close}`
-  (core references it only from deferred callbacks, so it's appended after the
-  core IIFE close). Next candidate: the tree chunk (renderTree/treeRows/tree
-  focus) — heavier, shares more module state, so plan the shared surface first.
+  6b45ad9) and `hd-dom.js` provides a shared `el()` (6d5f908), so chunks can be
+  true separate-IIFE modules. Done so far:
+  - `aggregator-help.js` (`window.HDHelp`, d9b2789) — `?` cheat sheet; appended
+    *after* the core IIFE (referenced only from deferred callbacks).
+  - `aggregator-tree.js` (`window.HDTree`, latest) — sidebar tree-focus mode
+    (Space-e; j/k/Enter/p/Esc). **Prepended *before* the core IIFE** because
+    `HDTree.paint()` runs during core init (render → refresh). Owns
+    `treeFocused`/`treeActiveKey`; talks to core only via `HDPins` + the DOM.
+    `pin()` reads the title from the row's `.label` (was `data.reports`) to stay
+    data-free. The view builder `renderTree()` stays in core (coupled to
+    `data`/`activeReports`/`isPinned`/`reportURL`).
+  - Bundle order (assets.go): tree → core(+settings) IIFE → help.
+  No obvious next chunk — remaining core (inbox/projects views, render loop,
+  keydown router) is tightly data-coupled. Stop here unless a new seam appears.
 - ~~**search.js → HDDom.el**~~ — DONE (next commit). Migrated search.js's
   ensureOverlay/renderList/snippet builder to `HDDom.el`; prepended
   `HDDomJSInline` to the `ReportJS` bundle (shell already loads it first) so

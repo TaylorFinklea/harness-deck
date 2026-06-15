@@ -39,15 +39,27 @@ var aggregatorSettingsJS string
 //go:embed aggregator-help.js
 var aggregatorHelpJS string
 
-// AggregatorJS assembles the dashboard script. The core IIFE comes first:
-// aggregator.js opens it (and omits the closing })(); ), the
-// settings/push/destinations fragment continues it inside that same IIFE
-// (function declarations hoist across the whole IIFE, so the split is
-// order-independent), and the close is re-added here. The help-overlay module
-// (aggregator-help.js) is then appended as its OWN separate IIFE — it binds the
-// shared HDDom.el and exposes window.HDHelp, which the core references only from
-// deferred callbacks, so load order is safe (roadmap "aggregator.js split").
-var AggregatorJS = aggregatorCoreJS + "\n" + aggregatorSettingsJS + "\n})();\n" +
+//go:embed aggregator-tree.js
+var aggregatorTreeJS string
+
+// AggregatorJS assembles the dashboard script from three separate-IIFE modules
+// plus the core IIFE, in load order:
+//
+//   1. aggregator-tree.js (window.HDTree) — sidebar tree-focus mode. Prepended
+//      because the core calls HDTree.paint() during init (render → refresh), so
+//      HDTree must exist before the core IIFE runs.
+//   2. The core IIFE: aggregator.js opens it (omitting the closing })(); ), the
+//      settings/push/destinations fragment continues it inside that same IIFE
+//      (declarations hoist across the whole IIFE, so that split is
+//      order-independent), and the close is re-added here.
+//   3. aggregator-help.js (window.HDHelp) — the `?` cheat sheet. Appended
+//      because the core references HDHelp only from deferred callbacks.
+//
+// The separate-IIFE modules bind window.HDDom (loaded first by the shell) and
+// expose their own namespace; the core talks to them only through that
+// (roadmap "aggregator.js split").
+var AggregatorJS = aggregatorTreeJS + "\n" +
+	aggregatorCoreJS + "\n" + aggregatorSettingsJS + "\n})();\n" +
 	"\n" + aggregatorHelpJS
 
 //go:embed mobile.js

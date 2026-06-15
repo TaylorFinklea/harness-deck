@@ -106,31 +106,36 @@ func TestScriptGuardSurvivesInjection(t *testing.T) {
 }
 
 // TestAggregatorBundleAssembled guards the Go-side reassembly of the split
-// dashboard script: the core fragment (aggregator.js) opens the shared IIFE,
-// the settings/push/destinations fragment (aggregator-settings.js) continues it
-// inside that same IIFE, the IIFE close is re-added, and the help-overlay module
-// (aggregator-help.js) is appended as its own separate IIFE exposing HDHelp.
+// dashboard script and its load order: the tree module (aggregator-tree.js) is
+// prepended before the core IIFE (the core calls HDTree.paint() during init);
+// aggregator.js opens the shared IIFE; the settings fragment continues it; the
+// IIFE close is re-added; and the help module (aggregator-help.js) is appended
+// after the close (the core references HDHelp only from deferred callbacks).
 func TestAggregatorBundleAssembled(t *testing.T) {
 	b := AggregatorJS
 	if !strings.Contains(b, "'use strict'") {
 		t.Error("AggregatorJS missing the core fragment (no 'use strict' from the IIFE head)")
 	}
-	if !strings.Contains(b, "function viewSettings(") {
-		t.Error("AggregatorJS missing the settings fragment (viewSettings)")
+	// Anchor the core by a core-only marker; the settings fragment by viewSettings.
+	core := strings.Index(b, "function viewSettings(")
+	if core < 0 {
+		t.Fatal("AggregatorJS missing the settings fragment (viewSettings)")
 	}
-	// The help module is a separate IIFE: its HDHelp export must come AFTER the
-	// core IIFE close, so the core's deferred HDHelp.open()/close() callers see
-	// a defined window.HDHelp.
-	coreClose := strings.Index(b, "})();")
-	if coreClose < 0 {
-		t.Fatal("AggregatorJS missing the core IIFE close })();")
+	// Match the real export RHS, not any prose mention in a comment. Load order:
+	// tree module BEFORE the core (HDTree.paint runs during core init), help
+	// module AFTER the core (the core references HDHelp only from deferred
+	// callbacks).
+	tree := strings.Index(b, "window.HDTree = {")
+	if tree < 0 {
+		t.Error("AggregatorJS missing the tree module (window.HDTree export)")
+	} else if tree > core {
+		t.Error("AggregatorJS: tree module must be prepended before the core")
 	}
-	// Match the real export RHS, not the prose mention in the core's comment.
 	help := strings.Index(b, "window.HDHelp = { open: openHelpOverlay")
 	if help < 0 {
 		t.Error("AggregatorJS missing the help module (window.HDHelp export)")
-	} else if help < coreClose {
-		t.Error("AggregatorJS: help module must be appended after the core IIFE close")
+	} else if help < core {
+		t.Error("AggregatorJS: help module must be appended after the core")
 	}
 	if !strings.HasSuffix(strings.TrimSpace(b), "})();") {
 		t.Error("AggregatorJS must end with the help module's IIFE close })();")

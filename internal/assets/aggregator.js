@@ -37,11 +37,10 @@
      keybinding (toggle archive) still works in either mode — it just
      means "archive" in one and "unarchive" in the other. */
   var archiveFilter = false;
-  /* treeFocused: Space-e toggles the sidebar tree into a NeoVim-style
-     file-explorer mode. While focused, j/k walks visible report rows
-     and Enter opens the active one. Esc or Space-e exits. */
-  var treeFocused = false;
-  var treeActiveKey = null;
+  /* Sidebar tree-focus mode (Space-e) lives in its own module,
+     aggregator-tree.js, exposing window.HDTree. It owns treeFocused +
+     treeActiveKey and all the j/k/Enter/p/Esc handling; the core just calls
+     HDTree.paint() after each render and routes keys to it. */
 
   // Shared no-innerHTML DOM helpers (hd-dom.js, loaded first). Bound to locals
   // so the rest of this file reads unchanged.
@@ -682,7 +681,7 @@
     applyFocusHighlight();
     // Tree-focus state survives renders too — repaint after the new
     // tree DOM is in place.
-    paintTreeFocus();
+    HDTree.paint();
   }
 
   /* one delegated click handler for every navigable row */
@@ -843,80 +842,6 @@
      opens the active one (real navigation), Space-e or Esc returns
      focus to the main content. The "active row" survives renders by
      report id (same pattern as the inbox cursor). */
-  function treeRows() {
-    return Array.prototype.slice.call(document.querySelectorAll('#tree .row.run'));
-  }
-
-  function treeKeyOf(row) {
-    var url = row.dataset.url || '';
-    var m = /^\/r\/([^\/]+)\/([^\/?#]+)/.exec(url);
-    if (!m) return '';
-    // Section-scoped key so a pinned report's entry in the PINNED
-    // list and its appearance in the main project tree don't collide
-    // — findIndex would otherwise always snap to the pinned row and
-    // the cursor could never reach the deeper tree entry.
-    var section = row.classList.contains('pinned') ? 'p' : 't';
-    return section + ':' + decodeURIComponent(m[1]) + '\x00' + decodeURIComponent(m[2]);
-  }
-
-  function paintTreeFocus() {
-    var tree = document.querySelector('#tree .tree');
-    if (!tree) return;
-    tree.classList.toggle('tree-focused', treeFocused);
-    document.querySelectorAll('#tree .row.tree-active').forEach(function (r) {
-      r.classList.remove('tree-active');
-    });
-    if (!treeFocused) return;
-    var rows = treeRows();
-    if (!rows.length) return;
-    // Snap to the first row if our remembered key disappeared.
-    var match = rows.find(function (r) { return treeKeyOf(r) === treeActiveKey; });
-    if (!match) {
-      match = rows[0];
-      treeActiveKey = treeKeyOf(match);
-    }
-    match.classList.add('tree-active');
-    var rect = match.getBoundingClientRect();
-    if (rect.top < 80 || rect.bottom > window.innerHeight - 40) {
-      match.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-    }
-  }
-
-  function moveTreeCursor(delta) {
-    var rows = treeRows();
-    if (!rows.length) return;
-    var idx = rows.findIndex(function (r) { return treeKeyOf(r) === treeActiveKey; });
-    if (idx < 0) idx = 0;
-    var next = Math.max(0, Math.min(rows.length - 1, idx + delta));
-    treeActiveKey = treeKeyOf(rows[next]);
-    paintTreeFocus();
-  }
-
-  function openTreeFocused() {
-    var row = treeRows().find(function (r) { return treeKeyOf(r) === treeActiveKey; });
-    if (row && row.dataset.url) window.location.href = row.dataset.url;
-  }
-
-  function pinTreeFocused() {
-    // treeActiveKey is now "<section>:<project>\x00<run>"; strip the
-    // 2-char prefix before splitting out project + run.
-    var key = treeActiveKey;
-    if (!key || key.length < 3) return;
-    var parts = key.slice(2).split('\x00');
-    if (parts.length !== 2) return;
-    var rec = (data.reports || []).find(function (r) { return r.project === parts[0] && r.run === parts[1]; });
-    var title = rec ? (rec.title || rec.run) : parts[1];
-    if (window.HDPins) HDPins.toggle(parts[0], parts[1], title);
-  }
-
-  function enterTreeFocus() {
-    treeFocused = true;
-    var rows = treeRows();
-    if (rows.length && !treeActiveKey) treeActiveKey = treeKeyOf(rows[0]);
-    paintTreeFocus();
-  }
-  function exitTreeFocus() { treeFocused = false; paintTreeFocus(); }
-  function toggleTreeFocus() { if (treeFocused) exitTreeFocus(); else enterTreeFocus(); }
 
   /* cycleTheme — Space+t shortcut. Walks system → dark → light → system,
      touching the same localStorage key the picker uses so persistence
@@ -986,7 +911,7 @@
       switch (e.key) {
         case 's': toggleSettingsOverlay(); consume(); return;
         case 't': cycleTheme(); consume(); return;
-        case 'e': toggleTreeFocus(); consume(); return;
+        case 'e': HDTree.toggle(); consume(); return;
         case '?': HDHelp.open(); consume(); return;
         case 'Escape': consume(); return; // cancel
       }
@@ -995,14 +920,14 @@
       return;
     }
     // --- tree focus mode owns j/k/Enter/Esc when active ---
-    if (treeFocused) {
+    if (HDTree.isFocused()) {
       switch (e.key) {
-        case 'j': moveTreeCursor(+1); consume(); return;
-        case 'k': moveTreeCursor(-1); consume(); return;
+        case 'j': HDTree.moveCursor(+1); consume(); return;
+        case 'k': HDTree.moveCursor(-1); consume(); return;
         case 'Enter':
-        case 'o': openTreeFocused(); consume(); return;
-        case 'p': pinTreeFocused(); consume(); return;
-        case 'Escape': exitTreeFocus(); consume(); return;
+        case 'o': HDTree.open(); consume(); return;
+        case 'p': HDTree.pin(); consume(); return;
+        case 'Escape': HDTree.exit(); consume(); return;
       }
       // Pass other keys (including Space for the leader) through so
       // Space-e can toggle the tree off.
@@ -1196,11 +1121,9 @@
     VimNav.addCommand('settings', function () { openSettingsOverlay(); }, 'open the settings overlay');
     VimNav.addCommand('cheat', function () { HDHelp.open(); }, 'open the keymap cheat sheet');
     VimNav.addCommand('pin', function () {
-      var r = ensureFocused() || (treeFocused && (function () {
-        var k = (treeActiveKey || '');
-        if (k.length < 3) return null;
-        var key = k.slice(2).split('\x00');
-        return key.length === 2 ? (data.reports || []).find(function (x) { return x.project === key[0] && x.run === key[1]; }) : null;
+      var r = ensureFocused() || (HDTree.isFocused() && (function () {
+        var a = HDTree.activeReport();
+        return a ? (data.reports || []).find(function (x) { return x.project === a.project && x.run === a.run; }) : null;
       })());
       if (r) togglePin(r);
     }, 'pin or unpin the focused report');
@@ -1217,7 +1140,7 @@
      callback) lets any number of listeners react independently. */
   window.addEventListener('hd:pins-changed', function () {
     renderTree();
-    paintTreeFocus();
+    HDTree.paint();
   });
 
   window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
