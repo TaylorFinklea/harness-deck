@@ -133,9 +133,9 @@ func TestFanoutFiltersAndLogsErrors(t *testing.T) {
 	}))
 	defer failSrv.Close()
 	dests := []Destination{
-		{Name: "ok", Type: "slack", URL: okSrv.URL},                              // fires
+		{Name: "ok", Type: "slack", URL: okSrv.URL},                               // fires
 		{Name: "skipped", Type: "slack", URL: okSrv.URL, Projects: []string{"x"}}, // filtered out
-		{Name: "broken", Type: "slack", URL: failSrv.URL},                        // fires + fails
+		{Name: "broken", Type: "slack", URL: failSrv.URL},                         // fires + fails
 	}
 	var logCount int32
 	logf := func(format string, args ...any) {

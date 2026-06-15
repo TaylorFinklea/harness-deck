@@ -45,15 +45,15 @@ var aggregatorTreeJS string
 // AggregatorJS assembles the dashboard script from three separate-IIFE modules
 // plus the core IIFE, in load order:
 //
-//   1. aggregator-tree.js (window.HDTree) — sidebar tree-focus mode. Prepended
-//      because the core calls HDTree.paint() during init (render → refresh), so
-//      HDTree must exist before the core IIFE runs.
-//   2. The core IIFE: aggregator.js opens it (omitting the closing })(); ), the
-//      settings/push/destinations fragment continues it inside that same IIFE
-//      (declarations hoist across the whole IIFE, so that split is
-//      order-independent), and the close is re-added here.
-//   3. aggregator-help.js (window.HDHelp) — the `?` cheat sheet. Appended
-//      because the core references HDHelp only from deferred callbacks.
+//  1. aggregator-tree.js (window.HDTree) — sidebar tree-focus mode. Prepended
+//     because the core calls HDTree.paint() during init (render → refresh), so
+//     HDTree must exist before the core IIFE runs.
+//  2. The core IIFE: aggregator.js opens it (omitting the closing })(); ), the
+//     settings/push/destinations fragment continues it inside that same IIFE
+//     (declarations hoist across the whole IIFE, so that split is
+//     order-independent), and the close is re-added here.
+//  3. aggregator-help.js (window.HDHelp) — the `?` cheat sheet. Appended
+//     because the core references HDHelp only from deferred callbacks.
 //
 // The separate-IIFE modules bind window.HDDom (loaded first by the shell) and
 // expose their own namespace; the core talks to them only through that
