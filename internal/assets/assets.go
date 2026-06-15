@@ -36,13 +36,19 @@ var aggregatorCoreJS string
 //go:embed aggregator-settings.js
 var aggregatorSettingsJS string
 
-// AggregatorJS assembles the dashboard script from its source fragments inside
-// one shared IIFE: aggregator.js opens it (and omits the closing })(); ), the
-// settings/push/destinations fragment continues it, and the close is re-added
-// here. Function declarations hoist across the whole IIFE, so the split is
-// order-independent — it just keeps the monolith manageable along the settings
-// comment seam (roadmap "aggregator.js split").
-var AggregatorJS = aggregatorCoreJS + "\n" + aggregatorSettingsJS + "\n})();\n"
+//go:embed aggregator-help.js
+var aggregatorHelpJS string
+
+// AggregatorJS assembles the dashboard script. The core IIFE comes first:
+// aggregator.js opens it (and omits the closing })(); ), the
+// settings/push/destinations fragment continues it inside that same IIFE
+// (function declarations hoist across the whole IIFE, so the split is
+// order-independent), and the close is re-added here. The help-overlay module
+// (aggregator-help.js) is then appended as its OWN separate IIFE — it binds the
+// shared HDDom.el and exposes window.HDHelp, which the core references only from
+// deferred callbacks, so load order is safe (roadmap "aggregator.js split").
+var AggregatorJS = aggregatorCoreJS + "\n" + aggregatorSettingsJS + "\n})();\n" +
+	"\n" + aggregatorHelpJS
 
 //go:embed mobile.js
 var MobileJS string

@@ -107,8 +107,9 @@ func TestScriptGuardSurvivesInjection(t *testing.T) {
 
 // TestAggregatorBundleAssembled guards the Go-side reassembly of the split
 // dashboard script: the core fragment (aggregator.js) opens the shared IIFE,
-// the settings/push/destinations fragment (aggregator-settings.js) is included,
-// and the closing })(); is re-added exactly once at the end.
+// the settings/push/destinations fragment (aggregator-settings.js) continues it
+// inside that same IIFE, the IIFE close is re-added, and the help-overlay module
+// (aggregator-help.js) is appended as its own separate IIFE exposing HDHelp.
 func TestAggregatorBundleAssembled(t *testing.T) {
 	b := AggregatorJS
 	if !strings.Contains(b, "'use strict'") {
@@ -117,8 +118,22 @@ func TestAggregatorBundleAssembled(t *testing.T) {
 	if !strings.Contains(b, "function viewSettings(") {
 		t.Error("AggregatorJS missing the settings fragment (viewSettings)")
 	}
+	// The help module is a separate IIFE: its HDHelp export must come AFTER the
+	// core IIFE close, so the core's deferred HDHelp.open()/close() callers see
+	// a defined window.HDHelp.
+	coreClose := strings.Index(b, "})();")
+	if coreClose < 0 {
+		t.Fatal("AggregatorJS missing the core IIFE close })();")
+	}
+	// Match the real export RHS, not the prose mention in the core's comment.
+	help := strings.Index(b, "window.HDHelp = { open: openHelpOverlay")
+	if help < 0 {
+		t.Error("AggregatorJS missing the help module (window.HDHelp export)")
+	} else if help < coreClose {
+		t.Error("AggregatorJS: help module must be appended after the core IIFE close")
+	}
 	if !strings.HasSuffix(strings.TrimSpace(b), "})();") {
-		t.Error("AggregatorJS must end with the IIFE close })();")
+		t.Error("AggregatorJS must end with the help module's IIFE close })();")
 	}
 }
 

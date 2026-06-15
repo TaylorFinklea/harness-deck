@@ -112,7 +112,11 @@ Possible follow-ups (not yet scheduled):
 - **Further aggregator.js splits** — settings chunk extracted (5445f85,
   6b45ad9) and `hd-dom.js` now provides a shared `el()` (6d5f908), so further
   chunks can be true separate-IIFE modules binding `HDDom.el` (no more
-  fragment-in-one-IIFE trick). Next candidate: the help-overlay or tree chunk.
+  fragment-in-one-IIFE trick). **help-overlay chunk DONE** — `aggregator-help.js`
+  is the first true separate-IIFE module, exposing `window.HDHelp = {open,close}`
+  (core references it only from deferred callbacks, so it's appended after the
+  core IIFE close). Next candidate: the tree chunk (renderTree/treeRows/tree
+  focus) — heavier, shares more module state, so plan the shared surface first.
 - ~~**search.js → HDDom.el**~~ — DONE (next commit). Migrated search.js's
   ensureOverlay/renderList/snippet builder to `HDDom.el`; prepended
   `HDDomJSInline` to the `ReportJS` bundle (shell already loads it first) so

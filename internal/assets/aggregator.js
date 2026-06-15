@@ -609,90 +609,10 @@
     else openSettingsOverlay();
   }
 
-  /* --- v0.2.0 phase 3: context-aware help overlay (?) ---
-     One sheet built once, shown over the dashboard. We don't try to
-     render different content per view — every section is always
-     visible and the user can scan for the one they need. The
-     overlay has the same dismiss vocabulary as settings (Esc, click
-     scrim, ✕ button). */
-  function helpSection(title, rows) {
-    return el('div', { class: 'help-section' }, [
-      el('div', { class: 'help-section-title', text: title }),
-      el('div', { class: 'help-rows' }, rows.map(function (row) {
-        return el('div', { class: 'help-row' }, [
-          el('div', { class: 'help-keys' }, (Array.isArray(row[0]) ? row[0] : [row[0]]).map(function (k) {
-            return el('kbd', { text: k });
-          })),
-          el('div', { class: 'help-desc', text: row[1] })
-        ]);
-      }))
-    ]);
-  }
-
-  function helpContent() {
-    var sections = [];
-    sections.push(helpSection('movement', [
-      [['j', 'k'], 'move cursor down / up on the inbox'],
-      ['G', 'jump to last row'],
-      [['g', 'g'], 'scroll to top of page'],
-      [['Tab'], 'next unanswered ask (on a report)'],
-      [['/', '⌘K'], 'page search · cross-report search'],
-    ]));
-    sections.push(helpSection('row actions (inbox)', [
-      [['Enter'], 'open the focused report'],
-      ['o', 'same as Enter'],
-      ['a', 'archive (or unarchive in archive view)'],
-      ['x', 'close (mark done)'],
-      ['p', 'pin / unpin (sidebar PINNED section)'],
-      [['d', 'd'], 'delete (with confirm)'],
-    ]));
-    sections.push(helpSection('jumps (g-prefix)', [
-      [['g', 'i'], 'go to inbox'],
-      [['g', 'p'], 'go to projects'],
-      [['g', 'a'], 'go to inbox + archive filter on'],
-      [['g', 'd'], 'go to dashboard (alias: g h, q on a report)'],
-      [['g', 't'], 'cycle to next in-app tab (g T reverses)'],
-      [['g', 'x'], 'close the current in-app tab'],
-    ]));
-    sections.push(helpSection('leader (Space)', [
-      [['Space', 'e'], 'focus the sidebar tree (toggle)'],
-      [['Space', 's'], 'open settings'],
-      [['Space', 't'], 'cycle theme (system → dark → light)'],
-      [['Space', '?'], 'this help (alias for ?)'],
-    ]));
-    sections.push(helpSection('pins (digits)', [
-      [['p'], 'pin / unpin the focused / current report'],
-      [['1'], 'go to dashboard'],
-      [['2', '–', '9'], 'go to pinned report at position N−1'],
-      [['g', 't'], 'cycle to next pin (g T reverses)'],
-      [['g', 'x'], 'unpin the current report'],
-    ]));
-    sections.push(helpSection('commands (: prompt)', [
-      [':inbox / :projects', 'jump to a view'],
-      [':archive', 'toggle archive filter'],
-      [':settings', 'open settings overlay'],
-      [':cheat', 'this help'],
-    ]));
-    return sections;
-  }
-
-  function openHelpOverlay() {
-    var existing = document.getElementById('help-overlay');
-    if (existing) { existing.style.display = 'flex'; return; }
-    var modal = el('div', { class: 'help-modal' }, [
-      el('div', { class: 'settings-modal-head' }, [
-        el('div', { class: 'settings-modal-title', text: 'harness-deck cheat sheet' }),
-        el('button', { type: 'button', class: 'settings-modal-close', title: 'close (Esc)' }, ['✕'])
-      ]),
-      el('div', { class: 'help-body' }, helpContent())
-    ]);
-    var overlay = el('div', { id: 'help-overlay', class: 'settings-overlay help-overlay' }, [modal]);
-    document.body.appendChild(overlay);
-  }
-  function closeHelpOverlay() {
-    var o = document.getElementById('help-overlay');
-    if (o) o.style.display = 'none';
-  }
+  /* The context-aware help overlay (the `?` cheat sheet) lives in its own
+     module, aggregator-help.js, exposing window.HDHelp = { open, close }. The
+     overlay shares the dismiss vocabulary with settings (Esc, click scrim, ✕
+     button) — those handlers stay here; only the builder + open/close moved. */
 
   /* BUILDERS maps view id → builder function. v0.2.0 keeps just the
      two top-level views; viewSettings is now rendered into a modal
@@ -811,7 +731,7 @@
       return;
     }
     if (e.target.closest('.help-overlay .settings-modal-close') || e.target.classList.contains('help-overlay')) {
-      closeHelpOverlay();
+      HDHelp.close();
       return;
     }
     if (e.target.closest('.settings-modal-close') || e.target.classList.contains('settings-overlay')) {
@@ -1067,7 +987,7 @@
         case 's': toggleSettingsOverlay(); consume(); return;
         case 't': cycleTheme(); consume(); return;
         case 'e': toggleTreeFocus(); consume(); return;
-        case '?': openHelpOverlay(); consume(); return;
+        case '?': HDHelp.open(); consume(); return;
         case 'Escape': consume(); return; // cancel
       }
       // Any other key after Space: just consume; user can re-type.
@@ -1097,7 +1017,7 @@
     // `g` deliberately NOT consumed: it bubbles to tabs.js, the single
     // g-chord owner, which arms and dispatches (our registered
     // completions above included).
-    if (e.key === '?') { openHelpOverlay(); consume(); return; }
+    if (e.key === '?') { HDHelp.open(); consume(); return; }
 
     // Below: row actions, only meaningful when a row list is visible.
     if (!visibleRows().length) return;
@@ -1253,7 +1173,7 @@
     if (e.key !== 'Escape') return;
     var help = document.getElementById('help-overlay');
     if (help && help.style.display !== 'none') {
-      closeHelpOverlay();
+      HDHelp.close();
       e.preventDefault();
       return;
     }
@@ -1274,7 +1194,7 @@
     VimNav.addCommand('projects', function () { showView('projects'); }, 'go to projects');
     VimNav.addCommand('archive', function () { showView('inbox'); archiveFilter = !archiveFilter; render(); }, 'toggle archive filter on inbox');
     VimNav.addCommand('settings', function () { openSettingsOverlay(); }, 'open the settings overlay');
-    VimNav.addCommand('cheat', function () { openHelpOverlay(); }, 'open the keymap cheat sheet');
+    VimNav.addCommand('cheat', function () { HDHelp.open(); }, 'open the keymap cheat sheet');
     VimNav.addCommand('pin', function () {
       var r = ensureFocused() || (treeFocused && (function () {
         var k = (treeActiveKey || '');
