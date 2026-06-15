@@ -2,9 +2,9 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main; origin/main pushed through `89b3f5e`. Unpushed: `0ac9ea6`
-  (config root live-reload) + this doc commit. Build + `go test -race ./...`
-  green.
+- Branch: main; origin/main pushed through `89b3f5e`. Unpushed: config root
+  live-reload (0ac9ea6), aggregator.js decouple+split (5445f85, 6b45ad9),
+  + doc commits. Build + `go test -race ./...` green.
 - **v0.2.6 released + approved** (2026-06-14 dashboard sign-off).
 - **v0.2.6 era (2026-06-13):** audit backlog cleared, report templates,
   draft-gating.
@@ -14,7 +14,9 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   code audit + tiered clear-out** (5-lens audit → Opus/Sonnet/Haiku fixes;
   fixed a major draft↔awaiting-review re-notification bug + nits + test gaps;
   decisions.md "Session-code audit"); config live-reload of project roots
-  (`register` now works without restart; 0ac9ea6).
+  (`register` works without restart; 0ac9ea6); aggregator.js pin/tabs decouple
+  (CustomEvent, drop HDTabs) + settings-chunk split (5445f85, 6b45ad9).
+- Roadmap **Now/Next empty** — remaining work is Backlog (deferred) + Later.
 - Backlog: now only deferred-with-rationale items (jsonfile order-preserving
   patch + a few micro-followups) — see roadmap Backlog.
 

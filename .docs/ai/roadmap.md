@@ -54,6 +54,13 @@ One line each; detail in decisions.md + git log.
   stats config.json each tick and reloads scan_roots/projects via
   Manager.SetRoots, so `register` is picked up without a restart (was a Next
   item; the --help claim is now true). Roots only; other config still restart.
+- **aggregator.js split + pin/tabs decoupling** _(2026-06-14, 5445f85 + 6b45ad9)_
+  — pin changes fire a `hd:pins-changed` CustomEvent (dashboard + report page
+  both listen; was a single-slot callback); dropped the HDTabs shim
+  (search.js → HDPins.open); extracted settings/push/destinations into
+  aggregator-settings.js, assembled with aggregator.js in one IIFE Go-side.
+  Browser-verified. decisions.md not needed (mechanical); seam pattern noted in
+  the commit.
 - **Perf wave** _(2026-06-14, complete)_ — (1) incremental mtime-keyed scan in
   store.Scan, ~6.9× faster warm ticks (67b247b); (2) /api/projects history
   capped to 50 newest (+`?all=1`, `history_total` surfaced), responses loaded
@@ -93,9 +100,14 @@ findings). Sequencing decision: release → fix highs → launch.
 
 ## Next
 
-- **aggregator.js split** along comment seams via Go-side concatenation
-  (settings/push/destinations chunk first); `CustomEvent('hd:pins-changed')`
-  replaces the single-slot HDPinsChanged; drop the HDTabs shim.
+_(empty — Now/Next cleared. Pull from Backlog or Later when starting fresh.)_
+
+Possible follow-ups (not yet scheduled):
+
+- **Further aggregator.js splits** — the settings chunk is extracted (5445f85,
+  6b45ad9); the fragment-in-one-IIFE seam pattern generalizes to more chunks.
+  A true module split (separate IIFEs) wants `hd:dom.js` (shared `el()`) first
+  — see Later.
 
 ## Backlog
 
