@@ -9,9 +9,8 @@
 //
 // Loaded on every page (aggregator shell + report pages) so the user
 // can jump between reports from anywhere without going back to the
-// dashboard first. Tab-strip flow handles the actual navigation: a
-// click on a result calls HDTabs.open when available, falls back to
-// plain navigation otherwise.
+// dashboard first. A click on a result calls HDPins.open when available,
+// falling back to plain navigation otherwise.
 (function () {
   var overlay = null;
   var input = null;
@@ -206,8 +205,8 @@
     var hit = hits[idx];
     if (!hit) return;
     close();
-    if (window.HDTabs && HDTabs.open) {
-      HDTabs.open(hit.project, hit.run, hit.title || hit.run);
+    if (window.HDPins && HDPins.open) {
+      HDPins.open(hit.project, hit.run, hit.title || hit.run);
     } else {
       location.href = "/r/" + encodeURIComponent(hit.project) + "/" + encodeURIComponent(hit.run);
     }

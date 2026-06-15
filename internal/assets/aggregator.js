@@ -1639,14 +1639,15 @@
     }, 'cycle theme (or: theme dark/light/system)');
   }
 
-  /* HDPinsChanged is fired by tabs.js whenever the pins list mutates
-     (toggle / pin / unpin). Re-render the tree so the PINNED section
-     and the in-tree ★ markers stay in sync without a full data
-     refresh. */
-  window.HDPinsChanged = function () {
+  /* The pins list mutating (toggle / pin / unpin) fires the
+     'hd:pins-changed' DOM event from tabs.js. Re-render the tree so the
+     PINNED section and the in-tree ★ markers stay in sync without a full data
+     refresh. A DOM event (vs. the old single-slot window.HDPinsChanged
+     callback) lets any number of listeners react independently. */
+  window.addEventListener('hd:pins-changed', function () {
     renderTree();
     paintTreeFocus();
-  };
+  });
 
   window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
   migrateLegacyURL();

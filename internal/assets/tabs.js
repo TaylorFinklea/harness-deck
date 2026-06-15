@@ -39,10 +39,11 @@
   }
   function save(pins) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pins)); } catch (_) {}
-    // Tell the dashboard's tree renderer to repaint if it's listening
-    // (the aggregator IIFE wires this up). Cheap synchronous notify;
-    // no module dependency in this direction.
-    if (typeof window !== 'undefined' && window.HDPinsChanged) window.HDPinsChanged();
+    // Notify listeners (the aggregator repaints its tree) via a DOM event —
+    // decoupled and multi-listener, no module dependency in this direction.
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('hd:pins-changed'));
+    }
   }
 
   function reportURL(p) {
@@ -227,8 +228,8 @@
     if (e.key === 'g') { armG(); return; }
   });
 
-  // Public API. HDTabs name retained so external callers (search.js)
-  // keep working; the verb is documented as pin/unpin going forward.
+  // Public API. The pin/unpin verbs are canonical; callers (search.js) use
+  // HDPins.open to navigate to a report.
   window.HDPins = {
     load: load,
     pin: pin,
@@ -236,11 +237,5 @@
     toggle: toggle,
     isPinned: isPinned,
     open: openReport,
-  };
-  // Backward-compat shim. search.js calls HDTabs.open() to navigate to
-  // a result — same semantics as openReport(). Drop after the next
-  // tag if no one else picks it up.
-  window.HDTabs = {
-    open: function (project, run) { openReport(project, run); },
   };
 })();

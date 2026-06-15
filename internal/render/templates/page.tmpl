@@ -233,11 +233,12 @@
       );
     };
     refreshPinBtn();
-    // tabs.js fires HDPinsChanged() after every pin mutation (the `p` key
-    // path goes through it). aggregator.js owns this hook on the dashboard,
-    // but it isn't loaded here — so the report page claims it to keep the
-    // pin button in sync when `p` toggles, not just on button click.
-    window.HDPinsChanged = refreshPinBtn;
+    // tabs.js fires the 'hd:pins-changed' event after every pin mutation (the
+    // `p` key path goes through it). Listen so the pin button stays in sync
+    // when `p` toggles, not just on button click. (A DOM event, not the old
+    // single-slot window.HDPinsChanged, so the dashboard and the report page
+    // can both react.)
+    window.addEventListener('hd:pins-changed', refreshPinBtn);
     pinBtn && pinBtn.addEventListener('click', function () {
       HDPins.toggle(HD_REPORT.project, HD_REPORT.run, HD_REPORT.title || HD_REPORT.run);
     });
