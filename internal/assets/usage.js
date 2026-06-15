@@ -5,6 +5,8 @@
 (function () {
   'use strict';
 
+  var el = window.HDDom.el; // shared no-innerHTML DOM helper (hd-dom.js)
+
   function colorFor(pct) {
     if (pct == null) return '';
     if (pct >= 90) return 'usage-crit';
@@ -32,22 +34,11 @@
     host.textContent = '';
     (samples || []).forEach(function (s) {
       if (!s || !s.ok) return;
-      var seg = document.createElement('span');
-      seg.className = 'usage-seg';
-
-      var label = document.createElement('b');
-      label.textContent = s.label;
-      seg.appendChild(label);
-      seg.appendChild(document.createTextNode(' '));
-
-      var val = document.createElement('span');
-      if (s.kind === 'window' && s.percent != null) {
-        val.textContent = Math.round(s.percent) + '%';
-        val.className = colorFor(s.percent);
-      } else {
-        val.textContent = s.text || '';
-      }
-      seg.appendChild(val);
+      var pctView = s.kind === 'window' && s.percent != null;
+      var val = el('span', pctView
+        ? { text: Math.round(s.percent) + '%', class: colorFor(s.percent) }
+        : { text: s.text || '' });
+      var seg = el('span', { class: 'usage-seg' }, [el('b', { text: s.label }), ' ', val]);
 
       var tip = [];
       if (s.kind === 'window' && s.reset_at) {

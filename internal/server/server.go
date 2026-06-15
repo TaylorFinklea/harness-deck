@@ -194,12 +194,13 @@ func (s *Server) Serve() error {
 func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.shell.ExecuteTemplate(w, "shell", struct {
-		CSS                                               template.CSS
-		VimJS, AppJS, MobileJS, TabsJS, SearchJS, UsageJS template.JS
-		Favicon                                           template.URL
-		Addr                                              string
+		CSS                                                        template.CSS
+		HDDomJS, VimJS, AppJS, MobileJS, TabsJS, SearchJS, UsageJS template.JS
+		Favicon                                                    template.URL
+		Addr                                                       string
 	}{
 		CSS:      template.CSS(assets.DeckUICSS),
+		HDDomJS:  template.JS(assets.HDDomJSInline),
 		VimJS:    template.JS(assets.VimNavJSInline),
 		AppJS:    template.JS(assets.AggregatorJS),
 		MobileJS: template.JS(assets.MobileJSInline),

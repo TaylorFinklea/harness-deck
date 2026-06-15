@@ -27,6 +27,9 @@ var MobileCSS string
 //go:embed vim-nav.js
 var VimNavJS string
 
+//go:embed hd-dom.js
+var HDDomJS string
+
 //go:embed aggregator.js
 var aggregatorCoreJS string
 
@@ -138,6 +141,10 @@ var SearchJSInline = strings.ReplaceAll(SearchJS, "</script", `<\/script`)
 
 // UsageJSInline is usage.js with </script escaped for safe inlining.
 var UsageJSInline = strings.ReplaceAll(UsageJS, "</script", `<\/script`)
+
+// HDDomJSInline is hd-dom.js (shared DOM helpers) with </script escaped for
+// safe inlining. It must load before any script that binds window.HDDom.
+var HDDomJSInline = strings.ReplaceAll(HDDomJS, "</script", `<\/script`)
 
 // HTMLBlockJSInline is html-block.js with </script escaped for safe inlining.
 var HTMLBlockJSInline = strings.ReplaceAll(HTMLBlockJS, "</script", `<\/script`)
