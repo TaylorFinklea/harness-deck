@@ -104,6 +104,23 @@ func TestScriptGuardSurvivesInjection(t *testing.T) {
 	}
 }
 
+// TestAggregatorBundleAssembled guards the Go-side reassembly of the split
+// dashboard script: the core fragment (aggregator.js) opens the shared IIFE,
+// the settings/push/destinations fragment (aggregator-settings.js) is included,
+// and the closing })(); is re-added exactly once at the end.
+func TestAggregatorBundleAssembled(t *testing.T) {
+	b := AggregatorJS
+	if !strings.Contains(b, "'use strict'") {
+		t.Error("AggregatorJS missing the core fragment (no 'use strict' from the IIFE head)")
+	}
+	if !strings.Contains(b, "function viewSettings(") {
+		t.Error("AggregatorJS missing the settings fragment (viewSettings)")
+	}
+	if !strings.HasSuffix(strings.TrimSpace(b), "})();") {
+		t.Error("AggregatorJS must end with the IIFE close })();")
+	}
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a

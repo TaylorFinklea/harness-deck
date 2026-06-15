@@ -28,7 +28,18 @@ var MobileCSS string
 var VimNavJS string
 
 //go:embed aggregator.js
-var AggregatorJS string
+var aggregatorCoreJS string
+
+//go:embed aggregator-settings.js
+var aggregatorSettingsJS string
+
+// AggregatorJS assembles the dashboard script from its source fragments inside
+// one shared IIFE: aggregator.js opens it (and omits the closing })(); ), the
+// settings/push/destinations fragment continues it, and the close is re-added
+// here. Function declarations hoist across the whole IIFE, so the split is
+// order-independent — it just keeps the monolith manageable along the settings
+// comment seam (roadmap "aggregator.js split").
+var AggregatorJS = aggregatorCoreJS + "\n" + aggregatorSettingsJS + "\n})();\n"
 
 //go:embed mobile.js
 var MobileJS string
