@@ -41,6 +41,7 @@ func TestReportJSBundleOrder(t *testing.T) {
 		src  string
 	}
 	order := []member{
+		{"HDDomJSInline", HDDomJSInline},
 		{"VimNavJSInline", VimNavJSInline},
 		{"RespondJSInline", RespondJSInline},
 		{"MobileJSInline", MobileJSInline},

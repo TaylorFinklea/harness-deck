@@ -21,6 +21,7 @@
   var debounceTimer = null;
   var lastQuery = "";
   var inflight = false;
+  var el = window.HDDom.el; // shared no-innerHTML DOM helper (hd-dom.js)
 
   function ensureOverlay() {
     if (overlay) return overlay;
@@ -34,30 +35,24 @@
       background: "rgba(19, 20, 28, 0.55)",
       backdropFilter: "blur(4px)",
     });
-    var card = document.createElement("div");
-    card.className = "search-card";
-    overlay.appendChild(card);
-
-    var inputWrap = document.createElement("div");
-    inputWrap.className = "search-input-wrap";
-    var sigil = document.createElement("span");
-    sigil.className = "search-sigil";
-    sigil.textContent = "?";
-    inputWrap.appendChild(sigil);
-    input = document.createElement("input");
-    input.type = "text";
-    input.placeholder = "search reports… (title, project, status, body content)";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    inputWrap.appendChild(input);
-    status = document.createElement("span");
-    status.className = "search-status";
-    inputWrap.appendChild(status);
-    card.appendChild(inputWrap);
-
-    list = document.createElement("div");
-    list.className = "search-results";
-    card.appendChild(list);
+    input = el("input", {
+      type: "text",
+      placeholder: "search reports… (title, project, status, body content)",
+      autocomplete: "off",
+      spellcheck: "false",
+    });
+    status = el("span", { class: "search-status" });
+    list = el("div", { class: "search-results" });
+    overlay.appendChild(
+      el("div", { class: "search-card" }, [
+        el("div", { class: "search-input-wrap" }, [
+          el("span", { class: "search-sigil", text: "?" }),
+          input,
+          status,
+        ]),
+        list,
+      ])
+    );
 
     document.body.appendChild(overlay);
 
@@ -134,71 +129,48 @@
     list.replaceChildren();
     if (hits.length === 0) return;
     hits.forEach(function (hit, i) {
-      var row = document.createElement("div");
-      row.className = "search-row" + (i === activeIdx ? " active" : "");
-      row.dataset.idx = String(i);
+      var headKids = [
+        el("span", { class: "search-row-proj", text: hit.project }),
+        " · ",
+        el("span", { class: "search-row-title", text: hit.title || hit.run }),
+      ];
+      if (hit.kind) headKids.push(" ", el("span", { class: "search-row-kind", text: hit.kind }));
+      if (hit.status) headKids.push(" ", el("span", { class: "search-row-status " + hit.status, text: hit.status }));
 
-      var head = document.createElement("div");
-      head.className = "search-row-head";
-      var proj = document.createElement("span");
-      proj.className = "search-row-proj";
-      proj.textContent = hit.project;
-      head.appendChild(proj);
-      head.appendChild(document.createTextNode(" · "));
-      var title = document.createElement("span");
-      title.className = "search-row-title";
-      title.textContent = hit.title || hit.run;
-      head.appendChild(title);
-      if (hit.kind) {
-        head.appendChild(document.createTextNode(" "));
-        var kind = document.createElement("span");
-        kind.className = "search-row-kind";
-        kind.textContent = hit.kind;
-        head.appendChild(kind);
-      }
-      if (hit.status) {
-        head.appendChild(document.createTextNode(" "));
-        var st = document.createElement("span");
-        st.className = "search-row-status " + hit.status;
-        st.textContent = hit.status;
-        head.appendChild(st);
-      }
-      row.appendChild(head);
-
+      var rowKids = [el("div", { class: "search-row-head" }, headKids)];
       if (hit.snippet) {
-        var snip = document.createElement("div");
-        snip.className = "search-row-snippet";
         // [[match]] markers were emitted by the server's snippet helper.
-        // Split + rebuild with <mark> spans rather than running innerHTML.
-        renderSnippet(snip, hit.snippet);
-        row.appendChild(snip);
+        rowKids.push(el("div", { class: "search-row-snippet" }, snippetNodes(hit.snippet)));
       }
-      list.appendChild(row);
+      list.appendChild(el("div", {
+        class: "search-row" + (i === activeIdx ? " active" : ""),
+        data: { idx: String(i) },
+      }, rowKids));
     });
   }
 
-  // renderSnippet inserts text nodes + <mark> spans based on the [[match]]
-  // brackets the server emitted. No innerHTML so a snippet containing raw
-  // markup never injects.
-  function renderSnippet(parent, snippet) {
+  // snippetNodes turns the server's [[match]]-bracketed snippet into an array
+  // of text nodes + <mark> elements (passed as el() kids — no innerHTML, so a
+  // snippet containing raw markup never injects).
+  function snippetNodes(snippet) {
+    var nodes = [];
     var i = 0;
     while (i < snippet.length) {
       var open = snippet.indexOf("[[", i);
       if (open < 0) {
-        parent.appendChild(document.createTextNode(snippet.slice(i)));
-        return;
+        nodes.push(snippet.slice(i));
+        break;
       }
-      if (open > i) parent.appendChild(document.createTextNode(snippet.slice(i, open)));
+      if (open > i) nodes.push(snippet.slice(i, open));
       var endMark = snippet.indexOf("]]", open + 2);
       if (endMark < 0) {
-        parent.appendChild(document.createTextNode(snippet.slice(open)));
-        return;
+        nodes.push(snippet.slice(open));
+        break;
       }
-      var mark = document.createElement("mark");
-      mark.textContent = snippet.slice(open + 2, endMark);
-      parent.appendChild(mark);
+      nodes.push(el("mark", { text: snippet.slice(open + 2, endMark) }));
       i = endMark + 2;
     }
+    return nodes;
   }
 
   function openRow(idx) {

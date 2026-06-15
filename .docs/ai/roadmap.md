@@ -113,9 +113,12 @@ Possible follow-ups (not yet scheduled):
   6b45ad9) and `hd-dom.js` now provides a shared `el()` (6d5f908), so further
   chunks can be true separate-IIFE modules binding `HDDom.el` (no more
   fragment-in-one-IIFE trick). Next candidate: the help-overlay or tree chunk.
-- **search.js → HDDom.el** — migrate search.js (+ usage of HDDom on report
-  pages: add HDDomJS to the ReportJS bundle) so its raw createElement drops the
-  duplication; deferred from the hd-dom.js change to avoid report-page surface.
+- ~~**search.js → HDDom.el**~~ — DONE (next commit). Migrated search.js's
+  ensureOverlay/renderList/snippet builder to `HDDom.el`; prepended
+  `HDDomJSInline` to the `ReportJS` bundle (shell already loads it first) so
+  report pages get `window.HDDom` before search runs. Bundle-order test +
+  browser-verified search palette renders/highlights/navigates on **both** the
+  dashboard and a report page.
 
 ## Backlog
 
