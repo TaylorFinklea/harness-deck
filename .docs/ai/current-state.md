@@ -4,7 +4,8 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 - Branch: main; origin/main pushed through `89b3f5e`. Unpushed: config root
   live-reload (0ac9ea6), aggregator.js decouple+split (5445f85, 6b45ad9),
-  + doc commits. Build + `go test -race ./...` green.
+  hd-dom.js shared el()/htmlToNodes (6d5f908), + doc commits. Build +
+  `go test -race ./...` green.
 - **v0.2.6 released + approved** (2026-06-14 dashboard sign-off).
 - **v0.2.6 era (2026-06-13):** audit backlog cleared, report templates,
   draft-gating.
@@ -15,8 +16,10 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   fixed a major draft↔awaiting-review re-notification bug + nits + test gaps;
   decisions.md "Session-code audit"); config live-reload of project roots
   (`register` works without restart; 0ac9ea6); aggregator.js pin/tabs decouple
-  (CustomEvent, drop HDTabs) + settings-chunk split (5445f85, 6b45ad9).
-- Roadmap **Now/Next empty** — remaining work is Backlog (deferred) + Later.
+  (CustomEvent, drop HDTabs) + settings-chunk split (5445f85, 6b45ad9);
+  hd-dom.js shared el()/htmlToNodes namespace (6d5f908).
+- Roadmap **Now empty**; **Next** = follow-ups (further aggregator splits now
+  unblocked by hd-dom.js; search.js→HDDom). Rest is Backlog (deferred) + Later.
 - Backlog: now only deferred-with-rationale items (jsonfile order-preserving
   patch + a few micro-followups) — see roadmap Backlog.
 

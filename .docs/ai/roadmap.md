@@ -61,6 +61,11 @@ One line each; detail in decisions.md + git log.
   aggregator-settings.js, assembled with aggregator.js in one IIFE Go-side.
   Browser-verified. decisions.md not needed (mechanical); seam pattern noted in
   the commit.
+- **hd-dom.js shared DOM helpers** _(2026-06-14, 6d5f908)_ — extracted
+  el()/htmlToNodes into a `window.HDDom` namespace (loaded first); aggregator.js
+  + usage.js bind it instead of redefining/raw-createElement. Unblocks true
+  module splits (separate IIFEs share one el()). Browser-verified. search.js
+  adoption is a follow-up (needs HDDom in the report-page bundle).
 - **Perf wave** _(2026-06-14, complete)_ — (1) incremental mtime-keyed scan in
   store.Scan, ~6.9× faster warm ticks (67b247b); (2) /api/projects history
   capped to 50 newest (+`?all=1`, `history_total` surfaced), responses loaded
@@ -104,10 +109,13 @@ _(empty — Now/Next cleared. Pull from Backlog or Later when starting fresh.)_
 
 Possible follow-ups (not yet scheduled):
 
-- **Further aggregator.js splits** — the settings chunk is extracted (5445f85,
-  6b45ad9); the fragment-in-one-IIFE seam pattern generalizes to more chunks.
-  A true module split (separate IIFEs) wants `hd:dom.js` (shared `el()`) first
-  — see Later.
+- **Further aggregator.js splits** — settings chunk extracted (5445f85,
+  6b45ad9) and `hd-dom.js` now provides a shared `el()` (6d5f908), so further
+  chunks can be true separate-IIFE modules binding `HDDom.el` (no more
+  fragment-in-one-IIFE trick). Next candidate: the help-overlay or tree chunk.
+- **search.js → HDDom.el** — migrate search.js (+ usage of HDDom on report
+  pages: add HDDomJS to the ReportJS bundle) so its raw createElement drops the
+  duplication; deferred from the hd-dom.js change to avoid report-page surface.
 
 ## Backlog
 
@@ -152,8 +160,6 @@ the store-cache / projects / usage test gaps.
   multi-select answers; pairs with any richer-answer-types work.
 - **Search text-cache + archived exclusion from /api/reports** — only above
   ~1-2k active reports; measure first.
-- **hd-dom.js** — shared el()/htmlToNodes so the no-innerHTML discipline is
-  a helper, not a convention.
 - **Micro-followups** — dispositioned 2026-06-14: push.Sender.Send size guard
   (done, 40ed9b3) and the Project.Name doc (done, e5d6ef0); the remaining three
   (askRetainTicks config, store stale-walk test hook, tabs.js digit-handler
