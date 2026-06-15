@@ -97,11 +97,14 @@ findings). Sequencing decision: release → fix highs → launch.
 4. - [x] **Arch hardening wave** _(done 2026-06-10)_ — all five bullets +
      GH Actions Node 24 bump; commits faec79b..5232af7. See
      `.docs/ai/phases/arch-hardening-wave-report.md`.
-5. - [ ] **Browser-verify the 3 frontend audit fixes** (commit 2b3c78a, no JS
-     test harness): (a) move inbox cursor off the top row, hard-reload →
-     cursor returns to same row; (b) pin 2+ reports, press digits 2-9 → jumps
-     to each pinned report, 1 → dashboard; (c) digit nav still works after the
-     dead-handler removal. Go-side bundle test already green.
+5. - [x] **Browser-verify the 3 frontend audit fixes** _(done 2026-06-15,
+     chrome-devtools MCP)_: (a) cursor moved off top row (demo/r1→r2),
+     hard-reload restored to demo/r2 (not snapped to top) ✓; (b) pinned 2
+     reports, digit 2→first pin, 3→second pin, 1→dashboard ✓; (c) digit nav
+     works on both the dashboard (switchToTabN) and report pages (tabs.js
+     handler). Doubled as a regression check of the IIFE modularization —
+     cursor-persist + digit-nav survive the new HDTree/HDHelp/HDDom boundaries;
+     zero console errors.
 
 ## Next
 
