@@ -59,14 +59,6 @@
     return p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
-  function countBy(field) {
-    return data.reports.reduce(function (m, r) {
-      var k = r[field] || '—';
-      m[k] = (m[k] || 0) + 1;
-      return m;
-    }, {});
-  }
-
   function pill(text, level) {
     return el('span', { class: 'pill ' + (level || ''), text: text });
   }
