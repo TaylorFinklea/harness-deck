@@ -1,9 +1,44 @@
 package assets
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// TestBundlesAreValidJS syntax-checks the assembled script bundles with
+// `node --check`. The frontend has no build step and no JS linter: the
+// dashboard bundle is several separate-IIFE files concatenated here in Go
+// (aggregator.js even omits its own closing })(); , re-added by string
+// surgery), so a single typo in any fragment would ship a fully-broken page
+// with no other automated signal. TestReportJSBundleOrder /
+// TestAggregatorBundleAssembled check ORDER; this checks VALIDITY.
+//
+// Skipped (not failed) when node is unavailable so it never blocks a
+// node-less machine or CI lane — it's a best-effort gate that runs wherever
+// node exists (it's how these bundles were verified by hand during dev).
+func TestBundlesAreValidJS(t *testing.T) {
+	if _, err := exec.LookPath("node"); err != nil {
+		t.Skip("node not found on PATH; skipping JS syntax check")
+	}
+	bundles := map[string]string{
+		"AggregatorJS": AggregatorJS,
+		"ReportJS":     ReportJS,
+	}
+	dir := t.TempDir()
+	for name, src := range bundles {
+		path := filepath.Join(dir, name+".js")
+		if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+			t.Fatalf("%s: write temp bundle: %v", name, err)
+		}
+		out, err := exec.Command("node", "--check", path).CombinedOutput()
+		if err != nil {
+			t.Errorf("%s failed node --check (assembled bundle has a JS syntax error):\n%s", name, out)
+		}
+	}
+}
 
 // TestMobileCSSLastInBundles pins the invariant documented in assets.go:
 // MobileCSS must be the last stylesheet in every assembled bundle so its
