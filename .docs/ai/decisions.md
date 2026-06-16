@@ -755,3 +755,46 @@ health). 1 bug found+fixed in verify round 1; final review APPROVE, all findings
 non-defects. Lead independently re-verified (build/test/vet/fmt/node-check + full
 browser pass on dashboard & report page) before committing — subagent output is
 not trusted on say-so. Spec/report: phases/search-query-language-{spec,report}.md.
+
+## 2026-06-16 — Saved searches: Option A (palette pre-filled), localStorage
+
+Pin a JQL query to a new SAVED sidebar section; clicking opens the Cmd+K palette
+**pre-filled and run live** (`HDSearch.open(initialQuery)`). Chose A over an
+inline results view (B, large: new view+routing+live-refresh) and an in-place
+tree filter (C, scoped to tree rows only, no body/snippet matches) — A reuses
+the entire existing search overlay and the shipped query language, smallest
+surface. Mockup + sign-off: report `20260616-saved-searches-design`.
+
+- **Storage = localStorage, mirroring HDPins**, not a server store. New
+  `window.HDSaved` module (`saved.js`) is a structural twin of `tabs.js`: key
+  `harness-deck:saved-searches`, `[{name,query}]`, dedup by query, MAX 30,
+  fires `hd:saved-changed` → `renderTree` repaints. Saved-list UI is
+  dashboard-only (like PINNED); the palette save works anywhere.
+- **No digit shortcuts.** Pins own digits 2–9; reusing them collides. Saved
+  rows activate by **click only** (carry `data-saved`, never `data-url`, so
+  they stay out of tree-focus `.row.run` nav and the generic `[data-url]`
+  handler). `Cmd+S`/keyboard activation are recorded follow-ups, not v1.
+- **Save affordance = a ☆ button in the palette**, shown only when the query is
+  non-empty AND parses clean (a `queryValid` flag set in `runQuery`'s
+  no-error / parse-error / empty branches). Name via `prompt()` defaulting to
+  the query (Enter = query-as-name). Button-only (no `Cmd+S`) to avoid fighting
+  the browser save-page default.
+- **Kept parity with pins on the `setItem`-throws-still-dispatches-event
+  pattern** (adversarial reviewer flagged it). `tabs.js` does the same, and the
+  repaint reflects the *actually-persisted* state (a failed add simply doesn't
+  appear) — so it shows truth, not stale data. Fixing only `saved.js` would
+  diverge from pins; left both as-is.
+- **`.saved-del` goes red on button-hover, not row-hover** (superseding the
+  spec's literal text). The ✕ is comment-gray when the row is hovered
+  (discoverable) and red only when you're about to click it — the conventional
+  delete-affordance pattern.
+
+**Process:** Lead (Opus) wrote the spec; **Sonnet implemented**; **Haiku**
+re-ran the build/test gate; **two Sonnet reviewers** did spec-conformance +
+adversarial passes. All Go gates green. **Browser-verify (chrome-devtools) was
+decisive** — it caught a bug all three static reviewers missed: `updateSaveBtn`
+set `style.display = ""` on show, which falls back to the `.search-save`
+`display:none` CSS default, so the ☆ *never appeared*. Fixed to set an explicit
+`inline-block`. Lesson reaffirmed: runtime browser verification catches
+CSS↔inline-style interactions static review cannot. Spec:
+phases/saved-searches-spec.md.

@@ -114,17 +114,15 @@ findings). Sequencing decision: release → fix highs → launch.
      cursor-persist + digit-nav survive the new HDTree/HDHelp/HDDom boundaries;
      zero console errors.
 
-The 2026-06-10 batch above is fully shipped. Active next item:
+The 2026-06-10 batch above is fully shipped, and so is the next item:
 
-6. - [ ] **Saved searches** — pin a query (from the new JQL-like search language)
-     to reuse later, surfaced in the sidebar PINNED area. **Brainstorm the design
-     first** — open calls: (a) dashboard-only vs available from the report-page
-     palette too; (b) storage — mirror the existing `HDPins` localStorage
-     pattern (search.js/tabs.js) with a new key, vs a server-side store; (c) how
-     a saved search renders/activates from the sidebar (re-runs the query in the
-     palette? navigates?). Build on `internal/query` + the palette
-     (search.js, the `hd:pins-changed` CustomEvent, HDPins). Cheap now that the
-     query language exists. User will kick this off in a fresh session.
+6. - [x] **Saved searches** _(done 2026-06-16)_ — pin a JQL query to a new SAVED
+     sidebar section; click opens the Cmd+K palette pre-filled + live (Option A).
+     localStorage (`window.HDSaved`, mirrors HDPins); click-only activation
+     (no digit collision with pins). decisions.md "Saved searches"; spec
+     phases/saved-searches-spec.md; mockup report `20260616-saved-searches-design`.
+     Built Sonnet-impl + Haiku-gate + 2×Sonnet-review; browser-verify caught a
+     CSS↔inline-style bug (☆ never showed) that static review missed.
 
 ## Next
 
@@ -192,7 +190,15 @@ the store-cache / projects / usage test gaps.
   `internal/query` package (parser+eval), `/api/search` refactor +
   `/api/search/schema`, palette autocomplete. Spec + report in
   `.docs/ai/phases/search-query-language-{spec,report}.md`; ADR in decisions.md.
-- **Saved searches** — promoted to Now (item 6); see there.
+- ~~**Saved searches**~~ — **DONE 2026-06-16** (Now item 6). Follow-ups, not
+  scheduled: (a) keyboard activation + `Cmd+S`-to-save (v1 is click + ☆-button
+  only); (b) inline (non-`prompt`) naming + rename; (c) saved-list UI on report
+  pages (the palette save already works there); (d) server-side store for
+  cross-device sync. **Discovered:** `aggregator-tree.js`'s Space-e focus ring
+  targets the first `#tree .tree` — now the SAVED sub-tree when present (was the
+  PINNED sub-tree) rather than the REPORTS tree. Pre-existing cosmetic quirk
+  (j/k still walk `.row.run` only); fix = scope the querySelector to the reports
+  tree. Low priority.
 - **lark-plug-hdeck response writing** — re-deferred 2026-06-10. Trigger:
   *catching myself opening the browser just to tap yes/no on an ask.*
   Until then read-only stands.
