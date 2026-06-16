@@ -2,14 +2,11 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main; origin/main pushed through `89b3f5e`. Unpushed (10 commits):
-  config root live-reload (0ac9ea6), aggregator.js decouple+split (5445f85,
-  6b45ad9), hd-dom.js (6d5f908), search.js→HDDom.el + HDDom-in-ReportJS
-  (89c1797), aggregator-help.js (d9b2789) + aggregator-tree.js (07fcfe8)
-  separate-IIFE modules, gofmt fix (cf2cec6), node --check bundle test
-  (2616efa), dead-countBy removal (ea5b4c4), + doc commits. **Tree clean,
-  push-ready.** Build + `go test ./...` green (incl. new TestBundlesAreValidJS,
-  skips w/o node).
+- Branch: main; **origin/main caught up through `c30cc7e`** (the JS
+  modularization arc — hd-dom/help/tree IIFE split, search.js→HDDom — + the
+  harden sweep: gofmt, `node --check` bundle gate, dead-countBy removal — all
+  pushed). Working tree clean. Build + `go test ./...` green (incl.
+  TestBundlesAreValidJS, skips w/o node).
 - **v0.2.6 released + approved** (2026-06-14 dashboard sign-off).
 - **v0.2.6 era (2026-06-13):** audit backlog cleared, report templates,
   draft-gating.
