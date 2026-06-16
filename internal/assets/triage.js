@@ -30,7 +30,11 @@
   }
 
   function input(panel) {
-    return panel.querySelector('.hd-input');
+    // Only the text-mode ask's input is a navigable slot — NOT the optional
+    // .hd-note field (which also carries .hd-input) on choice/yesno/decision/
+    // approval panels. Matching .hd-input here would make `i` focus the note
+    // and treat it as the primary input slot.
+    return panel.querySelector('.ask-text-input');
   }
 
   /* activeItemIdx — which navigable slot on the focused panel is the
@@ -118,11 +122,30 @@
     btn.click();
   }
 
+  // isMultiPanel returns true when the focused panel is a multi-select ask
+  // (has .hd-check checkboxes — distinct from choice/yesno/text panels).
+  function isMultiPanel(p) {
+    return !!(p && p.querySelector('.hd-check'));
+  }
+
+  // toggleCheckN toggles the Nth .hd-check in the panel (1-indexed).
+  function toggleCheckN(p, n) {
+    if (!p) return false;
+    var checks = Array.prototype.slice.call(p.querySelectorAll('.hd-check'));
+    if (n < 1 || n > checks.length) return false;
+    checks[n - 1].checked = !checks[n - 1].checked;
+    return true;
+  }
+
   // pickByIndex selects the Nth response button (1-indexed) of the
-  // focused panel and clicks it.
+  // focused panel and clicks it. On a multi panel, digits toggle checkboxes
+  // instead of auto-submitting.
   function pickByIndex(n) {
     var p = focusedPanel();
     if (!p) return false;
+    if (isMultiPanel(p)) {
+      return toggleCheckN(p, n);
+    }
     var btns = buttons(p);
     if (n < 1 || n > btns.length) return false;
     clickButton(p, btns[n - 1]);
@@ -150,7 +173,8 @@
     return false;
   }
 
-  // submitFocused — Enter behavior. Three paths:
+  // submitFocused — Enter behavior. Four paths:
+  //   0. Multi panel:                               click the [data-multi] submit button.
   //   1. Input is currently focused (INSERT mode):  submit the value.
   //   2. Highlighted slot is the input (NORMAL):    focus the input,
   //      enter INSERT — symmetric to `i`.
@@ -158,6 +182,12 @@
   function submitFocused() {
     var p = focusedPanel();
     if (!p) return;
+    // Multi-select: Enter always fires the submit button, regardless of slot.
+    if (isMultiPanel(p)) {
+      var multiBtn = p.querySelector('.hd-respond[data-multi]');
+      if (multiBtn) clickButton(p, multiBtn);
+      return;
+    }
     var inp = input(p);
     if (inp && document.activeElement === inp) {
       var submitBtn = p.querySelector('.hd-respond[data-input]');
@@ -264,12 +294,18 @@
         // the alias clears the conflict.
         if (focusInput()) e.preventDefault();
         return;
-      case 'y':
+      case 'y': {
+        var yp = focusedPanel();
+        if (yp && isMultiPanel(yp)) return; // digits/y/n don't auto-submit multi
         if (pickByMatch(['yes', 'approve'])) e.preventDefault();
         return;
-      case 'n':
+      }
+      case 'n': {
+        var np = focusedPanel();
+        if (np && isMultiPanel(np)) return; // digits/y/n don't auto-submit multi
         if (pickByMatch(['no', 'changes'])) e.preventDefault();
         return;
+      }
     }
 
     // Digit keys 1-9 pick the Nth response option. Skip 0 so it stays

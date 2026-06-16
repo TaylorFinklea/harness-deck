@@ -200,9 +200,9 @@ func validateBlock(path string, b Block) []Problem {
 		if body.Prompt == "" {
 			add("ask: empty prompt")
 		}
-		ps = append(ps, checkEnum(path+".mode", body.Mode, "", "choice", "yesno", "text")...)
-		if body.ResolvedMode() == "choice" && len(body.Options) == 0 {
-			add("ask: choice mode needs options")
+		ps = append(ps, checkEnum(path+".mode", body.Mode, "", "choice", "yesno", "text", "multi")...)
+		if (body.ResolvedMode() == "choice" || body.ResolvedMode() == "multi") && len(body.Options) == 0 {
+			add("ask: choice/multi mode needs options")
 		}
 	case *DecisionBlock:
 		if body.ID == "" {

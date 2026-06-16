@@ -52,6 +52,30 @@ func TestRecordOverwritesSameBlock(t *testing.T) {
 	}
 }
 
+func TestRecordMultiValuesRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	vals := []string{"fix-auth", "fix-logging"}
+	_, err := Record(dir, "proj", "run1", Response{
+		Block:  "findings",
+		Value:  "fix-auth, fix-logging",
+		Values: vals,
+	})
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	f, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	r := f.Responses["findings"]
+	if r.Value != "fix-auth, fix-logging" {
+		t.Errorf("Value = %q, want %q", r.Value, "fix-auth, fix-logging")
+	}
+	if len(r.Values) != 2 || r.Values[0] != "fix-auth" || r.Values[1] != "fix-logging" {
+		t.Errorf("Values = %v, want [fix-auth fix-logging]", r.Values)
+	}
+}
+
 func TestRecordConcurrentWritersLoseNoAnswers(t *testing.T) {
 	// Two clients answering different blocks of the same run (phone +
 	// desktop) must both land: Record's read-modify-write has to be

@@ -25,10 +25,11 @@ const FileName = "responses.json"
 
 // Response is one recorded answer to an interactive block.
 type Response struct {
-	Block string `json:"block"` // the interactive block's id
-	Value string `json:"value"` // chosen option / answer text / approval verdict
-	Note  string `json:"note,omitempty"`
-	At    string `json:"at"` // RFC3339 timestamp
+	Block  string   `json:"block"`            // the interactive block's id
+	Value  string   `json:"value"`            // chosen option / answer text / approval verdict; for multi, the joined selection
+	Values []string `json:"values,omitempty"` // for mode=multi: the individual selected values
+	Note   string   `json:"note,omitempty"`
+	At     string   `json:"at"` // RFC3339 timestamp
 }
 
 // File is the on-disk responses.json for one run.

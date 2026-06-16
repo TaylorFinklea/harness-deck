@@ -154,6 +154,9 @@
 <div class="ask-controls">
 {{if eq $mode "choice"}}{{range $i, $opt := .Body.Options}}<button class="hd-btn hd-respond" data-block="{{$id}}" data-value="{{$opt}}">{{$opt}}<span class="hd-hint">{{add $i 1}}</span></button>{{end}}
 <input class="hd-input hd-note" type="text" placeholder="optional note…" />
+{{else if eq $mode "multi"}}<div class="hd-checkboxes">{{range $i, $opt := .Body.Options}}<label class="hd-checkbox"><input type="checkbox" class="hd-check" value="{{$opt}}" /><span class="hd-check-label">{{$opt}}</span><span class="hd-hint">{{add $i 1}}</span></label>{{end}}</div>
+<button class="hd-btn hd-respond" data-block="{{$id}}" data-multi="1">submit<span class="hd-hint">↵</span></button>
+<input class="hd-input hd-note" type="text" placeholder="optional note…" />
 {{else if eq $mode "yesno"}}<button class="hd-btn hd-respond ok" data-block="{{$id}}" data-value="yes">yes<span class="hd-hint">y</span></button><button class="hd-btn hd-respond err" data-block="{{$id}}" data-value="no">no<span class="hd-hint">n</span></button>
 <input class="hd-input hd-note" type="text" placeholder="optional note…" />
 {{else}}<input class="hd-input ask-text-input" id="ask-input-{{$id}}" type="text" placeholder="hit Enter to start typing" data-placeholder-blur="hit Enter to start typing" data-placeholder-focus="Enter to submit · Esc to exit" /><button class="hd-btn hd-respond" data-block="{{$id}}" data-input="ask-input-{{$id}}">submit<span class="hd-hint">↵</span></button>{{end}}

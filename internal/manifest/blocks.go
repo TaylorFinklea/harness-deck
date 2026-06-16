@@ -212,7 +212,7 @@ type AskBlock struct {
 	blockHead
 	ID      string   `json:"id"`
 	Prompt  string   `json:"prompt"`            // the question, Markdown
-	Mode    string   `json:"mode,omitempty"`    // choice | yesno | text (default: choice if options, else text)
+	Mode    string   `json:"mode,omitempty"`    // choice | yesno | text | multi (default: choice if options, else text)
 	Options []string `json:"options,omitempty"` // for mode=choice
 }
 

@@ -315,9 +315,10 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request) {
 
 // respondRequest is the POST body for recording one answer.
 type respondRequest struct {
-	Block string `json:"block"`
-	Value string `json:"value"`
-	Note  string `json:"note"`
+	Block  string   `json:"block"`
+	Value  string   `json:"value"`
+	Values []string `json:"values"`
+	Note   string   `json:"note"`
 }
 
 // handleRespond records the user's answer to an interactive block into the
@@ -338,8 +339,16 @@ func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing block id", http.StatusBadRequest)
 		return
 	}
+	// For multi-select asks, join the selected values into a single summary
+	// string and record both the joined value and the individual values slice.
+	value := req.Value
+	var values []string
+	if len(req.Values) > 0 {
+		value = strings.Join(req.Values, ", ")
+		values = req.Values
+	}
 	if _, err := respond.Record(entry.Dir, project, run, respond.Response{
-		Block: req.Block, Value: req.Value, Note: req.Note,
+		Block: req.Block, Value: value, Values: values, Note: req.Note,
 	}); err != nil {
 		http.Error(w, "could not record response: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -353,13 +362,13 @@ func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 		"project": project,
 		"run":     run,
 		"block":   req.Block,
-		"value":   req.Value,
+		"value":   value,
 	}); jerr == nil {
 		s.hub.broadcastEvent("response", string(evtData))
 	}
 	// Fire the notify command after the broadcast so a slow (but
 	// timeout-bounded) command can't delay the user-visible refresh.
-	if err := notify.Run(s.cfg.NotifyCommand, entry.Dir, project, run, req.Block, req.Value, req.Note); err != nil {
+	if err := notify.Run(s.cfg.NotifyCommand, entry.Dir, project, run, req.Block, value, req.Note); err != nil {
 		log.Printf("harness-deck: notify command failed: %v", err)
 	}
 

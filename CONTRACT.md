@@ -88,7 +88,7 @@ block type degrades to a visible error panel rather than breaking the report.
 | `barchart` | labeled bars | `bars[]` (`label,pct,color`) |
 | `table` | columnar data | `columns[]`, `rows[][]` |
 | `html` | raw HTML/CSS/SVG canvas — full control inside panel chrome | `html` |
-| `ask` | interactive question (choice / yesno / text) | `id`, `prompt`, `mode`, `options[]` |
+| `ask` | interactive question (choice / yesno / text / multi) | `id`, `prompt`, `mode`, `options[]` |
 | `decision` | interactive A/B choice | `id`, `prompt`, `a`, `b` (same shape as `compare`) |
 | `approval` | interactive sign-off | `id`, `prompt` |
 
@@ -137,8 +137,10 @@ Because the block is isolated:
 These pose a question; the user's answer is recorded in `responses.json`. Each
 needs a unique `id` within the report.
 
-- **`ask`** — `{id, prompt, mode: "choice"|"yesno"|"text", options[]}` (options
-  required for `choice`).
+- **`ask`** — `{id, prompt, mode: "choice"|"yesno"|"text"|"multi", options[]}` (options
+  required for `choice` and `multi`). For `multi`, the user checks one or more
+  options and submits them together; `responses.json` records a joined `value`
+  (comma-separated) plus a `values: []` array of the individual selections.
 - **`decision`** — `{id, prompt, a, b}` — same A/B shape as `compare`; records
   the chosen side's `tag`.
 - **`approval`** — `{id, prompt}` — records `approved` or `changes-requested`.
