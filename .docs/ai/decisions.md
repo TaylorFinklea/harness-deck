@@ -709,3 +709,49 @@ d2b5a95, 6167957, e850943, 40ed9b3, fb0d173, e5d6ef0.
   re-implemented C/D/E directly on `main` from the specs (the agents' work was
   reference only). Takeaway: for worktree fan-outs on an unpushed branch,
   verify each worktree's base or have agents fast-forward first.
+
+## 2026-06-15 — Search query language (JQL-like) over field-prefix filters
+
+The "Search filters" Later item was scoped to `field:value` prefix tokens, but
+the user wanted a JQL-like DSL (`status = open AND project IN (harness-deck)`)
+matching their Tesela/Jira muscle memory. Decided for a faithful JQL **subset**
+(not full JQL): `= != ~ !~ IN "NOT IN"`, `created >/>=/</<=`, `AND/OR/NOT` +
+parens (NOT>AND>OR), implicit-AND by juxtaposition, bare/quoted tokens as
+full-text leaves. Dropped as YAGNI: ORDER BY, IS EMPTY/WAS, function values.
+
+Key decisions:
+- **Exact match, no aliases.** `=`/`IN` are EqualFold against literal values;
+  `~` is substring. `status = open` returns nothing (the real statuses are
+  draft/awaiting-review/answered/done) — the friction is paid back by
+  autocomplete, which surfaces the real values as you type.
+- **Server-side parser, not client.** Filtering must run where the data + the
+  20-cap live so `status = answered` with no text can list all such reports
+  (faceted browse) — a client filter could only narrow the ≤20 text results.
+  Parser is Go (testable; repo has no JS test harness). Client tokenizes only
+  to drive autocomplete; the raw query string is what's sent.
+- **New `internal/query` package, pure.** Evaluates against a `Record`
+  interface (Field cheap, Text lazy), no store/server import. **Lazy
+  short-circuit**: a structural predicate that fails first never opens the
+  report body — order-sensitive (structural-left), capped anyway by the
+  server's memoized Text(). Net: filtered queries are *faster* than the old
+  open-every-report scan.
+- **`query.Schema()` is the single source of truth** for the field/operator
+  matrix, shared by the parser and `/api/search/schema`. The first build put a
+  static duplicate in the server; the Lead refactored to derive from the
+  package (TestSchema asserts every advertised op parses) — silent
+  autocomplete↔parser drift was otherwise un-test-caught.
+- **Autocomplete CSS in deck.css, not aggregator.css** (the spec said
+  aggregator.css). deck.css ships in BOTH the report-page and dashboard
+  bundles; aggregator.css is dashboard-only — so the spec's file would have
+  left the dropdown unstyled on report pages. The build agent caught the spec
+  typo and corrected it; browser-verified styled on both surfaces.
+- **Parse-error UX:** a mid-typing invalid query returns 200 `{matches:[],
+  error}`; the palette keeps last-good results (no flash) and shows a low-key
+  hint. Tab accepts a suggestion, Enter always opens the active result.
+
+**Process:** built via a phased multi-agent workflow (build internal/query TDD →
+3 parallel adversarial verifiers + repair loop → server → client → review +
+health). 1 bug found+fixed in verify round 1; final review APPROVE, all findings
+non-defects. Lead independently re-verified (build/test/vet/fmt/node-check + full
+browser pass on dashboard & report page) before committing — subagent output is
+not trusted on say-so. Spec/report: phases/search-query-language-{spec,report}.md.

@@ -75,6 +75,13 @@ One line each; detail in decisions.md + git log.
   codex/openrouter/claude-code/copilot/opencode, opt-in via `usage.providers`;
   3-lens reviewed. decisions.md "Usage monitors"; spec
   phases/usage-monitors-spec.md; config docs in docs/SETUP.md §8.
+- **Search query language** _(2026-06-15)_ — Cmd+K upgraded from plain text to a
+  JQL-like filter language (`status = …`, `project IN (…)`, `created >= -7d`,
+  AND/OR/NOT, mixed with free text) + as-you-type autocomplete. New stdlib-only
+  `internal/query` (lexer→parser→AST→lazy short-circuit eval), `/api/search`
+  refactor + `/api/search/schema`. Built via a phased multi-agent workflow
+  (build→adversarial-verify→server→client→review). decisions.md "Search query
+  language"; phases/search-query-language-{spec,report}.md.
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
@@ -166,8 +173,15 @@ the store-cache / projects / usage test gaps.
 
 ## Later / parking lot
 
-- **Search filters + saved searches** — Cmd+K filters by project / status /
-  kind / time; saved searches pin to the sidebar PINNED section.
+- ~~**Search filters**~~ — **DONE 2026-06-15** as a JQL-like query language
+  (`status = awaiting-review`, `project IN (a,b) AND kind = audit`,
+  `created >= -7d`, mixed with free text) + as-you-type autocomplete. New
+  `internal/query` package (parser+eval), `/api/search` refactor +
+  `/api/search/schema`, palette autocomplete. Spec + report in
+  `.docs/ai/phases/search-query-language-{spec,report}.md`; ADR in decisions.md.
+- **Saved searches** — pin a query to the sidebar PINNED section. Still parked
+  (the L half of the original item; needs a design call on dashboard-only vs
+  palette-everywhere + a storage key). Now cheap to build on the query language.
 - **lark-plug-hdeck response writing** — re-deferred 2026-06-10. Trigger:
   *catching myself opening the browser just to tap yes/no on an ask.*
   Until then read-only stands.

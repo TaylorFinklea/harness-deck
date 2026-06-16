@@ -2,11 +2,11 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main; **origin/main caught up through `c30cc7e`** (the JS
-  modularization arc — hd-dom/help/tree IIFE split, search.js→HDDom — + the
-  harden sweep: gofmt, `node --check` bundle gate, dead-countBy removal — all
-  pushed). Working tree clean. Build + `go test ./...` green (incl.
-  TestBundlesAreValidJS, skips w/o node).
+- Branch: main; origin/main was caught up through `c30cc7e`. **Unpushed: the
+  search query-language milestone** (`fa88dce` internal/query pkg, `bcf4e97`
+  server, `6c25e3c` client, + docs) — JQL-like Cmd+K filters + autocomplete.
+  Build + `go test ./...` + gofmt + vet + node-check all green; browser-verified
+  on dashboard + report page. Tree clean, push-ready.
 - **v0.2.6 released + approved** (2026-06-14 dashboard sign-off).
 - **v0.2.6 era (2026-06-13):** audit backlog cleared, report templates,
   draft-gating.
@@ -19,12 +19,11 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   (`register` works without restart; 0ac9ea6); aggregator.js pin/tabs decouple
   (CustomEvent, drop HDTabs) + settings-chunk split (5445f85, 6b45ad9);
   hd-dom.js shared el()/htmlToNodes namespace (6d5f908).
-- Roadmap **Now**: only the human-gated launch post (3e) remains — all
-  codeable items done (item 5 verified 2026-06-15). **Next** follow-ups all
-  done (search.js→HDDom; aggregator help + tree splits; node-check gate). No
-  obvious next aggregator chunk — rest of core is data-coupled. The genuine
-  next *feature* is **search filters** (Later; M, additive, low-risk). Rest is
-  Backlog (deferred) + Later.
+- Roadmap **Now**: only the human-gated launch post (3e) remains. **Search
+  filters shipped** as the JQL-like query language (this session). Next feature
+  candidate: **saved searches** (Later; pin a query to the sidebar — needs a
+  design call, now cheap on the query language). Rest is Backlog (deferred) +
+  Later.
 - Backlog: now only deferred-with-rationale items (jsonfile order-preserving
   patch + a few micro-followups) — see roadmap Backlog.
 
