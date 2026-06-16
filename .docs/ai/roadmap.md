@@ -96,11 +96,12 @@ findings). Sequencing decision: release → fix highs → launch.
      all 9 items shipped TDD-first; frontend items browser-verified. See
      `.docs/ai/phases/bug-fix-wave-report.md`. v0.2.5 released (first run
      401'd — transient; rerun succeeded, tap formula at 0.2.5).
-3. - [ ] **Launch sequence** — (a) ✅ 3 README screenshots retaken vs v0.2.x
-     against a curated fixture (roadmap.png → projects.png), (b) ✅ Status
-     line rewritten (daily use, Homebrew, versioned contract — commit
-     74156bf), (c) ✅ Medium article published, (d) ✅
-     docs/launch/community-posts.md links filled, (e) post per its checklist.
+3. - [x] **Launch sequence** _(done 2026-06-16)_ — (a) ✅ 3 README screenshots
+     retaken vs v0.2.x against a curated fixture (roadmap.png → projects.png),
+     (b) ✅ Status line rewritten (daily use, Homebrew, versioned contract —
+     commit 74156bf), (c) ✅ Medium article published, (d) ✅
+     docs/launch/community-posts.md links filled, (e) ✅ community post done by
+     the user 2026-06-16.
 4. - [x] **Arch hardening wave** _(done 2026-06-10)_ — all five bullets +
      GH Actions Node 24 bump; commits faec79b..5232af7. See
      `.docs/ai/phases/arch-hardening-wave-report.md`.
@@ -112,6 +113,18 @@ findings). Sequencing decision: release → fix highs → launch.
      handler). Doubled as a regression check of the IIFE modularization —
      cursor-persist + digit-nav survive the new HDTree/HDHelp/HDDom boundaries;
      zero console errors.
+
+The 2026-06-10 batch above is fully shipped. Active next item:
+
+6. - [ ] **Saved searches** — pin a query (from the new JQL-like search language)
+     to reuse later, surfaced in the sidebar PINNED area. **Brainstorm the design
+     first** — open calls: (a) dashboard-only vs available from the report-page
+     palette too; (b) storage — mirror the existing `HDPins` localStorage
+     pattern (search.js/tabs.js) with a new key, vs a server-side store; (c) how
+     a saved search renders/activates from the sidebar (re-runs the query in the
+     palette? navigates?). Build on `internal/query` + the palette
+     (search.js, the `hd:pins-changed` CustomEvent, HDPins). Cheap now that the
+     query language exists. User will kick this off in a fresh session.
 
 ## Next
 
@@ -179,9 +192,7 @@ the store-cache / projects / usage test gaps.
   `internal/query` package (parser+eval), `/api/search` refactor +
   `/api/search/schema`, palette autocomplete. Spec + report in
   `.docs/ai/phases/search-query-language-{spec,report}.md`; ADR in decisions.md.
-- **Saved searches** — pin a query to the sidebar PINNED section. Still parked
-  (the L half of the original item; needs a design call on dashboard-only vs
-  palette-everywhere + a storage key). Now cheap to build on the query language.
+- **Saved searches** — promoted to Now (item 6); see there.
 - **lark-plug-hdeck response writing** — re-deferred 2026-06-10. Trigger:
   *catching myself opening the browser just to tap yes/no on an ask.*
   Until then read-only stands.

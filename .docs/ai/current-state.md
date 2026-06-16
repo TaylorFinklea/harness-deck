@@ -19,21 +19,18 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   (`register` works without restart; 0ac9ea6); aggregator.js pin/tabs decouple
   (CustomEvent, drop HDTabs) + settings-chunk split (5445f85, 6b45ad9);
   hd-dom.js shared el()/htmlToNodes namespace (6d5f908).
-- Roadmap **Now**: only the human-gated launch post (3e) remains. **Search
-  filters shipped** as the JQL-like query language (this session). Next feature
-  candidate: **saved searches** (Later; pin a query to the sidebar — needs a
-  design call, now cheap on the query language). Rest is Backlog (deferred) +
-  Later.
+- Roadmap **Now**: 2026-06-10 batch fully shipped (launch post done by user
+  2026-06-16). **Active next item: saved searches** (roadmap Now #6) — pin a
+  JQL query to the sidebar; **needs a design brainstorm first** (dashboard-only
+  vs palette-everywhere; HDPins-localStorage vs server store; activation UX).
+  User will kick it off in a fresh session. Rest is Backlog (deferred) + Later.
 - Backlog: now only deferred-with-rationale items (jsonfile order-preserving
   patch + a few micro-followups) — see roadmap Backlog.
 
 ## Plan
 
-- [x] v0.2.6 six-check matrix — **approved 2026-06-14** (dashboard sign-off,
-  report auto-archived).
-- [x] 3 frontend audit fixes (commit 2b3c78a), roadmap Now item 5 — browser-
-  verified 2026-06-15 (cursor-persist + digit-nav 2/3→pins, 1→dashboard); also
-  cleared the modularization regression question. Plan empty.
+- Empty. Next session: saved searches (roadmap Now #6) — start with a design
+  brainstorm, then implement → verify → commit.
 
 ## Blockers
 
@@ -47,4 +44,4 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 - Enable usage monitors: add tools to `usage.providers` in config (Claude needs
   a one-time Keychain allow; OpenCode needs a pasted cookie). docs/SETUP.md §8.
-- Launch post (e) per docs/launch/community-posts.md.
+- Push the 6 unpushed commits (search query-language milestone) after review.
