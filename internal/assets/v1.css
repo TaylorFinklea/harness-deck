@@ -135,6 +135,51 @@
   }
   .row.run.is-pinned .label { color: var(--tn-fg); }
 
+  /* Saved searches section in the sidebar. Each row carries data-saved
+     (the query) and activates the search palette pre-filled on click.
+     A hover ✕ removes the entry. Visually parallel to the pinned section. */
+  .saved-tree { margin-bottom: 4px; }
+  .row.saved {
+    display: flex;
+    align-items: baseline;
+    padding: 1px 4px;
+    cursor: pointer;
+  }
+  .row.saved:hover { background: var(--tn-bg-highlight); }
+  .saved-glyph {
+    color: var(--tn-cyan);
+    margin-right: 4px;
+    font-size: 10px;
+  }
+  .saved-del {
+    background: transparent;
+    border: none;
+    color: var(--tn-comment);
+    cursor: pointer;
+    margin-left: auto;
+    font-size: 10px;
+    padding: 0 2px;
+    line-height: 1;
+    visibility: hidden;
+  }
+  .row.saved:hover .saved-del { visibility: visible; }
+  .row.saved:hover .saved-del:hover { color: var(--tn-red); }
+
+  /* Save affordance in the search palette. Hidden until the query is
+     non-empty and parsed clean (queryValid flag in search.js). */
+  .search-save {
+    background: transparent;
+    border: none;
+    color: var(--tn-comment);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    display: none;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .search-save:hover { color: var(--tn-yellow); }
+
   /* Tree-explorer focus mode (Space-e). When active, the sidebar gets
      a visible focus ring + the highlighted row shows a left-border
      accent. Mirrors the inbox cursor's visual vocabulary. */

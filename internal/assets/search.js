@@ -23,11 +23,13 @@
   var list = null;
   var status = null;
   var suggestBox = null;
+  var saveBtn = null;
   var hits = [];
   var activeIdx = 0;
   var debounceTimer = null;
   var lastQuery = "";
   var inflight = false;
+  var queryValid = false; // true when the last runQuery succeeded without a parse error
   var el = window.HDDom.el; // shared no-innerHTML DOM helper (hd-dom.js)
 
   // Autocomplete vocabulary, fetched once per session from the server. null
@@ -66,6 +68,7 @@
       spellcheck: "false",
     });
     status = el("span", { class: "search-status" });
+    saveBtn = el("button", { class: "search-save", type: "button", title: "save this search" }, ["☆"]);
     list = el("div", { class: "search-results" });
     suggestBox = el("div", { class: "search-suggest" });
     suggestBox.style.display = "none";
@@ -75,11 +78,21 @@
           el("span", { class: "search-sigil", text: "?" }),
           input,
           status,
+          saveBtn,
         ]),
         suggestBox,
         list,
       ])
     );
+    saveBtn.addEventListener("click", function () {
+      var q = input.value.trim();
+      if (!q || !queryValid) return;
+      var name = prompt("Name this search", q);
+      if (name == null) return;
+      name = name.trim() || q;
+      if (window.HDSaved) HDSaved.add(name, q);
+      status.textContent = "saved ✓";
+    });
 
     document.body.appendChild(overlay);
 
@@ -105,17 +118,37 @@
     return overlay;
   }
 
-  function open() {
+  function open(initialQuery) {
     ensureOverlay();
     overlay.style.display = "flex";
-    input.value = "";
-    lastQuery = "";
-    hits = [];
-    activeIdx = 0;
-    renderList();
-    status.textContent = "";
-    fetchSchema();
-    closeSuggest();
+    if (initialQuery) {
+      input.value = initialQuery;
+      lastQuery = ""; // force a fresh fetch even if the same query was last run
+      hits = [];
+      activeIdx = 0;
+      queryValid = false;
+      // Hide the save button + clear stale status up front: runQuery() below
+      // early-returns when a prior fetch is still inflight, so without this the
+      // button/status from the last open could linger until that fetch chains.
+      updateSaveBtn();
+      status.textContent = "";
+      renderList();
+      fetchSchema();
+      closeSuggest();
+      updateSuggestions();
+      runQuery(initialQuery);
+    } else {
+      input.value = "";
+      lastQuery = "";
+      hits = [];
+      activeIdx = 0;
+      queryValid = false;
+      renderList();
+      status.textContent = "";
+      fetchSchema();
+      closeSuggest();
+      updateSaveBtn();
+    }
     setTimeout(function () { input.focus(); }, 0);
   }
 
@@ -147,6 +180,8 @@
     if (q === "") {
       hits = [];
       lastQuery = "";
+      queryValid = false;
+      updateSaveBtn();
       renderList();
       status.textContent = "";
       return;
@@ -178,10 +213,14 @@
         // `error` field. Keep the last-good results on screen (no clear, no
         // flash) and surface the message as a low-key hint instead.
         if (j && typeof j.error === "string" && j.error !== "") {
+          queryValid = false;
+          updateSaveBtn();
           status.textContent = j.error;
           status.classList.add("search-status-hint");
           return;
         }
+        queryValid = true;
+        updateSaveBtn();
         status.classList.remove("search-status-hint");
         hits = (j && j.matches) || [];
         activeIdx = 0;
@@ -527,6 +566,15 @@
       suggestBox.replaceChildren();
       suggestBox.style.display = "none";
     }
+  }
+
+  function updateSaveBtn() {
+    if (!saveBtn) return;
+    var show = queryValid && input && input.value.trim() !== "";
+    // Explicit "inline-block" (not "") on show: the .search-save CSS rule
+    // defaults to display:none, so clearing the inline style would fall back
+    // to that and the button would never appear.
+    saveBtn.style.display = show ? "inline-block" : "none";
   }
 
   function suggestOpen() {

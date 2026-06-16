@@ -324,7 +324,31 @@
       });
     }
 
+    /* SAVED section — flat list of the user's named search queries. Each row
+       carries data-saved (the query string) instead of data-url so it never
+       navigates directly; clicks are handled by the delegated handler below.
+       Section is hidden when no saved searches exist. */
+    var savedItems = (window.HDSaved && HDSaved.list()) || [];
+    var savedTree = null;
+    if (savedItems.length) {
+      savedTree = el('div', { class: 'tree saved-tree' });
+      savedItems.forEach(function (item) {
+        savedTree.appendChild(el('div', {
+          class: 'row saved', data: { saved: item.query }
+        }, [
+          el('span', { class: 'saved-glyph', text: '⌕' }),
+          el('span', { class: 'label', text: item.name }),
+          el('button', { class: 'saved-del', title: 'remove' }, ['✕'])
+        ]));
+      });
+    }
+
     var sections = [];
+    if (savedTree) {
+      sections.push(el('div', { class: 'sidebar-section' }, [
+        el('div', { class: 'sidebar-title', text: 'saved' }), savedTree
+      ]));
+    }
     if (pinnedTree) {
       sections.push(el('div', { class: 'sidebar-section' }, [
         el('div', { class: 'sidebar-title', text: 'pinned · p' }), pinnedTree
@@ -733,6 +757,14 @@
     if (testBtn) { e.stopPropagation(); testDestination(testBtn.dataset.name); return; }
     var removeBtn = e.target.closest('.dest-remove');
     if (removeBtn) { e.stopPropagation(); removeDestination(removeBtn.dataset.name); return; }
+    var del = e.target.closest('.saved-del');
+    if (del) {
+      var r = del.closest('[data-saved]');
+      if (r && window.HDSaved) HDSaved.remove(r.dataset.saved);
+      return;
+    }
+    var sv = e.target.closest('[data-saved]');
+    if (sv) { if (window.HDSearch) HDSearch.open(sv.dataset.saved); return; }
     var row = e.target.closest('[data-url]');
     if (row) { window.location.href = row.dataset.url; }
   });
@@ -1134,6 +1166,7 @@
     renderTree();
     HDTree.paint();
   });
+  window.addEventListener('hd:saved-changed', function () { renderTree(); });
 
   window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
   migrateLegacyURL();

@@ -77,6 +77,9 @@ var LiveJS string
 //go:embed live-banner.js
 var LiveBannerJS string
 
+//go:embed saved.js
+var SavedJS string
+
 //go:embed search.js
 var SearchJS string
 
@@ -145,6 +148,9 @@ var MobileJSInline = strings.ReplaceAll(MobileJS, "</script", `<\/script`)
 // TabsJSInline is tabs.js with </script escaped for safe inlining.
 var TabsJSInline = strings.ReplaceAll(TabsJS, "</script", `<\/script`)
 
+// SavedJSInline is saved.js with </script escaped for safe inlining.
+var SavedJSInline = strings.ReplaceAll(SavedJS, "</script", `<\/script`)
+
 // TriageJSInline is triage.js with </script escaped for safe inlining.
 var TriageJSInline = strings.ReplaceAll(TriageJS, "</script", `<\/script`)
 
@@ -189,4 +195,4 @@ var RespondJSInline = strings.ReplaceAll(RespondJS, "</script", `<\/script`)
 // vim-nav → respond → mobile → tabs (the single g-chord owner, see
 // window.HDKeys) → triage. Reordering this line silently reshuffles
 // keyboard semantics; don't.
-var ReportJS = HDDomJSInline + "\n" + VimNavJSInline + "\n" + RespondJSInline + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + LiveBannerJSInline + "\n" + SearchJSInline + "\n" + HTMLBlockJSInline
+var ReportJS = HDDomJSInline + "\n" + VimNavJSInline + "\n" + RespondJSInline + "\n" + MobileJSInline + "\n" + TabsJSInline + "\n" + SavedJSInline + "\n" + TriageJSInline + "\n" + LiveJSInline + "\n" + LiveBannerJSInline + "\n" + SearchJSInline + "\n" + HTMLBlockJSInline
