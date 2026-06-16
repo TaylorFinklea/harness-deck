@@ -2,29 +2,33 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main. **Unpushed** (origin/main last caught up through `c30cc7e`):
-  the search query-language milestone (`fa88dce`→`dddd2e8`, 6 commits) **plus
-  saved searches** — `7dbf4b0` (spec), `3e75aff` (feature), + this doc commit.
-  All push-ready; user reviews + pushes.
-- **Saved searches shipped 2026-06-16** (roadmap Now #6, the whole Now list is
-  now clear). Option A: pin a JQL query to a new SAVED sidebar section → click
-  opens the Cmd+K palette pre-filled + live. localStorage (`window.HDSaved`,
-  mirrors HDPins), click-only activation. Built Sonnet-impl + Haiku-gate +
-  2×Sonnet-review (model scorecard updated). gofmt/build/test/vet/node-check all
-  green; **browser-verified** (chrome-devtools) full save→sidebar→activate→
-  remove — caught + fixed a CSS↔inline-style bug static review missed.
-  decisions.md "Saved searches"; spec phases/saved-searches-spec.md.
-- Prior context (roadmap shipped list): v0.2.6 era, perf wave, usage monitors,
-  session-code audit, search query language.
+- Branch: main. **v0.2.7 cut 2026-06-16** — first release since v0.2.6
+  (2026-06-10). Pushed main + tagged `v0.2.7`; GoReleaser (GH Actions, on
+  `v*` tag) builds 4 platforms, publishes the GitHub Release, commits the
+  homebrew-tap formula. Ships the whole post-launch backlog: usage monitors,
+  perf wave, config live-reload, JS modularization, search query language,
+  saved searches. **Verify after CI:** `brew upgrade harness-deck` →
+  `hdeck version` = 0.2.7, then `/api/usage` works + saved searches appear.
+- **Doc correction:** earlier notes implied v0.2.6 shipped usage monitors — it
+  did not; v0.2.6 is the launch tag, these reached users only in v0.2.7.
+- **Usage bar configured** (`~/.config/harness-deck/config.json` → `usage.providers
+  = [claude-code, codex, opencode]`, empty `opencode_cookie`). codex needs
+  nothing; claude-code triggers a one-time Keychain "Always Allow"; opencode
+  needs the opencode.ai `auth` cookie pasted in. Lit up once the 0.2.7 binary
+  is installed (the running 0.2.6 had no `/api/usage` route).
+- **Feature assessment done 2026-06-16** (7-agent workflow). Verdict: core loop
+  feature-complete; gaps = shallow interactive layer (single-string answers) +
+  no cross-report narrative. Top picks → roadmap Backlog (note-field wire-up,
+  SSE response event, notify response env, multi-select asks, activity
+  timeline, CI workflow). Not yet started.
 
 ## Plan
 
-- Empty. Roadmap Now is fully shipped — pull from Backlog (deferred items) or
-  Later (saved-searches follow-ups) when starting fresh.
+- Empty. Next: pull from roadmap Backlog (assessment top picks) or Later.
 
 ## Blockers
 
-- None.
+- None. (v0.2.7 release CI to be verified, then brew upgrade.)
 
 ## Open questions
 
@@ -32,7 +36,6 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- Push the unpushed commits (search query-language milestone + saved searches)
-  after review.
-- Enable usage monitors: add tools to `usage.providers` in config (Claude needs
-  a one-time Keychain allow; OpenCode needs a pasted cookie). docs/SETUP.md §8.
+- `brew upgrade harness-deck` to 0.2.7 + restart LaunchAgent after CI completes.
+- Paste opencode.ai `auth` cookie into `usage.opencode_cookie` for the 3rd
+  usage tile (codex + claude-code work without it).

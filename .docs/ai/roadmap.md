@@ -82,6 +82,13 @@ One line each; detail in decisions.md + git log.
   refactor + `/api/search/schema`. Built via a phased multi-agent workflow
   (build→adversarial-verify→server→client→review). decisions.md "Search query
   language"; phases/search-query-language-{spec,report}.md.
+- **v0.2.7 release** _(2026-06-16)_ — **first release since v0.2.6 (2026-06-10)**;
+  everything between was built but unreleased until now. Ships: usage monitors,
+  perf wave (~6.9× warm scan), config live-reload, JS modularization (hd-dom +
+  tree/help/settings split), search query language, and saved searches.
+  _Correction: earlier handoff notes implied v0.2.6 carried usage monitors — it
+  did not. v0.2.6 is the 2026-06-10 launch tag; these features reached Homebrew
+  users only in v0.2.7._
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
@@ -126,7 +133,37 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
 
 ## Next
 
-_(empty — Now/Next cleared. Pull from Backlog or Later when starting fresh.)_
+**Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop is
+feature-complete — gaps are a shallow interactive layer + no cross-report
+narrative). Prioritized picks, highest-leverage first:
+
+1. **Finish the latent plumbing** _(all S; verified half-built)_ —
+   (a) wire the `note` field end-to-end: it's in `respond.Response`, sent by
+   `respond.js`, persisted server-side, but **rendered nowhere** (`blocks.tmpl`
+   has 0 refs) and has no input widget — so `approval` "changes-requested"
+   returns zero context; (b) SSE `response` event: the hub pushes a `change`
+   event (`sse.go`), emit one on `respond.Record` so a live harness gets pushed
+   the answer instead of polling; (c) `HD_RESPONSE_VALUE`/`HD_RESPONSE_JSON` in
+   the notify command (`notify.go` exports HD_PROJECT/RUN/BLOCK/RUN_DIR only);
+   (d) cache `BlockText` in the store's `cachedEntry` (already keyed by
+   path+mtime) so Cmd+K text search stops re-reading every manifest at scale.
+2. **CI workflow** _(S)_ — `go test -race ./...` on push/PR. There is none today
+   (only the tag→release workflow); 50 commits accumulated with no gate.
+3. **Multi-select asks + `Values[]`** _(M)_ — already roadmap-acknowledged (see
+   "responses.json evolution" in Later). Single biggest expansion of what a
+   harness can ask ("which of these findings should I fix?"). Pairs w/ response
+   history.
+4. **Activity timeline** _(M/L; the big bet)_ — a third view (cross-project,
+   cross-harness, chronological) + an optional report-level `related []` field
+   for spec→impl→audit threading. Data is already on every store entry; follows
+   the `viewInbox`/`viewProjects` builder pattern. Turns the corpus into a
+   narrative — the one proposal that creates value from existing reports.
+
+Polish (real, not significant): inbox sort pivot · roadmap section collapse ·
+keyboard saved-searches (Later already lists this) · TLS-expiry startup warning
+· typed `card-grid` block (recurring html-escape pattern) · `scope`/`tags` in
+the JQL engine. Full per-dimension detail was in the workflow output (not
+persisted; re-run the assessment if needed).
 
 Possible follow-ups (not yet scheduled):
 
