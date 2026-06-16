@@ -129,6 +129,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("POST /r/{project}/{run}/unarchive", s.handleReportUnarchive)
 	mux.HandleFunc("DELETE /r/{project}/{run}", s.handleReportDelete)
 	mux.HandleFunc("GET /api/search", s.handleSearch)
+	mux.HandleFunc("GET /api/search/schema", s.handleSearchSchema)
 	mux.HandleFunc("GET /api/usage", s.handleUsage)
 	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)

@@ -3,8 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -640,6 +642,252 @@ func TestSearchEndpoint(t *testing.T) {
 	code, body = get(t, h, "/api/search?q=nonexistent-string-xyz")
 	if !strings.Contains(body, `"matches":[]`) {
 		t.Errorf("expected empty matches; body = %s", body)
+	}
+}
+
+// searchSeedReport is a single report fixture for the query-language search
+// tests. Fields map onto the structural filter axes (status/project/kind/
+// harness/created) plus a prose body so text terms have something to hit.
+type searchSeedReport struct {
+	project, run, title, status, kind, harness, created, body string
+}
+
+// seedSearchServer builds a server whose central dir holds the given reports,
+// each at central/<project>/<run>/report.json. It returns the handler so the
+// query-language tests can exercise /api/search and /api/search/schema against
+// a known set.
+func seedSearchServer(t *testing.T, reports []searchSeedReport) http.Handler {
+	t.Helper()
+	isolateState(t)
+	central := t.TempDir()
+	for _, r := range reports {
+		dir := filepath.Join(central, r.project, r.run)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		manifest := fmt.Sprintf(`{
+  "schema": "harness-deck/report@1",
+  "id": %q, "project": %q, "harness": %q,
+  "title": %q, "status": %q, "kind": %q,
+  "created": %q,
+  "blocks": [{"type": "prose", "markdown": %q}]
+}`, r.run, r.project, r.harness, r.title, r.status, r.kind, r.created, r.body)
+		if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(manifest), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := New(config.Config{CentralDir: central, Port: 0})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	return s.Handler()
+}
+
+// searchMatchesResponse decodes the /api/search payload for the query tests.
+type searchMatchesResponse struct {
+	Matches []struct {
+		Project string `json:"project"`
+		Run     string `json:"run"`
+		Title   string `json:"title"`
+		Status  string `json:"status"`
+		Snippet string `json:"snippet"`
+	} `json:"matches"`
+	Error string `json:"error"`
+}
+
+// searchRuns runs ?q= and returns the matched runs (in response order) plus the
+// error field, decoding through the typed response.
+func searchRuns(t *testing.T, h http.Handler, rawQuery string) ([]string, string) {
+	t.Helper()
+	code, body := get(t, h, "/api/search?q="+url.QueryEscape(rawQuery))
+	if code != http.StatusOK {
+		t.Fatalf("GET /api/search?q=%q = %d, want 200; body=%s", rawQuery, code, body)
+	}
+	var resp searchMatchesResponse
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode search response: %v; body=%s", err, body)
+	}
+	runs := make([]string, len(resp.Matches))
+	for i, m := range resp.Matches {
+		runs[i] = m.Run
+	}
+	return runs, resp.Error
+}
+
+// searchCorpus is the seeded set for the query-language tests: three reports
+// spanning two projects, three statuses, two kinds, and distinct created dates
+// so structural filters select known subsets.
+var searchCorpus = []searchSeedReport{
+	{project: "harness-deck", run: "r1", title: "readiness audit", status: "awaiting-review",
+		kind: "audit", harness: "claude-code", created: "2026-06-10T12:00:00Z",
+		body: "auth flow looks solid"},
+	{project: "harness-deck", run: "r2", title: "dark mode plan", status: "done",
+		kind: "roadmap", harness: "codex", created: "2026-05-01T12:00:00Z",
+		body: "auth was untouched here"},
+	{project: "demo", run: "r3", title: "login refactor", status: "draft",
+		kind: "progress", harness: "claude-code", created: "2026-06-14T12:00:00Z",
+		body: "no keyword overlap"},
+}
+
+// TestSearchStructuralOnly proves a purely-structural query (no text terms)
+// selects the right set without ever needing body text, and that a list/IN
+// query and a created comparison filter as specified.
+func TestSearchStructuralOnly(t *testing.T) {
+	h := seedSearchServer(t, searchCorpus)
+
+	// status = awaiting-review → only r1.
+	runs, errMsg := searchRuns(t, h, "status = awaiting-review")
+	if errMsg != "" {
+		t.Fatalf("unexpected error: %q", errMsg)
+	}
+	if !reflect.DeepEqual(runs, []string{"r1"}) {
+		t.Errorf("status filter runs = %v, want [r1]", runs)
+	}
+
+	// project IN (harness-deck) AND kind = audit → r1 only.
+	runs, _ = searchRuns(t, h, "project IN (harness-deck) AND kind = audit")
+	if !reflect.DeepEqual(runs, []string{"r1"}) {
+		t.Errorf("project/kind filter runs = %v, want [r1]", runs)
+	}
+
+	// created >= an absolute ISO date (clock-independent, unlike -Nd) keeps the
+	// two June reports (r1, r3) and drops the May one (r2). Order is newest-first
+	// for a structural-only query.
+	runs, _ = searchRuns(t, h, "created >= 2026-06-01")
+	if !reflect.DeepEqual(runs, []string{"r3", "r1"}) {
+		t.Errorf("created filter runs = %v, want [r3 r1] (newest first)", runs)
+	}
+}
+
+// TestSearchMixedTextAndFilter proves a query mixing a text term with a
+// structural clause keeps only entries satisfying both, and that the survivor
+// carries a snippet from the text term.
+func TestSearchMixedTextAndFilter(t *testing.T) {
+	h := seedSearchServer(t, searchCorpus)
+
+	// "auth" appears in r1 and r2 bodies; status = awaiting-review keeps r1.
+	runs, errMsg := searchRuns(t, h, "auth status = awaiting-review")
+	if errMsg != "" {
+		t.Fatalf("unexpected error: %q", errMsg)
+	}
+	if !reflect.DeepEqual(runs, []string{"r1"}) {
+		t.Fatalf("mixed query runs = %v, want [r1]", runs)
+	}
+
+	_, body := get(t, h, "/api/search?q="+url.QueryEscape("auth status = awaiting-review"))
+	if !strings.Contains(body, "[[auth]]") {
+		t.Errorf("mixed query should snippet the text term; body=%s", body)
+	}
+}
+
+// TestSearchParseError proves an invalid/partial query returns 200 with the
+// error field set and an empty matches array (so the client keeps last-good
+// results and surfaces the hint).
+func TestSearchParseError(t *testing.T) {
+	h := seedSearchServer(t, searchCorpus)
+
+	code, body := get(t, h, "/api/search?q="+url.QueryEscape("status ="))
+	if code != http.StatusOK {
+		t.Fatalf("parse-error query = %d, want 200; body=%s", code, body)
+	}
+	var resp searchMatchesResponse
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode: %v; body=%s", err, body)
+	}
+	if resp.Error == "" {
+		t.Errorf("expected an error message; body=%s", body)
+	}
+	if len(resp.Matches) != 0 {
+		t.Errorf("parse error should yield no matches; got %d", len(resp.Matches))
+	}
+}
+
+// TestSearchPlainTextRegression proves a bare term with no operators behaves
+// exactly as the legacy full-text search did: it matches metadata + body and
+// brackets the hit in a snippet.
+func TestSearchPlainTextRegression(t *testing.T) {
+	h := seedSearchServer(t, searchCorpus)
+
+	// "auth" is body-only in r1 and r2.
+	runs, errMsg := searchRuns(t, h, "auth")
+	if errMsg != "" {
+		t.Fatalf("unexpected error: %q", errMsg)
+	}
+	got := map[string]bool{}
+	for _, r := range runs {
+		got[r] = true
+	}
+	if !got["r1"] || !got["r2"] || got["r3"] {
+		t.Errorf("plain-text 'auth' runs = %v, want {r1,r2}", runs)
+	}
+
+	_, body := get(t, h, "/api/search?q=auth")
+	if !strings.Contains(body, "[[auth]]") {
+		t.Errorf("plain-text hit should bracket the match; body=%s", body)
+	}
+
+	// Title metadata still matches (legacy behavior): "readiness" hits r1.
+	runs, _ = searchRuns(t, h, "readiness")
+	if !reflect.DeepEqual(runs, []string{"r1"}) {
+		t.Errorf("title term runs = %v, want [r1]", runs)
+	}
+}
+
+// TestSearchSchemaEndpoint proves GET /api/search/schema returns the field/op
+// matrix, the static status enum (in order), and the distinct project/kind/
+// harness values present in the seeded index.
+func TestSearchSchemaEndpoint(t *testing.T) {
+	h := seedSearchServer(t, searchCorpus)
+
+	code, body := get(t, h, "/api/search/schema")
+	if code != http.StatusOK {
+		t.Fatalf("GET /api/search/schema = %d, want 200", code)
+	}
+
+	var resp struct {
+		Fields []struct {
+			Name string   `json:"name"`
+			Ops  []string `json:"ops"`
+		} `json:"fields"`
+		Values       map[string][]string `json:"values"`
+		CreatedHints []string            `json:"created_hints"`
+	}
+	if err := json.Unmarshal([]byte(body), &resp); err != nil {
+		t.Fatalf("decode schema: %v; body=%s", err, body)
+	}
+
+	// Field matrix: status carries exactly its four operators in order.
+	var statusOps []string
+	for _, f := range resp.Fields {
+		if f.Name == "status" {
+			statusOps = f.Ops
+		}
+	}
+	if !reflect.DeepEqual(statusOps, []string{"=", "!=", "IN", "NOT IN"}) {
+		t.Errorf("status ops = %v, want [= != IN NOT IN]", statusOps)
+	}
+	if len(resp.Fields) != 8 {
+		t.Errorf("schema fields = %d, want 8", len(resp.Fields))
+	}
+
+	// status values are the static enum in stable order.
+	if !reflect.DeepEqual(resp.Values["status"], []string{"draft", "awaiting-review", "answered", "done"}) {
+		t.Errorf("status values = %v, want the static enum", resp.Values["status"])
+	}
+
+	// project/kind/harness values are the distinct seeded values, sorted.
+	if !reflect.DeepEqual(resp.Values["project"], []string{"demo", "harness-deck"}) {
+		t.Errorf("project values = %v, want [demo harness-deck]", resp.Values["project"])
+	}
+	if !reflect.DeepEqual(resp.Values["harness"], []string{"claude-code", "codex"}) {
+		t.Errorf("harness values = %v, want [claude-code codex]", resp.Values["harness"])
+	}
+	if !reflect.DeepEqual(resp.Values["kind"], []string{"audit", "progress", "roadmap"}) {
+		t.Errorf("kind values = %v, want [audit progress roadmap]", resp.Values["kind"])
+	}
+
+	if !reflect.DeepEqual(resp.CreatedHints, []string{"-24h", "-7d", "-2w", "YYYY-MM-DD"}) {
+		t.Errorf("created_hints = %v", resp.CreatedHints)
 	}
 }
 
