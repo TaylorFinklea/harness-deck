@@ -4,6 +4,7 @@ package notify
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"strings"
@@ -16,15 +17,16 @@ import (
 var runTimeout = 10 * time.Second
 
 // Run executes the configured notify command. The run directory is appended as
-// the final argument, and HD_PROJECT / HD_RUN / HD_BLOCK are exported to the
-// child so a script can react to specifics. A blank command is a no-op.
+// the final argument, and HD_PROJECT / HD_RUN / HD_BLOCK / HD_RUN_DIR /
+// HD_RESPONSE_VALUE / HD_RESPONSE_JSON are exported to the child so a script
+// can react to specifics. A blank command is a no-op.
 //
 // The command is bounded by runTimeout via a context; a command that outlives
 // it is killed and Run returns the resulting error.
 //
 // Command splitting is whitespace-based — keep the configured command simple
 // (a script name, not a quoted pipeline).
-func Run(command, runDir, project, run, block string) error {
+func Run(command, runDir, project, run, block, value, note string) error {
 	command = strings.TrimSpace(command)
 	if command == "" {
 		return nil
@@ -34,11 +36,18 @@ func Run(command, runDir, project, run, block string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, parts[0], args...)
+	responseJSON, _ := json.Marshal(map[string]string{
+		"block": block,
+		"value": value,
+		"note":  note,
+	})
 	cmd.Env = append(os.Environ(),
 		"HD_PROJECT="+project,
 		"HD_RUN="+run,
 		"HD_BLOCK="+block,
 		"HD_RUN_DIR="+runDir,
+		"HD_RESPONSE_VALUE="+value,
+		"HD_RESPONSE_JSON="+string(responseJSON),
 	)
 	return cmd.Run()
 }

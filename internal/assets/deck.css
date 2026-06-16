@@ -54,6 +54,16 @@
   min-width: 220px;
 }
 .hd-input:focus { outline: none; border-color: var(--tn-blue); }
+.hd-note {
+  flex: 0 1 200px;
+  min-width: 120px;
+  font-size: 11px;
+  padding: 5px 8px;
+  background: var(--tn-bg-darker);
+  color: var(--tn-fg-dark);
+  border: 1px solid var(--tn-bg-highlight);
+}
+.hd-note:focus { outline: none; border-color: var(--tn-comment); }
 .ask-answered {
   font-size: 12px;
   color: var(--tn-green);
@@ -62,6 +72,7 @@
   padding: 8px 12px;
 }
 .ask-answered b { color: var(--tn-fg); }
+.ask-note { color: var(--tn-comment); font-style: italic; }
 
 /* rendered-Markdown headings — report prose and the roadmap view */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6,

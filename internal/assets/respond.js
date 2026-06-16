@@ -35,13 +35,15 @@
     }
 
     var panel = btn.closest('.panel');
+    var noteEl = panel ? panel.querySelector('.hd-note') : null;
+    var note = noteEl ? noteEl.value.trim() : '';
     var original = btn.textContent;
     if (panel) {
       panel.querySelectorAll('.hd-respond').forEach(function (b) { b.disabled = true; });
     }
     btn.textContent = 'recording…';
 
-    post(btn.dataset.block, value, '').then(function () {
+    post(btn.dataset.block, value, note).then(function () {
       window.location.reload();
     }).catch(function (err) {
       btn.textContent = original + ' — retry';

@@ -181,3 +181,35 @@ directory:
 
 A harness reads `responses.json` from the run directory (e.g. in a session-start
 hook) to pick up the user's answers, keyed by interactive-block `id`.
+
+### Optional answer note
+
+Interactive answers may carry an optional free-text `note`. The UI surfaces a
+small "optional note…" input beside the buttons on the button-based prompts —
+`ask` (choice / yes-no), `decision`, and `approval`; the free-text `ask` mode
+omits it (its answer is already prose). The note is stored in the `note` field
+of the response and rendered next to the recorded answer on the report page.
+
+### SSE `response` event
+
+The `/events` endpoint (Server-Sent Events) emits two event types:
+
+- `event: change` — store changed; client should re-fetch `/api/reports`.
+- `event: response` — user just answered an interactive block; data is a JSON
+  object `{"project":"…","run":"…","block":"…","value":"…"}`.
+
+A live harness can `addEventListener('response', …)` on the EventSource to be
+pushed the answer instantly instead of polling `responses.json`.
+
+### Notify command environment
+
+When the configured notify command runs, it receives:
+
+| Variable | Content |
+|---|---|
+| `HD_PROJECT` | project id |
+| `HD_RUN` | run id |
+| `HD_BLOCK` | block id that was answered |
+| `HD_RUN_DIR` | absolute path to the run directory |
+| `HD_RESPONSE_VALUE` | the answer value (plain string) |
+| `HD_RESPONSE_JSON` | `{"block":"…","value":"…","note":"…"}` |

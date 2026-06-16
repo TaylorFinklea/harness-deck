@@ -19,23 +19,29 @@ const scanWarnThreshold = 500 * time.Millisecond
 // Sub-floor scans are completely silent to avoid 2-second spam on healthy installs.
 const scanLogFloor = 100 * time.Millisecond
 
+// sseMsg is an SSE frame carrying an event name and data payload.
+type sseMsg struct {
+	event string
+	data  string
+}
+
 // hub fans out change notifications to every connected SSE client.
 type hub struct {
 	mu      sync.Mutex
-	clients map[chan string]struct{}
+	clients map[chan sseMsg]struct{}
 }
 
-func newHub() *hub { return &hub{clients: make(map[chan string]struct{})} }
+func newHub() *hub { return &hub{clients: make(map[chan sseMsg]struct{})} }
 
-func (h *hub) add() chan string {
-	ch := make(chan string, 4)
+func (h *hub) add() chan sseMsg {
+	ch := make(chan sseMsg, 4)
 	h.mu.Lock()
 	h.clients[ch] = struct{}{}
 	h.mu.Unlock()
 	return ch
 }
 
-func (h *hub) remove(ch chan string) {
+func (h *hub) remove(ch chan sseMsg) {
 	h.mu.Lock()
 	if _, ok := h.clients[ch]; ok {
 		delete(h.clients, ch)
@@ -44,15 +50,24 @@ func (h *hub) remove(ch chan string) {
 	h.mu.Unlock()
 }
 
-func (h *hub) broadcast(msg string) {
+// broadcastEvent sends an SSE frame with the given event name and data to all
+// connected clients. Slow clients are silently dropped — they re-fetch on the
+// next event.
+func (h *hub) broadcastEvent(event, data string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for ch := range h.clients {
 		select {
-		case ch <- msg:
+		case ch <- sseMsg{event: event, data: data}:
 		default: // slow client — drop; it re-fetches on the next event anyway
 		}
 	}
+}
+
+// broadcast sends a "change" event, preserving backward compatibility for
+// callers that only send store-change notifications.
+func (h *hub) broadcast(msg string) {
+	h.broadcastEvent("change", msg)
 }
 
 // handleEvents streams change notifications to the browser as Server-Sent
@@ -83,7 +98,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 			if !open {
 				return
 			}
-			fmt.Fprintf(w, "event: change\ndata: %s\n\n", msg)
+			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", msg.event, msg.data)
 			flusher.Flush()
 		case <-keepalive.C:
 			fmt.Fprint(w, ": keepalive\n\n")

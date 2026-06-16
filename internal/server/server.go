@@ -347,9 +347,19 @@ func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 	// Reindex so OpenAsks counts drop, and tell the dashboard to refresh.
 	s.store.Scan(s.enabledRoots())
 	s.hub.broadcast("reports")
+	// Emit a distinct SSE event so a live harness can be pushed the answer
+	// instead of polling responses.json.
+	if evtData, jerr := json.Marshal(map[string]string{
+		"project": project,
+		"run":     run,
+		"block":   req.Block,
+		"value":   req.Value,
+	}); jerr == nil {
+		s.hub.broadcastEvent("response", string(evtData))
+	}
 	// Fire the notify command after the broadcast so a slow (but
 	// timeout-bounded) command can't delay the user-visible refresh.
-	if err := notify.Run(s.cfg.NotifyCommand, entry.Dir, project, run, req.Block); err != nil {
+	if err := notify.Run(s.cfg.NotifyCommand, entry.Dir, project, run, req.Block, req.Value, req.Note); err != nil {
 		log.Printf("harness-deck: notify command failed: %v", err)
 	}
 

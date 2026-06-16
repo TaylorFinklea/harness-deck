@@ -20,15 +20,23 @@ func writeScript(t *testing.T, body string) string {
 }
 
 func TestRunBlankIsNoop(t *testing.T) {
-	if err := Run("   ", "/tmp", "proj", "run", "blk"); err != nil {
+	if err := Run("   ", "/tmp", "proj", "run", "blk", "", ""); err != nil {
 		t.Fatalf("blank command should be a no-op, got %v", err)
 	}
 }
 
 func TestRunFastCommandSucceeds(t *testing.T) {
 	script := writeScript(t, "exit 0")
-	if err := Run(script, "/tmp", "proj", "run", "blk"); err != nil {
+	if err := Run(script, "/tmp", "proj", "run", "blk", "val", ""); err != nil {
 		t.Fatalf("fast command should succeed, got %v", err)
+	}
+}
+
+func TestRunEnvVarsExported(t *testing.T) {
+	// Write a script that checks the new env vars are present and non-empty.
+	script := writeScript(t, `test -n "$HD_RESPONSE_VALUE" && test -n "$HD_RESPONSE_JSON"`)
+	if err := Run(script, "/tmp", "proj", "run", "blk", "myval", "mynote"); err != nil {
+		t.Fatalf("env var check failed: %v", err)
 	}
 }
 
@@ -42,7 +50,7 @@ func TestRunHangingCommandTimesOut(t *testing.T) {
 	done := make(chan error, 1)
 	start := time.Now()
 	go func() {
-		done <- Run(script, "/tmp", "proj", "run", "blk")
+		done <- Run(script, "/tmp", "proj", "run", "blk", "", "")
 	}()
 
 	select {
