@@ -47,6 +47,7 @@
     sections.push(helpSection('jumps (g-prefix)', [
       [['g', 'i'], 'go to inbox'],
       [['g', 'p'], 'go to projects'],
+      [['g', 'l'], 'go to activity timeline'],
       [['g', 'a'], 'go to inbox + archive filter on'],
       [['g', 'd'], 'go to dashboard (alias: g h, q on a report)'],
       [['g', 't'], 'cycle to next in-app tab (g T reverses)'],
@@ -66,7 +67,7 @@
       [['g', 'x'], 'unpin the current report'],
     ]));
     sections.push(helpSection('commands (: prompt)', [
-      [':inbox / :projects', 'jump to a view'],
+      [':inbox / :projects / :activity', 'jump to a view'],
       [':archive', 'toggle archive filter'],
       [':settings', 'open settings overlay'],
       [':cheat', 'this help'],

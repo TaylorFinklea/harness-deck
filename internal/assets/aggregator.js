@@ -15,7 +15,8 @@
      archive / settings" tabs are folded — see migrateLegacyURL(). */
   var VIEWS = [
     { id: 'inbox', label: 'inbox' },
-    { id: 'projects', label: 'projects' }
+    { id: 'projects', label: 'projects' },
+    { id: 'activity', label: 'activity' }
   ];
 
   /* activeReports — non-archived only. Every default view operates on
@@ -629,10 +630,91 @@
      overlay shares the dismiss vocabulary with settings (Esc, click scrim, ✕
      button) — those handlers stay here; only the builder + open/close moved. */
 
+  /* viewActivity — cross-project, cross-harness chronological list of all
+     non-archived reports, grouped by day (newest first). Answers "what has
+     all my AI work been doing lately?". */
+  function viewActivity() {
+    var reports = (data.reports || []).filter(function (r) { return !r.archived; });
+    reports = reports.slice().sort(function (a, b) {
+      return (b.created || '').localeCompare(a.created || '');
+    });
+
+    /* unique project + harness counts */
+    var projectSet = {};
+    var harnessSet = {};
+    var todayCount = 0;
+    reports.forEach(function (r) {
+      if (r.project) projectSet[r.project] = true;
+      if (r.harness) harnessSet[r.harness] = true;
+      if (createdInLast24h(r.created)) todayCount++;
+    });
+
+    var strip = metricStrip([
+      metricChip(reports.length, 'reports'),
+      metricChip(Object.keys(projectSet).length, 'projects'),
+      metricChip(Object.keys(harnessSet).length, 'harnesses'),
+      metricChip(todayCount, 'today')
+    ]);
+
+    if (!reports.length) {
+      return [strip, emptyState([el('b', { text: 'no activity yet.' }), el('br'),
+        'reports will appear here as AI sessions run.'])];
+    }
+
+    /* group by day (YYYY-MM-DD from r.created) */
+    var pad2 = function (n) { return String(n).padStart(2, '0'); };
+    /* Local day key — matches the local HH:MM shown on each row, so a report
+       written near midnight isn't bucketed under a UTC date that disagrees
+       with its displayed time. Unparseable timestamps fall back to the slice. */
+    function localDay(iso) {
+      if (!iso) return 'unknown';
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return iso.slice(0, 10) || 'unknown';
+      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    }
+    var days = [];      /* ordered list of day strings */
+    var byDay = {};     /* day → [report, …] */
+    reports.forEach(function (r) {
+      var day = localDay(r.created);
+      if (!byDay[day]) { days.push(day); byDay[day] = []; }
+      byDay[day].push(r);
+    });
+
+    var nodes = [strip];
+    days.forEach(function (day) {
+      var dayReports = byDay[day];
+      /* day header */
+      nodes.push(el('div', { class: 'activity-day' }, [
+        el('span', { class: 'activity-day-label', text: day }),
+        el('span', { class: 'activity-day-count', text: dayReports.length + '' })
+      ]));
+      /* one row per report */
+      dayReports.forEach(function (r) {
+        var timeStr = '';
+        if (r.created) {
+          var d = new Date(r.created);
+          if (!isNaN(d.getTime())) {
+            timeStr = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+          }
+        }
+        var kids = [
+          el('span', { class: 'act-time', text: timeStr }),
+          el('span', { class: 'act-project', text: r.project || '' })
+        ];
+        if (r.harness) kids.push(el('span', { class: 'hbadge act-harness', text: r.harness }));
+        kids.push(el('span', { class: 'st ' + (r.status || '') }));
+        if (r.kind) kids.push(el('span', { class: 'act-kind', text: r.kind }));
+        kids.push(el('span', { class: 'act-title', text: r.title || r.run }));
+        nodes.push(el('div', { class: 'activity-row', data: { url: reportURL(r) } }, kids));
+      });
+    });
+    return nodes;
+  }
+
   /* BUILDERS maps view id → builder function. v0.2.0 keeps just the
      two top-level views; viewSettings is now rendered into a modal
      overlay (settingsOverlayBody) instead. */
-  var BUILDERS = { inbox: viewInbox, projects: viewProjects };
+  var BUILDERS = { inbox: viewInbox, projects: viewProjects, activity: viewActivity };
 
   function renderContent() {
     var tabs = el('div', { class: 'view-tabs' }, VIEWS.map(function (v) {
@@ -910,6 +992,7 @@
   HDKeys.chord('g', 'i', function () { archiveFilter = false; render(); showView('inbox'); });
   HDKeys.chord('g', 'p', function () { showView('projects'); });
   HDKeys.chord('g', 'a', function () { showView('inbox'); archiveFilter = true; render(); });
+  HDKeys.chord('g', 'l', function () { showView('activity'); });
   HDKeys.chord('g', 'g', function () { window.scrollTo({ top: 0, behavior: 'instant' }); });
 
   /* Inbox cursor key handler — capture phase so we intercept j/k
@@ -1095,6 +1178,10 @@
       currentView = 'projects';
       params.delete('v');
     }
+    else if (v === 'activity') {
+      currentView = 'activity';
+      params.delete('v');
+    }
     else if (v === 'inbox') {
       currentView = 'inbox';
       params.delete('v');
@@ -1141,6 +1228,7 @@
     if (!(window.VimNav && VimNav.addCommand)) return;
     VimNav.addCommand('inbox', function () { archiveFilter = false; render(); showView('inbox'); }, 'go to inbox');
     VimNav.addCommand('projects', function () { showView('projects'); }, 'go to projects');
+    VimNav.addCommand('activity', function () { showView('activity'); }, 'go to activity timeline');
     VimNav.addCommand('archive', function () { showView('inbox'); archiveFilter = !archiveFilter; render(); }, 'toggle archive filter on inbox');
     VimNav.addCommand('settings', function () { openSettingsOverlay(); }, 'open the settings overlay');
     VimNav.addCommand('cheat', function () { HDHelp.open(); }, 'open the keymap cheat sheet');

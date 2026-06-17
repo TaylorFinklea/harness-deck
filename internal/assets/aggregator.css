@@ -464,6 +464,92 @@
 .dest-form-actions { display: flex; justify-content: flex-end; }
 .dest-form .hd-input { width: 100%; }
 
+/* --- activity timeline view ---
+   Cross-project, cross-harness newest-first list grouped by day.
+   .activity-day is the day-bucket header; .activity-row is one report.
+   Harness badges (.hbadge) reuse the sidebar style. The .st status dots are
+   re-scoped below: the global dot colors are scoped to .tree .row.run .st,
+   which activity rows are not inside. */
+.activity-day {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 4px 4px;
+  margin-top: 6px;
+}
+.activity-day-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--tn-comment);
+}
+.activity-day-count {
+  font-size: 10px;
+  color: var(--tn-fg-gutter);
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-top: 1px dotted var(--tn-bg-highlight);
+  cursor: pointer;
+  min-width: 0;
+}
+.activity-row:hover { background: var(--tn-bg-highlight); }
+.act-time {
+  font-size: 11px;
+  color: var(--tn-comment);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: 36px;
+}
+.act-project {
+  font-size: 12px;
+  color: var(--tn-blue);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.act-harness {
+  flex: 0 0 auto;
+}
+/* Re-scoped here: the global dot colors live under .tree .row.run .st. */
+.activity-row .st {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--tn-comment);
+  flex: 0 0 auto;
+}
+.activity-row .st.awaiting-review { background: var(--tn-yellow); }
+.activity-row .st.answered { background: var(--tn-blue); }
+.activity-row .st.done { background: var(--tn-green); }
+.act-kind {
+  font-size: 10px;
+  color: var(--tn-fg-gutter);
+  background: var(--tn-bg-highlight);
+  border-radius: 2px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.act-title {
+  font-size: 13px;
+  color: var(--tn-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+@media (max-width: 720px) {
+  .act-project { max-width: 90px; }
+}
+
 /* Archive-view actions — restore + permanent delete. The row is the
    same itemRow used everywhere; we just append a side-by-side button
    pair. */
