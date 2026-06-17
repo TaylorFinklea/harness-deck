@@ -798,3 +798,44 @@ set `style.display = ""` on show, which falls back to the `.search-save`
 `inline-block`. Lesson reaffirmed: runtime browser verification catches
 CSS↔inline-style interactions static review cannot. Spec:
 phases/saved-searches-spec.md.
+
+## 2026-06-16 — Assessment Waves 1–3 (richer response loop, multi-select, timeline)
+
+After a 7-agent feature assessment (verdict: core loop is feature-complete; gaps
+= a shallow interactive layer + no cross-report narrative), shipped the top-4
+picks as three waves, each Sonnet-impl + Haiku-build-gate + 2×Sonnet-review +
+Opus adjudication & browser-verify. Commits `8e9a0cc` / `86c1841` / `a3459d0`.
+
+- **Wave 1 — richer response loop.** Wired the latent `note` field (persisted +
+  POSTed since forever but rendered nowhere); added an SSE `response` event so a
+  live harness gets pushed the answer (the hub frame was generalized to carry an
+  event name, default `change` — existing `broadcast("reports")` + live.js
+  untouched); added notify `HD_RESPONSE_VALUE`/`HD_RESPONSE_JSON`; added the
+  first **CI workflow** (`go test -race` on push/PR — there was none, which is
+  how the v0.2.6→v0.2.7 backlog accreted ungated). Note input is on the
+  button-based prompts only (choice/yes-no/decision/approval), not free-text ask
+  (its answer is already prose). SSE payload is `{project,run,block,value}` (no
+  note — it's in responses.json + HD_RESPONSE_JSON; kept the SSE frame lean).
+- **Wave 2 — multi-select asks.** New ask `mode:"multi"` with `Values[]`
+  alongside the joined `value` (additive, backward-compatible). Server
+  canonicalizes: client sends `values[]`, server joins into `value`. Keyboard:
+  digit N **toggles** checkbox N (never auto-submits), Enter submits.
+  **Cross-feature regression caught by the adversarial reviewer + fixed:** Wave
+  1's `.hd-note` (class `hd-input hd-note`) collided with triage.js's `input()`
+  = `.hd-input` selector, so `i` wrongly focused the note on choice/approval
+  panels. Narrowed `input()` to `.ask-text-input`. (Lesson: a new shared class
+  can silently re-target an existing query — adversarial review across features
+  earns its keep.)
+- **Wave 3 — activity timeline.** A third dashboard view (`g l`, `?v=activity`):
+  all non-archived reports, cross-project/harness, day-grouped newest-first,
+  rows reuse the `[data-url]` click-nav. Created value from the existing corpus —
+  zero new authoring by harnesses, no server changes. Adjudicated two reviewer
+  findings: day grouping now uses the **local** day (was UTC `slice(0,10)`) to
+  match the local `HH:MM` shown; removed a dead `:first-of-type` CSS rule. The
+  cross-report `related[]` field (the other half of the "big bet") was
+  **deferred** to keep the wave focused — see roadmap Next.
+
+Browser-verified every wave end-to-end (chrome-devtools, isolated `central_dir`
+fixtures + the real corpus for the timeline): note record/render + SSE events,
+mouse + keyboard multi-select, timeline render + nav + no inbox/projects
+regression. All Go gates green; model scorecard updated per wave.

@@ -89,6 +89,16 @@ One line each; detail in decisions.md + git log.
   _Correction: earlier handoff notes implied v0.2.6 carried usage monitors — it
   did not. v0.2.6 is the 2026-06-10 launch tag; these features reached Homebrew
   users only in v0.2.7._
+- **Post-v0.2.7 assessment backlog — Waves 1–3** _(2026-06-16, unreleased)_ —
+  shipped from the 7-agent feature assessment. **Wave 1** (`8e9a0cc`): note
+  field end-to-end (was persisted+POSTed but invisible), SSE `response` event
+  (live harnesses get pushed the answer vs polling), notify `HD_RESPONSE_VALUE/
+  _JSON`, and a **CI workflow** (`go test -race` on push/PR — there was none).
+  **Wave 2** (`86c1841`): multi-select ask `mode:"multi"` + `Values[]` (checkbox
+  picker, digit-toggle keyboard); also fixed a triage/note selector clash Wave 1
+  introduced. **Wave 3** (`a3459d0`): the **activity timeline** — a 3rd dashboard
+  view (cross-project/harness, day-grouped, `g l`). Each Sonnet-impl + Haiku-gate
+  + 2×Sonnet-review + Opus browser-verify. decisions.md "Assessment Waves 1–3".
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
@@ -133,37 +143,26 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
 
 ## Next
 
-**Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop is
-feature-complete — gaps are a shallow interactive layer + no cross-report
-narrative). Prioritized picks, highest-leverage first:
+**Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop
+feature-complete). Top picks **1–4 shipped as Waves 1–3** — see "Post-MVP
+shipped" above + decisions.md "Assessment Waves 1–3". **Remaining** from the
+assessment (not yet started):
 
-1. **Finish the latent plumbing** _(all S; verified half-built)_ —
-   (a) wire the `note` field end-to-end: it's in `respond.Response`, sent by
-   `respond.js`, persisted server-side, but **rendered nowhere** (`blocks.tmpl`
-   has 0 refs) and has no input widget — so `approval` "changes-requested"
-   returns zero context; (b) SSE `response` event: the hub pushes a `change`
-   event (`sse.go`), emit one on `respond.Record` so a live harness gets pushed
-   the answer instead of polling; (c) `HD_RESPONSE_VALUE`/`HD_RESPONSE_JSON` in
-   the notify command (`notify.go` exports HD_PROJECT/RUN/BLOCK/RUN_DIR only);
-   (d) cache `BlockText` in the store's `cachedEntry` (already keyed by
-   path+mtime) so Cmd+K text search stops re-reading every manifest at scale.
-2. **CI workflow** _(S)_ — `go test -race ./...` on push/PR. There is none today
-   (only the tag→release workflow); 50 commits accumulated with no gate.
-3. **Multi-select asks + `Values[]`** _(M)_ — already roadmap-acknowledged (see
-   "responses.json evolution" in Later). Single biggest expansion of what a
-   harness can ask ("which of these findings should I fix?"). Pairs w/ response
-   history.
-4. **Activity timeline** _(M/L; the big bet)_ — a third view (cross-project,
-   cross-harness, chronological) + an optional report-level `related []` field
-   for spec→impl→audit threading. Data is already on every store entry; follows
-   the `viewInbox`/`viewProjects` builder pattern. Turns the corpus into a
-   narrative — the one proposal that creates value from existing reports.
+- **Text-search cache** _(S; assessment item 1d, the one bit of Wave 1 deferred)_
+  — cache `BlockText` in the store's `cachedEntry` (already keyed by path+mtime)
+  so Cmd+K text search stops re-reading every manifest at scale.
+- **Cross-report `related []`** _(M; the deferred half of Wave 3)_ — an optional
+  report-level field linking spec→impl→audit; render a "see also" panel + index
+  it for a future `related_to = X` query. Wave 3 shipped the timeline view
+  without it.
+- **Response history / versioning** _(M)_ — keep prior answers + a version field
+  on responses.json; pairs with the multi-select work already shipped.
 
 Polish (real, not significant): inbox sort pivot · roadmap section collapse ·
 keyboard saved-searches (Later already lists this) · TLS-expiry startup warning
 · typed `card-grid` block (recurring html-escape pattern) · `scope`/`tags` in
-the JQL engine. Full per-dimension detail was in the workflow output (not
-persisted; re-run the assessment if needed).
+the JQL engine. Full per-dimension detail was in the assessment workflow output
+(not persisted; re-run the assessment if needed).
 
 Possible follow-ups (not yet scheduled):
 
