@@ -297,6 +297,37 @@ func TestNoRelatedPanelWhenEmpty(t *testing.T) {
 	}
 }
 
+// TestCardGridRendersCards confirms block-card-grid emits a .card-grid
+// wrapper with one .cg-card per card, card titles present, markdown rendered,
+// and pills forwarded to the card.
+func TestCardGridRendersCards(t *testing.T) {
+	html := renderJSON(t, `{
+	  "schema": "harness-deck/report@1",
+	  "id": "x", "project": "p", "harness": "h", "title": "t",
+	  "status": "draft", "created": "2026-01-01T00:00:00Z",
+	  "blocks": [{"type": "card-grid", "cards": [
+	    {"title": "Alpha", "markdown": "first **card** body", "pills": [{"text": "done", "level": "ok"}]},
+	    {"title": "Beta"}
+	  ]}]
+	}`)
+
+	for _, want := range []string{
+		`class="card-grid"`,
+		`class="cg-card"`,
+		`class="cg-card-title"`,
+		`Alpha`,
+		`Beta`,
+		`class="cg-card-body"`,
+		`<b>card</b>`,
+		`class="pill ok"`,
+		`done`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("card-grid output missing %q", want)
+		}
+	}
+}
+
 func TestUnknownBlockRendersFallback(t *testing.T) {
 	html := renderJSON(t, `{
 	  "schema": "harness-deck/report@1",

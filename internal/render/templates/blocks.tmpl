@@ -209,6 +209,20 @@
 </section>
 {{- end}}
 
+{{define "block-card-grid" -}}
+<section class="panel" data-vim-section id="{{.ID}}">
+{{template "panel-head" .}}
+<div class="panel-body">
+<div class="card-grid">
+{{range .Body.Cards}}<div class="cg-card">
+<div class="cg-card-title">{{.Title}}{{if .Pills}} <span class="cg-card-pills">{{template "pills" .Pills}}</span>{{end}}</div>
+{{with .Markdown}}<div class="cg-card-body">{{md .}}</div>{{end}}
+</div>
+{{end}}</div>
+</div>
+</section>
+{{- end}}
+
 {{define "block-fallback" -}}
 <section class="panel block-fallback" data-vim-section id="{{.ID}}">
 <div class="panel-head"><span class="sigil" style="color:var(--tn-red)">!</span><span class="num">{{.Num}}</span> <span class="title-text">unrenderable block</span>

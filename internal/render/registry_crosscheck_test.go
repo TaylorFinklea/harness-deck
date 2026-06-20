@@ -97,7 +97,7 @@ func TestRegistryCrossCheck(t *testing.T) {
 	textualTypes := []string{
 		manifest.TypeProse, manifest.TypeRecommendations, manifest.TypeCallout,
 		manifest.TypeTimeline, manifest.TypeAsk, manifest.TypeDecision,
-		manifest.TypeApproval,
+		manifest.TypeApproval, manifest.TypeCardGrid,
 	}
 	for _, typ := range textualTypes {
 		rep := syntheticReportWithBlock(typ)
@@ -161,6 +161,8 @@ func syntheticReportWithBlock(typ string) *manifest.Report {
 		blockJSON = `{"type":"decision","id":"d1","prompt":"Which?","a":{"tag":"A","title":"Alpha","items":[]},"b":{"tag":"B","title":"Beta","items":[]}}`
 	case manifest.TypeApproval:
 		blockJSON = `{"type":"approval","id":"a1","prompt":"Approve?"}`
+	case manifest.TypeCardGrid:
+		blockJSON = `{"type":"card-grid","cards":[{"title":"Alpha","markdown":"first card"},{"title":"Beta"}]}`
 	default:
 		// For types without text content, just build a valid block.
 		blockJSON = `{"type":"` + typ + `"}`

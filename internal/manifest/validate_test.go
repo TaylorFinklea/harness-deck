@@ -89,6 +89,39 @@ func TestValidateRelatedWithEmptyIDIsInvalid(t *testing.T) {
 	}
 }
 
+// --- card-grid validation tests ---
+
+func TestValidateCardGridValid(t *testing.T) {
+	r := parseReportWithBlock(t, `{"type":"card-grid","cards":[{"title":"Alpha","markdown":"body"},{"title":"Beta","pills":[{"text":"done","level":"ok"}]}]}`)
+	if ps := r.Validate(); len(ps) != 0 {
+		t.Fatalf("valid card-grid should have no problems; got: %v", ps)
+	}
+}
+
+func TestValidateCardGridNoCards(t *testing.T) {
+	r := parseReportWithBlock(t, `{"type":"card-grid","cards":[]}`)
+	ps := r.Validate()
+	if !hasValidationProblem(ps, "card-grid: no cards") {
+		t.Errorf("card-grid with no cards should fail validation; got: %v", ps)
+	}
+}
+
+func TestValidateCardGridCardMissingTitle(t *testing.T) {
+	r := parseReportWithBlock(t, `{"type":"card-grid","cards":[{"title":""},{"title":"Beta"}]}`)
+	ps := r.Validate()
+	if !hasValidationProblem(ps, "card-grid: card missing title") {
+		t.Errorf("card with empty title should fail validation; got: %v", ps)
+	}
+}
+
+func TestValidateCardGridBadPillLevel(t *testing.T) {
+	r := parseReportWithBlock(t, `{"type":"card-grid","cards":[{"title":"Alpha","pills":[{"text":"x","level":"bad"}]}]}`)
+	ps := r.Validate()
+	if !hasValidationProblem(ps, `"bad"`) {
+		t.Errorf("card with invalid pill level should fail validation; got: %v", ps)
+	}
+}
+
 func TestValidateRelatedUnknownFieldIsRejected(t *testing.T) {
 	r := parseReportWithRelated(t, `[{"id":"run-01","unknown_field":"oops"}]`)
 	ps := r.Validate()

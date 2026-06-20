@@ -120,6 +120,7 @@ var registry = map[string]func() BlockBody{
 	TypeBarchart:        func() BlockBody { return &BarchartBlock{} },
 	TypeTable:           func() BlockBody { return &TableBlock{} },
 	TypeHTML:            func() BlockBody { return &HTMLBlock{} },
+	TypeCardGrid:        func() BlockBody { return &CardGridBlock{} },
 	TypeAsk:             func() BlockBody { return &AskBlock{} },
 	TypeDecision:        func() BlockBody { return &DecisionBlock{} },
 	TypeApproval:        func() BlockBody { return &ApprovalBlock{} },
@@ -210,6 +211,15 @@ func BlockText(rep *Report) string {
 		case *ApprovalBlock:
 			b.WriteString(body.Prompt)
 			b.WriteByte('\n')
+		case *CardGridBlock:
+			for _, card := range body.Cards {
+				b.WriteString(card.Title)
+				b.WriteByte('\n')
+				if card.Markdown != "" {
+					b.WriteString(card.Markdown)
+					b.WriteByte('\n')
+				}
+			}
 		}
 	}
 	return b.String()

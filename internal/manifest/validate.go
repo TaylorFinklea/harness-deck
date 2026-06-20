@@ -198,6 +198,20 @@ func validateBlock(path string, b Block) []Problem {
 		if body.HTML == "" {
 			add("html: empty html")
 		}
+	case *CardGridBlock:
+		if len(body.Cards) == 0 {
+			add("card-grid: no cards")
+		}
+		for i, card := range body.Cards {
+			cp := fmt.Sprintf("%s cards[%d]", path, i)
+			if card.Title == "" {
+				ps = append(ps, Problem{cp, "card-grid: card missing title"})
+			}
+			for j, pill := range card.Pills {
+				ps = append(ps, checkEnum(fmt.Sprintf("%s pills[%d].level", cp, j),
+					pill.Level, "", "ok", "warn", "err")...)
+			}
+		}
 	case *AskBlock:
 		if body.ID == "" {
 			add("ask: missing id")

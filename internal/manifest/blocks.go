@@ -13,6 +13,7 @@ const (
 	TypeBarchart        = "barchart"
 	TypeTable           = "table"
 	TypeHTML            = "html"
+	TypeCardGrid        = "card-grid"
 	// Interactive blocks — these pose a question the user answers in the
 	// dashboard; the answer is written to responses.json.
 	TypeAsk      = "ask"
@@ -206,6 +207,22 @@ type HTMLBlock struct {
 }
 
 func (HTMLBlock) kind() string { return TypeHTML }
+
+// Card is one cell in a card-grid. Title is required; Markdown and Pills are
+// optional additional content shown in the card body.
+type Card struct {
+	Title    string `json:"title"`
+	Markdown string `json:"markdown,omitempty"`
+	Pills    []Pill `json:"pills,omitempty"`
+}
+
+// CardGridBlock renders a responsive grid of titled cards.
+type CardGridBlock struct {
+	blockHead
+	Cards []Card `json:"cards"`
+}
+
+func (CardGridBlock) kind() string { return TypeCardGrid }
 
 // AskBlock poses a question to the user. ID keys the response in responses.json.
 type AskBlock struct {

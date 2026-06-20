@@ -110,6 +110,7 @@ block type degrades to a visible error panel rather than breaking the report.
 | `barchart` | labeled bars | `bars[]` (`label,pct,color`) |
 | `table` | columnar data | `columns[]`, `rows[][]` |
 | `html` | raw HTML/CSS/SVG canvas — full control inside panel chrome | `html` |
+| `card-grid` | responsive grid of titled cards | `cards[]` (`title`, `markdown?`, `pills?`) |
 | `ask` | interactive question (choice / yesno / text / multi) | `id`, `prompt`, `mode`, `options[]` |
 | `decision` | interactive A/B choice | `id`, `prompt`, `a`, `b` (same shape as `compare`) |
 | `approval` | interactive sign-off | `id`, `prompt` |

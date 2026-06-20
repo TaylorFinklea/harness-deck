@@ -224,7 +224,7 @@ var defaultTitles = map[string]string{
 	manifest.TypeTimeline: "timeline", manifest.TypeCompare: "comparison",
 	manifest.TypeRecommendations: "recommendations", manifest.TypeCallout: "note",
 	manifest.TypeBarchart: "breakdown", manifest.TypeTable: "table",
-	manifest.TypeHTML: "detail",
+	manifest.TypeHTML: "detail", manifest.TypeCardGrid: "overview",
 }
 
 func blockTitle(b manifest.Block) string {
