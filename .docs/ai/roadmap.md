@@ -99,6 +99,17 @@ One line each; detail in decisions.md + git log.
   introduced. **Wave 3** (`a3459d0`): the **activity timeline** — a 3rd dashboard
   view (cross-project/harness, day-grouped, `g l`). Each Sonnet-impl + Haiku-gate
   + 2×Sonnet-review + Opus browser-verify. decisions.md "Assessment Waves 1–3".
+- **Post-v0.2.7 assessment backlog — Waves 4–9** _(2026-06-16/19, unreleased)_ —
+  the rest of the list. **W4** (`9bdb6af`): search-text cache (Entry.SearchText,
+  json:"-") — kills the per-query manifest re-read. **W5** (`72f6bcb`):
+  cross-report `related[]` + "related" panel (the deferred half of W3). **W6**
+  (`0b631e0`): response history (Response.Prior, capped) + responses.json
+  `version`. **W7** (`0753e86`): `scope` as a JQL field + TLS cert-expiry warning
+  (startup + 24h). **W8** (`e8380ab`): typed `card-grid` block (promotes the
+  html-escape lane-grid). **W9** (`9bb9e10`): inbox sort pivot + per-project
+  section collapse + `Cmd+S` save-search. Same Sonnet-impl + Haiku-gate +
+  2×Sonnet-review + Opus browser/functional-verify per wave. decisions.md
+  "Assessment Waves 4–9".
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
@@ -144,25 +155,16 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
 ## Next
 
 **Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop
-feature-complete). Top picks **1–4 shipped as Waves 1–3** — see "Post-MVP
-shipped" above + decisions.md "Assessment Waves 1–3". **Remaining** from the
-assessment (not yet started):
+feature-complete). The whole assessment backlog is now **shipped as Waves 1–9**
+(see "Post-MVP shipped" + decisions.md "Assessment Waves 1–3" / "Assessment
+Waves 4–9"). Substantial picks → Waves 1–6; polish → Waves 7–9.
 
-- **Text-search cache** _(S; assessment item 1d, the one bit of Wave 1 deferred)_
-  — cache `BlockText` in the store's `cachedEntry` (already keyed by path+mtime)
-  so Cmd+K text search stops re-reading every manifest at scale.
-- **Cross-report `related []`** _(M; the deferred half of Wave 3)_ — an optional
-  report-level field linking spec→impl→audit; render a "see also" panel + index
-  it for a future `related_to = X` query. Wave 3 shipped the timeline view
-  without it.
-- **Response history / versioning** _(M)_ — keep prior answers + a version field
-  on responses.json; pairs with the multi-select work already shipped.
+The list is clear. One deferred sliver remains:
 
-Polish (real, not significant): inbox sort pivot · roadmap section collapse ·
-keyboard saved-searches (Later already lists this) · TLS-expiry startup warning
-· typed `card-grid` block (recurring html-escape pattern) · `scope`/`tags` in
-the JQL engine. Full per-dimension detail was in the assessment workflow output
-(not persisted; re-run the assessment if needed).
+- **`tags` in JQL** _(M, deferred)_ — Wave 7 added `scope` to the query engine;
+  `tags` needs a new `tags []string` field on the report first AND query-engine
+  list-membership support (the current Field() is single-value). Pull from
+  Backlog/Later when starting fresh.
 
 Possible follow-ups (not yet scheduled):
 

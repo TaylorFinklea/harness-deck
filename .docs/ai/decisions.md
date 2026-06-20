@@ -839,3 +839,50 @@ Browser-verified every wave end-to-end (chrome-devtools, isolated `central_dir`
 fixtures + the real corpus for the timeline): note record/render + SSE events,
 mouse + keyboard multi-select, timeline render + nav + no inbox/projects
 regression. All Go gates green; model scorecard updated per wave.
+
+## 2026-06-19 — Assessment Waves 4–9 (the rest of the backlog)
+
+Finished the assessment backlog. Same harness throughout: Lead (Opus) writes
+the spec + grounds it in the actual code, a Sonnet implements, a Haiku re-runs
+the build gate, two Sonnet reviewers do conformance + adversarial passes, and
+Opus adjudicates + independently verifies (browser via chrome-devtools for UI,
+live functional checks for backend) before committing. Commits `9bdb6af` /
+`72f6bcb` / `0b631e0` / `0753e86` / `e8380ab` / `9bb9e10`.
+
+- **W4 — search-text cache.** `store.Entry.SearchText` (`json:"-"`, so out of
+  /api/reports) computed once in loadEntry where the manifest is already parsed;
+  the existing parse-cache carries it on cache-hit. `searchRecord.Text()` reads
+  it instead of `store.Get()` + `BlockText()` — identical text, zero per-query
+  disk I/O. Memory: report-count × body-size, documented.
+- **W5 — cross-report `related[]`.** `RelatedReport{id, project?, rel?, label?}`;
+  a "related" panel after the banner links `/r/{project}/{id}` (url.PathEscape;
+  project/label default from the host report). Forward links to not-yet-
+  published reports are valid. Added an empty-project link guard. The
+  `related_to` JQL query stays future.
+- **W6 — response history.** `Response.Prior []PriorAnswer` (recursion-free,
+  newest-first, cap 20) + responses.json `version`. `Record()` prepends the
+  superseded answer under recordMu. Additive; legacy files load fine. The
+  answered state renders the prior chain (value · note · time).
+- **W7 — scope in JQL + TLS-expiry.** `scope` wired through the single
+  query.fields/fieldOrder source (parser + autocomplete) + store.Entry +
+  Field/Text. `certExpiryWarning()` parses the cert NotAfter; Serve() logs a
+  WARNING at startup + on a 24h ticker tied to Serve's lifetime via a done
+  channel (no goroutine leak). `tags` in JQL deferred (needs a tags field +
+  list-membership query support).
+- **W8 — typed `card-grid` block.** The 4-place block add (struct+registry+
+  BlockText, validate, template+defaultTitles, CONTRACT) enforced by
+  TestRegistryCrossCheck. Reuses the shared `md` + `pills` templates (no
+  safeHTML bypass). `.card-grid` uses `auto-fill` so a lone card keeps its
+  width. Promotes the recurring html-escape lane-grid pattern.
+- **W9 — frontend polish.** Inbox sort pivot (recent/asks/project,
+  sessionStorage); per-project current-state/roadmap section collapse (▾/▸,
+  sessionStorage); `Cmd+S` in the palette saves the current query (saveCurrent()
+  factored, preventDefault stops browser save).
+
+Recurring lesson held: adversarial Sonnet review caught real cross-feature/spec
+issues (e.g. the W2 triage/note clash, the W6 prior-note omission, the W7
+goroutine leak), but runtime-only defects (W3 UTC-vs-local grouping, the earlier
+saved-search CSS bug) only fell to Opus browser-verify. The division of labor —
+Sonnet implement + Sonnet adversarial + Haiku gate + Opus browser/functional
+verify — is the cost-efficient sweet spot for bounded Go+frontend features.
+`tags`-in-JQL is the only assessment sliver left (roadmap Next).
