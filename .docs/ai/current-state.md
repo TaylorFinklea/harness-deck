@@ -2,11 +2,11 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main. origin/main caught up through `3963bea` (v0.2.7 release docs).
-  **Unpushed: Assessment Waves 1–9** + their doc commits (`8e9a0cc`…`9bb9e10`,
-  9 feature commits + handoff docs). All gates green; each browser/functional-
-  verified. Push-ready; user reviews + pushes, then a **v0.2.8** release puts
-  them on Homebrew.
+- Branch: main, pushed. **v0.2.8 released + installed + verified 2026-06-20** —
+  ships Assessment Waves 1–9 (`8e9a0cc`…`9bb9e10`). GoReleaser CI green (4
+  platforms); the new push/PR CI workflow (W1) also ran green on its first push.
+  `brew upgrade` done, service restarted, `hdeck version` = 0.2.8. Verified live:
+  scope-in-JQL schema, activity view, usage bar.
 - **v0.2.7 released + installed 2026-06-16** — usage monitors, perf wave, config
   live-reload, JS modularization, search query language, saved searches. Usage
   bar live (codex ✅; claude-code wired; opencode awaits its `auth` cookie).
@@ -33,7 +33,5 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- Push the unpushed commits (Waves 1–9); optionally cut **v0.2.8** (push tag →
-  GoReleaser → `brew upgrade`) to release the whole batch.
 - Paste opencode.ai `auth` cookie into `usage.opencode_cookie` for the 3rd
-  usage tile.
+  usage tile (codex + claude-code already work).

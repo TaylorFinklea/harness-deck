@@ -89,7 +89,7 @@ One line each; detail in decisions.md + git log.
   _Correction: earlier handoff notes implied v0.2.6 carried usage monitors — it
   did not. v0.2.6 is the 2026-06-10 launch tag; these features reached Homebrew
   users only in v0.2.7._
-- **Post-v0.2.7 assessment backlog — Waves 1–3** _(2026-06-16, unreleased)_ —
+- **Post-v0.2.7 assessment backlog — Waves 1–3** _(2026-06-16, in v0.2.8)_ —
   shipped from the 7-agent feature assessment. **Wave 1** (`8e9a0cc`): note
   field end-to-end (was persisted+POSTed but invisible), SSE `response` event
   (live harnesses get pushed the answer vs polling), notify `HD_RESPONSE_VALUE/
@@ -99,7 +99,11 @@ One line each; detail in decisions.md + git log.
   introduced. **Wave 3** (`a3459d0`): the **activity timeline** — a 3rd dashboard
   view (cross-project/harness, day-grouped, `g l`). Each Sonnet-impl + Haiku-gate
   + 2×Sonnet-review + Opus browser-verify. decisions.md "Assessment Waves 1–3".
-- **Post-v0.2.7 assessment backlog — Waves 4–9** _(2026-06-16/19, unreleased)_ —
+- **v0.2.8 release** _(2026-06-20)_ — ships the entire assessment backlog (Waves
+  1–9). GoReleaser CI green (4 platforms + tap formula); the new push/PR CI
+  workflow (W1) ran green too; installed + verified (scope-in-JQL, activity view,
+  usage bar all live on 0.2.8).
+- **Post-v0.2.7 assessment backlog — Waves 4–9** _(2026-06-16/19, in v0.2.8)_ —
   the rest of the list. **W4** (`9bdb6af`): search-text cache (Entry.SearchText,
   json:"-") — kills the per-query manifest re-read. **W5** (`72f6bcb`):
   cross-report `related[]` + "related" panel (the deferred half of W3). **W6**
