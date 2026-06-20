@@ -149,6 +149,7 @@
 <div class="ask-prompt">{{md .Body.Prompt}}</div>
 {{if .Answer -}}
 <div class="ask-answered">▸ answered <b>{{.Answer.Value}}</b>{{with .Answer.Note}} <span class="ask-note">— {{.}}</span>{{end}}{{with .Answer.At}} · {{.}}{{end}}</div>
+{{range .Answer.Prior}}<div class="ask-prior-item">was <b>{{.Value}}</b>{{with .Note}} — {{.}}{{end}}{{with .At}} · {{.}}{{end}}</div>{{end}}
 {{- else -}}
 {{$id := .Body.ID}}{{$mode := .Body.ResolvedMode}}
 <div class="ask-controls">
@@ -177,6 +178,7 @@
 <div class="panel-body">
 {{if .Answer -}}
 <div class="ask-answered">▸ decided <b>{{.Answer.Value}}</b>{{with .Answer.Note}} <span class="ask-note">— {{.}}</span>{{end}}{{with .Answer.At}} · {{.}}{{end}}</div>
+{{range .Answer.Prior}}<div class="ask-prior-item">was <b>{{.Value}}</b>{{with .Note}} — {{.}}{{end}}{{with .At}} · {{.}}{{end}}</div>{{end}}
 {{- else -}}
 <div class="ask-controls">
 <button class="hd-btn hd-respond" data-block="{{.Body.ID}}" data-value="{{.Body.A.Tag}}">choose {{.Body.A.Tag}} · {{.Body.A.Title}}<span class="hd-hint">1</span></button>
@@ -195,6 +197,7 @@
 {{with .Body.Prompt}}<div class="ask-prompt">{{md .}}</div>{{end}}
 {{if .Answer -}}
 <div class="ask-answered">▸ <b>{{.Answer.Value}}</b>{{with .Answer.Note}} <span class="ask-note">— {{.}}</span>{{end}}{{with .Answer.At}} · {{.}}{{end}}</div>
+{{range .Answer.Prior}}<div class="ask-prior-item">was <b>{{.Value}}</b>{{with .Note}} — {{.}}{{end}}{{with .At}} · {{.}}{{end}}</div>{{end}}
 {{- else -}}
 <div class="ask-controls">
 <button class="hd-btn hd-respond ok" data-block="{{.Body.ID}}" data-value="approved">approve<span class="hd-hint">y</span></button>

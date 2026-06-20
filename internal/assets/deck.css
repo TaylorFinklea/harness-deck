@@ -104,6 +104,12 @@
 }
 .ask-answered b { color: var(--tn-fg); }
 .ask-note { color: var(--tn-comment); font-style: italic; }
+.ask-prior-item {
+  font-size: 11px;
+  color: var(--tn-comment);
+  padding: 2px 12px 2px 24px;
+  border-left: 2px solid var(--tn-bg-highlight);
+}
 
 /* rendered-Markdown headings — report prose and the roadmap view */
 .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6,

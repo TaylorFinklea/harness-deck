@@ -194,17 +194,46 @@ directory:
 
 ```jsonc
 {
+  "version": 1,
   "run": "0x4a2f", "project": "acme-platform",
   "updated": "2026-05-20T00:44:27Z",
   "responses": {
     "token-strategy": { "block": "token-strategy", "value": "semantic tokens",
-                        "note": "", "at": "2026-05-20T00:44:27Z" }
+                        "note": "", "at": "2026-05-20T00:44:27Z",
+                        "prior": [
+                          { "value": "inline literals", "at": "2026-05-19T22:10:03Z" }
+                        ] }
   }
 }
 ```
 
 A harness reads `responses.json` from the run directory (e.g. in a session-start
 hook) to pick up the user's answers, keyed by interactive-block `id`.
+
+### `version` field
+
+`responses.json` carries a top-level `"version"` integer. The current value is
+`1`. Files written by older harness-deck versions lack the field (it unmarshals
+as `0`); treat `version: 0` as equivalent to `version: 1` — the format is the
+same, just pre-history. Always read the current `value` from each response
+regardless of version.
+
+### Per-response `prior` history
+
+Each response in `responses.json` may carry a `"prior"` array of superseded
+answers, ordered **newest-first**. Each entry is:
+
+```jsonc
+{ "value": "inline literals", "values": ["a","b"], "note": "...", "at": "2026-05-19T22:10:03Z" }
+```
+
+Fields follow the same conventions as the parent response (`values` is omitted
+when empty, `note` is omitted when empty). The array is capped at 20 entries;
+older answers are silently dropped. Re-answering with the same value still adds
+a history entry — the history is a timeline, not a dedup log.
+
+A harness that only needs the current answer can ignore `prior` entirely; it is
+advisory context.
 
 ### Optional answer note
 
