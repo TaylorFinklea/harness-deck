@@ -426,6 +426,45 @@ func TestScanCacheInvalidatesOnResponsesChange(t *testing.T) {
 	}
 }
 
+// TestScanPopulatesSearchText proves that loadEntry sets SearchText from the
+// report's body blocks, and that a second scan with the file unchanged still
+// carries the same SearchText (cache-hit reuse).
+func TestScanPopulatesSearchText(t *testing.T) {
+	central := t.TempDir()
+	dir := filepath.Join(central, "proj", "r1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	report := `{"schema":"harness-deck/report@1","id":"r1","project":"proj",` +
+		`"harness":"claude-code","title":"t","status":"awaiting-review",` +
+		`"created":"2026-05-18T18:39:50Z",` +
+		`"blocks":[{"type":"prose","markdown":"unique body content xyz"}]}`
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(report), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := New(config.Config{CentralDir: central})
+	s.Scan(nil)
+
+	entries := s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if !strings.Contains(entries[0].SearchText, "unique body content xyz") {
+		t.Errorf("SearchText = %q, want it to contain the prose body", entries[0].SearchText)
+	}
+
+	// Second scan with unchanged file: cache hit must still carry SearchText.
+	s.Scan(nil)
+	entries = s.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("after second scan: entries = %d, want 1", len(entries))
+	}
+	if !strings.Contains(entries[0].SearchText, "unique body content xyz") {
+		t.Errorf("cache-hit SearchText = %q, want body text preserved", entries[0].SearchText)
+	}
+}
+
 // TestScanDeletedReportDropsFromCache proves that a run directory removed
 // between scans is not served from the stale cache — the deleted report must
 // vanish from Entries() on the next scan.

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TaylorFinklea/harness-deck/internal/manifest"
 	"github.com/TaylorFinklea/harness-deck/internal/query"
 	"github.com/TaylorFinklea/harness-deck/internal/store"
 )
@@ -38,12 +37,11 @@ type searchHit struct {
 }
 
 // searchRecord bridges a store.Entry to the query.Record interface. Field
-// reads come straight from the index; Text() opens the report and computes
-// the metadata+body searchable text at most once, memoizing the result so a
-// query with several text leaves only pays the report-fetch cost a single
-// time.
+// reads come straight from the index; Text() assembles the metadata+body
+// searchable text at most once, memoizing the result so a query with several
+// text leaves only pays the string-build cost a single time. Body text is
+// served from Entry.SearchText, which is precomputed at scan time.
 type searchRecord struct {
-	s     *Server
 	e     store.Entry
 	text  string
 	known bool // whether text has been computed yet
@@ -73,8 +71,8 @@ func (r *searchRecord) Field(name string) string {
 }
 
 // Text returns the metadata+body searchable text, computing it lazily on the
-// first call and reusing it thereafter. This mirrors what scoreEntry searches:
-// the metadata fields plus the report body via manifest.BlockText.
+// first call and reusing it thereafter. Body text comes from Entry.SearchText,
+// which is precomputed at scan time — no per-query disk read is needed.
 func (r *searchRecord) Text() string {
 	if r.known {
 		return r.text
@@ -87,9 +85,7 @@ func (r *searchRecord) Text() string {
 			b.WriteByte('\n')
 		}
 	}
-	if rep, _, err := r.s.store.Get(r.e.Project, r.e.Run); err == nil && rep != nil {
-		b.WriteString(manifest.BlockText(rep))
-	}
+	b.WriteString(r.e.SearchText)
 	r.text = b.String()
 	return r.text
 }
@@ -130,7 +126,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		if e.Archived {
 			continue
 		}
-		rec := &searchRecord{s: s, e: e}
+		rec := &searchRecord{e: e}
 		if !parsed.Match(rec, now) {
 			continue
 		}

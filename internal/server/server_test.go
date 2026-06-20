@@ -97,6 +97,24 @@ func TestReportsAPI(t *testing.T) {
 	}
 }
 
+// TestReportsAPIExcludesSearchText confirms that the json:"-" tag on
+// Entry.SearchText keeps it out of the /api/reports payload, so text
+// precomputed for search is never shipped to the browser in listing calls.
+func TestReportsAPIExcludesSearchText(t *testing.T) {
+	// newTestServer uses sampleReport whose prose block contains "clear".
+	code, body := get(t, newTestServer(t), "/api/reports")
+	if code != http.StatusOK {
+		t.Fatalf("GET /api/reports = %d, want 200", code)
+	}
+	if strings.Contains(body, "search_text") || strings.Contains(body, "SearchText") {
+		t.Errorf("/api/reports must not expose the SearchText field; body: %s", body)
+	}
+	// The prose body "all **clear**." must not appear verbatim in the listing.
+	if strings.Contains(body, "all **clear**") {
+		t.Errorf("/api/reports must not include prose body in listing payload; body: %s", body)
+	}
+}
+
 func TestReportPageRendered(t *testing.T) {
 	h := newTestServer(t)
 

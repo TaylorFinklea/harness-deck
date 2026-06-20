@@ -39,6 +39,9 @@ type Entry struct {
 	Path        string    `json:"-"`        // report.json path
 	ModTime     time.Time `json:"-"`        // report.json modification time
 	RespModTime time.Time `json:"-"`        // responses.json modification time, zero if absent
+	// SearchText is the precomputed BlockText body for full-text search;
+	// kept out of the API payload and held in memory as a deliberate cache.
+	SearchText string `json:"-"`
 	// Live carries in-flight telemetry from the manifest's optional
 	// `live` field. The index keeps it shallow so inbox-rendering decisions
 	// (pulse vs. static, "X in flight" counts) don't need to re-read the
@@ -244,6 +247,7 @@ func loadEntry(path, source string) (Entry, string, error) {
 		Verdict: rep.Verdict, Source: source, Blocks: len(rep.Blocks),
 		Archived: rep.Archived, Live: rep.Live,
 		Dir: filepath.Dir(path), Path: path,
+		SearchText: manifest.BlockText(rep),
 	}
 	if fi, statErr := os.Stat(path); statErr == nil {
 		e.ModTime = fi.ModTime()
