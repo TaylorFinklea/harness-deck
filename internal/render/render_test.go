@@ -244,6 +244,59 @@ func TestMarkdownFencedCodeRendersCopyable(t *testing.T) {
 	}
 }
 
+// TestRelatedPanelRendersLinks confirms that a report with a "related" array
+// renders the .related-panel with correct hrefs, applies project-default
+// when project is omitted, and uses id as label when label is omitted.
+func TestRelatedPanelRendersLinks(t *testing.T) {
+	html := renderJSON(t, `{
+	  "schema": "harness-deck/report@1",
+	  "id": "impl-run", "project": "my-proj", "harness": "claude-code",
+	  "title": "impl", "status": "done", "created": "2026-05-18T18:39:50Z",
+	  "related": [
+	    {"id": "spec-run", "rel": "spec"},
+	    {"id": "audit-run", "project": "other-proj", "rel": "audit", "label": "Security audit"}
+	  ],
+	  "blocks": [{"type": "prose", "markdown": "done"}]
+	}`)
+
+	for _, want := range []string{
+		`class="related-panel"`,
+		`class="related-head"`,
+		// project-default: my-proj used because entry has no "project"
+		`href="/r/my-proj/spec-run"`,
+		// label defaults to id when not set
+		`spec-run</a>`,
+		// explicit project
+		`href="/r/other-proj/audit-run"`,
+		// explicit label
+		`Security audit</a>`,
+		// rel tags rendered
+		`class="related-rel"`,
+		`>spec</span>`,
+		`>audit</span>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("related panel: output missing %q", want)
+		}
+	}
+}
+
+// TestNoRelatedPanelWhenEmpty confirms the panel div is absent when Related is nil.
+func TestNoRelatedPanelWhenEmpty(t *testing.T) {
+	html := renderJSON(t, `{
+	  "schema": "harness-deck/report@1",
+	  "id": "x", "project": "p", "harness": "h", "title": "t",
+	  "status": "draft", "created": "2026-05-18T18:39:50Z",
+	  "blocks": [{"type": "prose", "markdown": "body"}]
+	}`)
+	// The CSS in <style> contains "related-panel" as a selector; use the
+	// data-vim-section attribute (only present on the rendered div) to
+	// confirm the panel div itself is not emitted.
+	if strings.Contains(html, `class="related-panel"`) {
+		t.Error("report with no related field should not render .related-panel div")
+	}
+}
+
 func TestUnknownBlockRendersFallback(t *testing.T) {
 	html := renderJSON(t, `{
 	  "schema": "harness-deck/report@1",

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html/template"
 	"math"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -72,9 +73,15 @@ type pageView struct {
 	// "stale") happens client-side off Updated so the indicator stays
 	// honest as the page stays open.
 	Live    *manifest.LiveStatus
+	Related []relatedView // cross-report links rendered in the "related" panel
 	CSS     template.CSS
 	JS      template.JS
 	Favicon template.URL
+}
+
+// relatedView is one entry in the "related" panel on a report page.
+type relatedView struct {
+	URL, Label, Rel string
 }
 
 // openAsk is one unanswered interactive block surfaced in the pinned
@@ -137,6 +144,27 @@ func (r *Renderer) buildPage(rep *manifest.Report, responses map[string]respond.
 			}
 			pv.OpenAsks = append(pv.OpenAsks, openAsk{Num: num, Anchor: anchor, Kind: b.Type, Title: title})
 		}
+	}
+	for _, rel := range rep.Related {
+		project := rel.Project
+		if project == "" {
+			project = rep.Project
+		}
+		// Drop entries that can't form a valid /r/{project}/{run} link rather
+		// than emitting a broken href (only reachable for a lenient-parsed
+		// manifest that skipped Validate, which requires both fields).
+		if project == "" || rel.ID == "" {
+			continue
+		}
+		label := rel.Label
+		if label == "" {
+			label = rel.ID
+		}
+		pv.Related = append(pv.Related, relatedView{
+			URL:   "/r/" + url.PathEscape(project) + "/" + url.PathEscape(rel.ID),
+			Label: label,
+			Rel:   rel.Rel,
+		})
 	}
 	return pv
 }

@@ -37,11 +37,33 @@ Validate before publishing: `harness-deck validate path/to/report.json`.
   "created": "2026-05-18T18:39:50Z",    // required, RFC3339
   "verdict": "conditional-go",          // optional, headline conclusion
   "meta":    [{"key": "cost", "value": "$1.84"}],   // optional, ordered run metadata
+  "related": [                           // optional, cross-report links
+    {"id": "spec-run-01", "rel": "spec"},
+    {"id": "audit-run-07", "project": "other-project", "rel": "audit", "label": "Security audit"}
+  ],
   "blocks":  [ /* ordered content blocks — see below */ ]
 }
 ```
 
 A report with `kind: "roadmap"` also appears in the dashboard's roadmap view.
+
+### Optional: `related` — cross-report links
+
+The `related` array links this report to other reports, rendering a "related"
+panel on the report page. Each entry is a typed pointer to another report:
+
+```jsonc
+{
+  "id":      "spec-run-01",        // required — the target report's id (run)
+  "project": "other-project",      // optional — defaults to THIS report's project
+  "rel":     "spec",               // optional — free-text relationship label (spec | audit | follows | …)
+  "label":   "Spec: Feature X"     // optional — display text; defaults to id when empty
+}
+```
+
+Each entry renders as a link to `/r/{project}/{id}`. Forward links to
+not-yet-published reports are valid — the link will resolve once the target
+report is published.
 
 ### Optional: `live` — in-flight telemetry
 

@@ -16,18 +16,19 @@ const Schema = "harness-deck/report@1"
 
 // Report is a single harness-deck report manifest.
 type Report struct {
-	Schema  string `json:"schema"`
-	ID      string `json:"id"`
-	Project string `json:"project"`
-	Harness string `json:"harness"`         // claude-code | pi-mono | opencode | …
-	Agent   string `json:"agent,omitempty"` // model identifier
-	Title   string `json:"title"`
-	Scope   string `json:"scope,omitempty"`   // short prefix highlighted in the banner
-	Kind    string `json:"kind,omitempty"`    // audit | progress | idea | ask | …
-	Status  string `json:"status"`            // draft | awaiting-review | answered | done
-	Created string `json:"created"`           // RFC3339 timestamp
-	Verdict string `json:"verdict,omitempty"` // free-text headline conclusion
-	Meta    []KV   `json:"meta,omitempty"`    // ordered run metadata (tokens, cost, …)
+	Schema  string          `json:"schema"`
+	ID      string          `json:"id"`
+	Project string          `json:"project"`
+	Harness string          `json:"harness"`         // claude-code | pi-mono | opencode | …
+	Agent   string          `json:"agent,omitempty"` // model identifier
+	Title   string          `json:"title"`
+	Scope   string          `json:"scope,omitempty"`   // short prefix highlighted in the banner
+	Kind    string          `json:"kind,omitempty"`    // audit | progress | idea | ask | …
+	Status  string          `json:"status"`            // draft | awaiting-review | answered | done
+	Created string          `json:"created"`           // RFC3339 timestamp
+	Verdict string          `json:"verdict,omitempty"` // free-text headline conclusion
+	Meta    []KV            `json:"meta,omitempty"`    // ordered run metadata (tokens, cost, …)
+	Related []RelatedReport `json:"related,omitempty"` // cross-report links rendered as a "related" panel
 	// Archived is a soft-delete flag: true hides the report from every
 	// default view but leaves report.json + responses.json untouched on
 	// disk. Distinct from Status so archiving an awaiting-review report
@@ -66,6 +67,17 @@ type LiveStatus struct {
 type KV struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+// RelatedReport is a typed pointer to another report — a cross-report link.
+// ID is the target report's id (run); Project defaults to THIS report's project
+// when empty; Rel is a free-text relationship label ("spec", "audit",
+// "follows", …); Label is display text and defaults to ID when empty.
+type RelatedReport struct {
+	ID      string `json:"id"`
+	Project string `json:"project,omitempty"`
+	Rel     string `json:"rel,omitempty"`
+	Label   string `json:"label,omitempty"`
 }
 
 // BlockBody is the decoded payload of a block. The interface is closed: only

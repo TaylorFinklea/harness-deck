@@ -97,6 +97,8 @@
       </div>
     </div>
 
+    {{if .Related}}<div class="related-panel" data-vim-section><div class="related-head">related</div>{{range .Related}}<a class="related-link" href="{{.URL}}">{{with .Rel}}<span class="related-rel">{{.}}</span> {{end}}{{.Label}}</a>{{end}}</div>{{end}}
+
     {{if .Live}}
     <div class="live-banner" id="live-banner" data-updated="{{.Live.Updated}}">
       <div class="live-pulse" aria-hidden="true"></div>

@@ -59,6 +59,11 @@ func (r *Report) Validate() []Problem {
 			add(fmt.Sprintf("meta[%d]", i), "missing key")
 		}
 	}
+	for i, rel := range r.Related {
+		if rel.ID == "" {
+			add(fmt.Sprintf("related[%d]", i), "missing id")
+		}
+	}
 	if len(r.Blocks) == 0 {
 		add("blocks", "report has no blocks")
 	}
