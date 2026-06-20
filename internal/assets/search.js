@@ -49,6 +49,20 @@
   var suggestReplaceStart = 0;
   var suggestReplaceEnd = 0;
 
+  // saveCurrent prompts for a name and saves the current valid query.
+  // Called from the save button click and from the Cmd+S / Ctrl+S handler in
+  // onKeydown. Guards silently when the palette has no valid query.
+  function saveCurrent() {
+    if (!input) return;
+    var q = input.value.trim();
+    if (!q || !queryValid) return;
+    var name = prompt("Name this search", q);
+    if (name == null) return;
+    name = name.trim() || q;
+    if (window.HDSaved) HDSaved.add(name, q);
+    status.textContent = "saved ✓";
+  }
+
   function ensureOverlay() {
     if (overlay) return overlay;
     overlay = document.createElement("div");
@@ -84,15 +98,7 @@
         list,
       ])
     );
-    saveBtn.addEventListener("click", function () {
-      var q = input.value.trim();
-      if (!q || !queryValid) return;
-      var name = prompt("Name this search", q);
-      if (name == null) return;
-      name = name.trim() || q;
-      if (window.HDSaved) HDSaved.add(name, q);
-      status.textContent = "saved ✓";
-    });
+    saveBtn.addEventListener("click", saveCurrent);
 
     document.body.appendChild(overlay);
 
@@ -616,6 +622,13 @@
   }
 
   function onKeydown(e) {
+    // Cmd+S / Ctrl+S — save the current search query. preventDefault stops
+    // the browser's "Save Page" dialog from opening.
+    if ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S")) {
+      e.preventDefault();
+      saveCurrent();
+      return;
+    }
     // Esc closes the dropdown first; a second Esc (dropdown already closed)
     // closes the whole palette.
     if (e.key === "Escape") {

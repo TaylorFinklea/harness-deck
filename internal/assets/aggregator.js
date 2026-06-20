@@ -38,6 +38,19 @@
      keybinding (toggle archive) still works in either mode — it just
      means "archive" in one and "unarchive" in the other. */
   var archiveFilter = false;
+  /* inboxSort — sort pivot for the inbox panel. Persisted in sessionStorage
+     so the user's chosen sort survives a page reload mid-triage.
+     'recent'  → created desc (default)
+     'asks'    → open_asks desc, tie-break created desc
+     'project' → project asc, tie-break created desc */
+  var inboxSort = (function () {
+    try { return sessionStorage.getItem('hd:inboxSort') || 'recent'; } catch (_) { return 'recent'; }
+  })();
+  /* collapsedSecs — project section collapse state. Keyed by
+     project + '\x00' + sectionName → true when collapsed. */
+  var collapsedSecs = (function () {
+    try { return JSON.parse(sessionStorage.getItem('hd:collapsedSecs') || '{}'); } catch (_) { return {}; }
+  })();
   /* Sidebar tree-focus mode (Space-e) lives in its own module,
      aggregator-tree.js, exposing window.HDTree. It owns treeFocused +
      treeActiveKey and all the j/k/Enter/p/Esc handling; the core just calls
@@ -417,12 +430,25 @@
       metricChip(archivedCount, 'archived', { click: 'toggle-archive' })
     ]);
 
+    /* apply inboxSort */
+    items = items.slice().sort(function (a, b) {
+      if (inboxSort === 'asks') {
+        var diff = (b.open_asks || 0) - (a.open_asks || 0);
+        if (diff !== 0) return diff;
+      } else if (inboxSort === 'project') {
+        var pc = (a.project || '').localeCompare(b.project || '');
+        if (pc !== 0) return pc;
+      }
+      return (b.created || '').localeCompare(a.created || '');
+    });
+    var sortToggle = el('span', { class: 'sort-toggle', text: 'sort: ' + inboxSort });
     var body = items.length
       ? items.map(itemRow)
       : [emptyState([el('b', { text: 'nothing needs you.' }), el('br'),
         'no reports are awaiting review.'])];
-    var right = items.length ? pill(items.length + ' awaiting', 'warn') : null;
-    return [strip, panel('inbox — needs you', right, body)];
+    var rightParts = items.length ? [sortToggle, pill(items.length + ' awaiting', 'warn')] : [sortToggle];
+    var rightWrap = el('div', { class: 'inbox-panel-right' }, rightParts);
+    return [strip, panel('inbox — needs you', rightWrap, body)];
   }
 
   /* viewInboxArchived — the archive filter version of viewInbox. Same
@@ -527,12 +553,32 @@
     projects.forEach(function (p) {
       var body = [];
       if (p.has_state) {
-        body.push(el('div', { class: 'proj-sec', text: 'current state' }));
-        body.push(el('div', { class: 'roadmap-md' }, htmlToNodes(p.current_state_html)));
+        var stateKey = p.project + '\x00current state';
+        var stateCollapsed = !!collapsedSecs[stateKey];
+        body.push(el('div', {
+          class: 'proj-sec collapsible',
+          data: { proj: p.project, sec: 'current state' }
+        }, [
+          el('span', { class: 'sec-sigil', text: stateCollapsed ? '▸ ' : '▾ ' }),
+          'current state'
+        ]));
+        if (!stateCollapsed) {
+          body.push(el('div', { class: 'roadmap-md' }, htmlToNodes(p.current_state_html)));
+        }
       }
       if (p.has_roadmap) {
-        body.push(el('div', { class: 'proj-sec', text: 'roadmap' }));
-        body.push(el('div', { class: 'roadmap-md' }, htmlToNodes(p.roadmap_html)));
+        var roadmapKey = p.project + '\x00roadmap';
+        var roadmapCollapsed = !!collapsedSecs[roadmapKey];
+        body.push(el('div', {
+          class: 'proj-sec collapsible',
+          data: { proj: p.project, sec: 'roadmap' }
+        }, [
+          el('span', { class: 'sec-sigil', text: roadmapCollapsed ? '▸ ' : '▾ ' }),
+          'roadmap'
+        ]));
+        if (!roadmapCollapsed) {
+          body.push(el('div', { class: 'roadmap-md' }, htmlToNodes(p.roadmap_html)));
+        }
       }
       if (!p.has_state && !p.has_roadmap) {
         body.push(emptyState(['no ', el('code', { text: '.docs/ai' }),
@@ -786,6 +832,14 @@
   document.addEventListener('click', function (e) {
     var tab = e.target.closest('.view-tab');
     if (tab) { showView(tab.dataset.view); return; }
+    var secHead = e.target.closest('.proj-sec.collapsible');
+    if (secHead) {
+      var secKey = secHead.dataset.proj + '\x00' + secHead.dataset.sec;
+      collapsedSecs[secKey] = !collapsedSecs[secKey];
+      try { sessionStorage.setItem('hd:collapsedSecs', JSON.stringify(collapsedSecs)); } catch (_) {}
+      render();
+      return;
+    }
     var th = e.target.closest('.tracked-head');
     if (th) { trackedOpen = !trackedOpen; render(); return; }
     var closeBtn = e.target.closest('.inbox-close');
@@ -811,6 +865,15 @@
     if (e.target.id === 'push-off') { disablePushHere(); return; }
     var themeBtn = e.target.closest('.theme-btn');
     if (themeBtn) { setTheme(themeBtn.dataset.theme); return; }
+    var sortBtn = e.target.closest('.sort-toggle');
+    if (sortBtn) {
+      e.stopPropagation();
+      var sorts = ['recent', 'asks', 'project'];
+      inboxSort = sorts[(sorts.indexOf(inboxSort) + 1) % sorts.length];
+      try { sessionStorage.setItem('hd:inboxSort', inboxSort); } catch (_) {}
+      render();
+      return;
+    }
     var chip = e.target.closest('.metric-chip.clickable');
     if (chip) {
       e.stopPropagation();

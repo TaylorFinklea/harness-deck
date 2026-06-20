@@ -577,3 +577,33 @@
   border-color: var(--tn-red);
   background: rgba(247, 118, 142, 0.08);
 }
+
+/* --- inbox sort toggle (Item A) ---
+   Sits in the panel's right slot, beside the 'N awaiting' pill.
+   Subtle text link — no border, just a pointer cursor and a hover tint. */
+.inbox-panel-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sort-toggle {
+  font-size: 10px;
+  color: var(--tn-comment);
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: 0.04em;
+}
+.sort-toggle:hover { color: var(--tn-fg-dark); }
+
+/* --- collapsible project sections (Item B) ---
+   Mirrors the .tracked-head sigil tone. */
+.proj-sec.collapsible {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.proj-sec.collapsible:hover { color: var(--tn-fg-dark); }
+.proj-sec.collapsible .sec-sigil {
+  color: var(--tn-comment);
+  font-size: 10px;
+}
