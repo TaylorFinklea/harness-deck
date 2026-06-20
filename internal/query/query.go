@@ -25,7 +25,7 @@ import (
 // require opening the full report.
 type Record interface {
 	// Field returns the value for one of the known field names:
-	// "status","project","kind","harness","title","agent","verdict","created".
+	// "status","project","kind","scope","harness","title","agent","verdict","created".
 	Field(name string) string
 	// Text returns the metadata+body searchable text (lazy).
 	Text() string
@@ -127,6 +127,7 @@ var fields = map[string]fieldSpec{
 	"status":  {"status", []operator{opEq, opNe, opIn, opNotIn}},
 	"project": {"project", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
 	"kind":    {"kind", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
+	"scope":   {"scope", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
 	"harness": {"harness", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
 	"title":   {"title", []operator{opTilde, opNTild, opEq, opNe}},
 	"agent":   {"agent", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
@@ -135,7 +136,7 @@ var fields = map[string]fieldSpec{
 }
 
 // fieldOrder is the canonical field order surfaced to autocomplete (Schema).
-var fieldOrder = []string{"status", "project", "kind", "harness", "title", "agent", "verdict", "created"}
+var fieldOrder = []string{"status", "project", "kind", "scope", "harness", "title", "agent", "verdict", "created"}
 
 // FieldSchema is one field's public autocomplete vocabulary: its name and the
 // operators valid on it, in canonical order.

@@ -28,6 +28,7 @@ type Entry struct {
 	Agent       string    `json:"agent"`
 	Title       string    `json:"title"`
 	Kind        string    `json:"kind"`
+	Scope       string    `json:"scope,omitempty"`
 	Status      string    `json:"status"`
 	Created     string    `json:"created"`
 	Verdict     string    `json:"verdict"`
@@ -243,7 +244,7 @@ func loadEntry(path, source string) (Entry, string, error) {
 	}
 	e := Entry{
 		Project: rep.Project, Run: rep.ID, Harness: rep.Harness, Agent: rep.Agent,
-		Title: rep.Title, Kind: rep.Kind, Status: rep.Status, Created: rep.Created,
+		Title: rep.Title, Kind: rep.Kind, Scope: rep.Scope, Status: rep.Status, Created: rep.Created,
 		Verdict: rep.Verdict, Source: source, Blocks: len(rep.Blocks),
 		Archived: rep.Archived, Live: rep.Live,
 		Dir: filepath.Dir(path), Path: path,

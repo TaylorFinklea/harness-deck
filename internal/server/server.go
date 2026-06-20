@@ -4,12 +4,15 @@ package server
 
 import (
 	"context"
+	"crypto/x509"
 	"embed"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -183,12 +186,61 @@ func (s *Server) Serve() error {
 	if s.cfg.TLS.Enabled() {
 		// Expand ~ in cert/key paths so config files can use the standard
 		// shorthand (e.g. "~/.config/tailscale-certs/host.crt").
+		certPath := config.Expand(s.cfg.TLS.Cert)
+		if warn := certExpiryWarning(certPath, time.Now()); warn != "" {
+			log.Printf("harness-deck: WARNING: %s", warn)
+		}
+		// Re-check daily so a long-running server surfaces an approaching
+		// expiry. Tied to Serve's lifetime (done closes when ListenAndServeTLS
+		// returns) so the goroutine never outlives the call.
+		done := make(chan struct{})
+		defer close(done)
+		go func() {
+			ticker := time.NewTicker(24 * time.Hour)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					if warn := certExpiryWarning(certPath, time.Now()); warn != "" {
+						log.Printf("harness-deck: WARNING: %s", warn)
+					}
+				case <-done:
+					return
+				}
+			}
+		}()
 		return http.ListenAndServeTLS(addr,
-			config.Expand(s.cfg.TLS.Cert),
+			certPath,
 			config.Expand(s.cfg.TLS.Key),
 			s.mux)
 	}
 	return http.ListenAndServe(addr, s.mux)
+}
+
+// certExpiryWarning reads the PEM file at certPath, parses the first
+// certificate, and returns a non-empty warning string when the cert is already
+// expired or expires within 30 days of now. It returns "" on any read/parse
+// error (errors that matter will surface via ListenAndServeTLS).
+func certExpiryWarning(certPath string, now time.Time) (warn string) {
+	data, err := os.ReadFile(certPath)
+	if err != nil {
+		return ""
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return ""
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return ""
+	}
+	switch {
+	case now.After(cert.NotAfter):
+		return fmt.Sprintf("TLS certificate %s expired on %s", certPath, cert.NotAfter.Format("2006-01-02"))
+	case now.After(cert.NotAfter.Add(-30 * 24 * time.Hour)):
+		return fmt.Sprintf("TLS certificate %s expires on %s (within 30 days)", certPath, cert.NotAfter.Format("2006-01-02"))
+	}
+	return ""
 }
 
 // handleShell serves the aggregator dashboard page.

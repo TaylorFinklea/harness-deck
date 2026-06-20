@@ -56,6 +56,8 @@ func (r *searchRecord) Field(name string) string {
 		return r.e.Project
 	case "kind":
 		return r.e.Kind
+	case "scope":
+		return r.e.Scope
 	case "harness":
 		return r.e.Harness
 	case "title":
@@ -79,7 +81,7 @@ func (r *searchRecord) Text() string {
 	}
 	r.known = true
 	var b strings.Builder
-	for _, field := range []string{r.e.Title, r.e.Project, r.e.Kind, r.e.Status, r.e.Harness, r.e.Agent, r.e.Verdict} {
+	for _, field := range []string{r.e.Title, r.e.Project, r.e.Kind, r.e.Scope, r.e.Status, r.e.Harness, r.e.Agent, r.e.Verdict} {
 		if field != "" {
 			b.WriteString(field)
 			b.WriteByte('\n')
@@ -252,6 +254,7 @@ func (s *Server) handleSearchSchema(w http.ResponseWriter, _ *http.Request) {
 		"status":  {"draft", "awaiting-review", "answered", "done"},
 		"project": distinctValues(s, func(e store.Entry) string { return e.Project }),
 		"kind":    distinctValues(s, func(e store.Entry) string { return e.Kind }),
+		"scope":   distinctValues(s, func(e store.Entry) string { return e.Scope }),
 		"harness": distinctValues(s, func(e store.Entry) string { return e.Harness }),
 	}
 

@@ -884,8 +884,8 @@ func TestSearchSchemaEndpoint(t *testing.T) {
 	if !reflect.DeepEqual(statusOps, []string{"=", "!=", "IN", "NOT IN"}) {
 		t.Errorf("status ops = %v, want [= != IN NOT IN]", statusOps)
 	}
-	if len(resp.Fields) != 8 {
-		t.Errorf("schema fields = %d, want 8", len(resp.Fields))
+	if len(resp.Fields) != 9 {
+		t.Errorf("schema fields = %d, want 9", len(resp.Fields))
 	}
 
 	// status values are the static enum in stable order.

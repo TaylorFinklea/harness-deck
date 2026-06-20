@@ -421,7 +421,7 @@ func TestSchema(t *testing.T) {
 	// /api/search/schema. Lock its canonical order and a representative op set so
 	// drift from the parser's field matrix is caught here.
 	got := Schema()
-	wantOrder := []string{"status", "project", "kind", "harness", "title", "agent", "verdict", "created"}
+	wantOrder := []string{"status", "project", "kind", "scope", "harness", "title", "agent", "verdict", "created"}
 	if len(got) != len(wantOrder) {
 		t.Fatalf("Schema() returned %d fields, want %d", len(got), len(wantOrder))
 	}
@@ -446,4 +446,66 @@ func TestSchema(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestMatchScope(t *testing.T) {
+	// scope is a first-class query field: = and IN must match against the
+	// entry's scope string; non-matching entries must be rejected.
+	mk := func(scope string) fakeRecord {
+		return fakeRecord{fields: map[string]string{"scope": scope}}
+	}
+
+	t.Run("eq-match", func(t *testing.T) {
+		q, err := Parse(`scope = foo`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("foo"), fixedNow) {
+			t.Errorf("scope = foo should match entry with scope foo")
+		}
+	})
+
+	t.Run("eq-nomatch", func(t *testing.T) {
+		q, err := Parse(`scope = foo`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("bar"), fixedNow) {
+			t.Errorf("scope = foo should not match entry with scope bar")
+		}
+	})
+
+	t.Run("in-match", func(t *testing.T) {
+		q, err := Parse(`scope IN (foo, bar)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("foo"), fixedNow) {
+			t.Errorf("scope IN (foo,bar) should match entry with scope foo")
+		}
+	})
+
+	t.Run("in-nomatch", func(t *testing.T) {
+		q, err := Parse(`scope IN (foo, bar)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("baz"), fixedNow) {
+			t.Errorf("scope IN (foo,bar) should not match entry with scope baz")
+		}
+	})
+
+	// Schema() must include scope so /api/search/schema autocomplete exposes it.
+	t.Run("schema-includes-scope", func(t *testing.T) {
+		found := false
+		for _, f := range Schema() {
+			if f.Name == "scope" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Schema() does not include 'scope' field")
+		}
+	})
 }
