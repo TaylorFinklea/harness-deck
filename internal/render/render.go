@@ -59,6 +59,7 @@ func (r *Renderer) Report(rep *manifest.Report, responses map[string]respond.Res
 type pageView struct {
 	Report *manifest.Report
 	Banner bannerView
+	Tags   []string // from rep.Tags; rendered as chips below the banner title
 	TOC    []tocItem
 	Run    []manifest.KV // sidebar "run" metadata section
 	// OpenAsks summarizes the unanswered interactive blocks for the
@@ -123,6 +124,7 @@ func (r *Renderer) buildPage(rep *manifest.Report, responses map[string]respond.
 			Verdict: rep.Verdict,
 			Meta:    bannerMeta(rep),
 		},
+		Tags:    rep.Tags,
 		Run:     runMeta(rep),
 		Live:    rep.Live,
 		CSS:     template.CSS(assets.ReportCSS),

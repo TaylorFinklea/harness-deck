@@ -24,9 +24,12 @@ import (
 // is expected to be fetched lazily and memoized by the caller, since it can
 // require opening the full report.
 type Record interface {
-	// Field returns the value for one of the known field names:
+	// Field returns the value for one of the known single-value field names:
 	// "status","project","kind","scope","harness","title","agent","verdict","created".
 	Field(name string) string
+	// Fields returns all values for a multi-value field (e.g. "tags").
+	// Returns nil for single-value fields or unknown names.
+	Fields(name string) []string
 	// Text returns the metadata+body searchable text (lazy).
 	Text() string
 }
@@ -128,6 +131,7 @@ var fields = map[string]fieldSpec{
 	"project": {"project", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
 	"kind":    {"kind", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
 	"scope":   {"scope", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
+	"tags":    {"tags", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
 	"harness": {"harness", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
 	"title":   {"title", []operator{opTilde, opNTild, opEq, opNe}},
 	"agent":   {"agent", []operator{opEq, opNe, opTilde, opNTild, opIn, opNotIn}},
@@ -136,7 +140,14 @@ var fields = map[string]fieldSpec{
 }
 
 // fieldOrder is the canonical field order surfaced to autocomplete (Schema).
-var fieldOrder = []string{"status", "project", "kind", "scope", "harness", "title", "agent", "verdict", "created"}
+var fieldOrder = []string{"status", "project", "kind", "scope", "tags", "harness", "title", "agent", "verdict", "created"}
+
+// listFields is the set of field names that hold multiple values (e.g. tags).
+// The evaluator applies existential semantics for these: = / IN match when ANY
+// value satisfies; != / NOT IN match when NO value satisfies.
+var listFields = map[string]bool{
+	"tags": true,
+}
 
 // FieldSchema is one field's public autocomplete vocabulary: its name and the
 // operators valid on it, in canonical order.

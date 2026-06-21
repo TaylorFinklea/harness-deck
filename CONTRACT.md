@@ -36,6 +36,7 @@ Validate before publishing: `harness-deck validate path/to/report.json`.
   "status":  "awaiting-review",         // required: draft | awaiting-review | answered | done
   "created": "2026-05-18T18:39:50Z",    // required, RFC3339
   "verdict": "conditional-go",          // optional, headline conclusion
+  "tags":    ["devops", "backend"],      // optional, searchable labels rendered as chips
   "meta":    [{"key": "cost", "value": "$1.84"}],   // optional, ordered run metadata
   "related": [                           // optional, cross-report links
     {"id": "spec-run-01", "rel": "spec"},
@@ -64,6 +65,27 @@ panel on the report page. Each entry is a typed pointer to another report:
 Each entry renders as a link to `/r/{project}/{id}`. Forward links to
 not-yet-published reports are valid — the link will resolve once the target
 report is published.
+
+### Optional: `tags` — searchable labels
+
+`tags` is an optional array of short string labels:
+
+```jsonc
+"tags": ["devops", "backend"]
+```
+
+Tags are rendered as small chips below the report title in the banner area.
+They are also queryable via the search query language:
+
+| Query | Semantics |
+|---|---|
+| `tags = devops` | Matches if **any** tag equals `devops` (case-insensitive) |
+| `tags IN (devops, backend)` | Matches if **any** tag is in the list |
+| `tags != devops` | Matches if **no** tag equals `devops` (excluded when the tag is present) |
+| `tags NOT IN (devops, backend)` | Matches if **no** tag is in the list |
+| `tags ~ ops` | Matches if **any** tag contains `ops` |
+
+An empty or whitespace-only tag is rejected by `harness-deck validate`.
 
 ### Optional: `live` — in-flight telemetry
 

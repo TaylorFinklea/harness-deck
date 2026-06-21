@@ -27,6 +27,7 @@ type Report struct {
 	Status  string          `json:"status"`            // draft | awaiting-review | answered | done
 	Created string          `json:"created"`           // RFC3339 timestamp
 	Verdict string          `json:"verdict,omitempty"` // free-text headline conclusion
+	Tags    []string        `json:"tags,omitempty"`    // optional searchable labels, e.g. ["devops","backend"]
 	Meta    []KV            `json:"meta,omitempty"`    // ordered run metadata (tokens, cost, …)
 	Related []RelatedReport `json:"related,omitempty"` // cross-report links rendered as a "related" panel
 	// Archived is a soft-delete flag: true hides the report from every

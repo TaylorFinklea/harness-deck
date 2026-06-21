@@ -47,7 +47,7 @@ type searchRecord struct {
 	known bool // whether text has been computed yet
 }
 
-// Field returns the indexed value for one of the known query field names.
+// Field returns the indexed value for one of the known single-value query field names.
 func (r *searchRecord) Field(name string) string {
 	switch name {
 	case "status":
@@ -72,6 +72,16 @@ func (r *searchRecord) Field(name string) string {
 	return ""
 }
 
+// Fields returns the values for a multi-value field. Only "tags" is multi-valued;
+// all other names return nil.
+func (r *searchRecord) Fields(name string) []string {
+	switch name {
+	case "tags":
+		return r.e.Tags
+	}
+	return nil
+}
+
 // Text returns the metadata+body searchable text, computing it lazily on the
 // first call and reusing it thereafter. Body text comes from Entry.SearchText,
 // which is precomputed at scan time — no per-query disk read is needed.
@@ -86,6 +96,10 @@ func (r *searchRecord) Text() string {
 			b.WriteString(field)
 			b.WriteByte('\n')
 		}
+	}
+	if len(r.e.Tags) > 0 {
+		b.WriteString(strings.Join(r.e.Tags, " "))
+		b.WriteByte('\n')
 	}
 	b.WriteString(r.e.SearchText)
 	r.text = b.String()
@@ -167,7 +181,7 @@ func scoreSurvivor(rec *searchRecord, hasText bool, terms []string) searchHit {
 	}
 
 	// Metadata pass — cheap, against fields already in the index.
-	for _, field := range []string{e.Title, e.Project, e.Kind, e.Status, e.Harness, e.Agent, e.Verdict} {
+	for _, field := range []string{e.Title, e.Project, e.Kind, e.Status, e.Harness, e.Agent, e.Verdict, strings.Join(e.Tags, " ")} {
 		lower := strings.ToLower(field)
 		for _, term := range terms {
 			if field != "" && strings.Contains(lower, strings.ToLower(term)) {
@@ -255,6 +269,7 @@ func (s *Server) handleSearchSchema(w http.ResponseWriter, _ *http.Request) {
 		"project": distinctValues(s, func(e store.Entry) string { return e.Project }),
 		"kind":    distinctValues(s, func(e store.Entry) string { return e.Kind }),
 		"scope":   distinctValues(s, func(e store.Entry) string { return e.Scope }),
+		"tags":    distinctTagValues(s),
 		"harness": distinctValues(s, func(e store.Entry) string { return e.Harness }),
 	}
 
@@ -279,6 +294,29 @@ func distinctValues(s *Server, pick func(store.Entry) string) []string {
 			continue
 		}
 		seen[v] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for v := range seen {
+		out = append(out, v)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// distinctTagValues collects the distinct non-empty tag values across every
+// non-archived entry's Tags slice, sorted. It backs the autocomplete value
+// list for the "tags" field.
+func distinctTagValues(s *Server) []string {
+	seen := map[string]struct{}{}
+	for _, e := range s.store.Entries() {
+		if e.Archived {
+			continue
+		}
+		for _, tag := range e.Tags {
+			if tag != "" {
+				seen[tag] = struct{}{}
+			}
+		}
 	}
 	out := make([]string, 0, len(seen))
 	for v := range seen {

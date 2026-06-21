@@ -129,3 +129,55 @@ func TestValidateRelatedUnknownFieldIsRejected(t *testing.T) {
 		t.Errorf("related entry with unknown field should fail strict decode; got: %v", ps)
 	}
 }
+
+// --- tags validation tests ---
+
+func parseReportWithTags(t *testing.T, tagsJSON string) *Report {
+	t.Helper()
+	src := `{"schema":"harness-deck/report@1","id":"r1","project":"p","harness":"h",` +
+		`"title":"t","status":"draft","created":"2026-01-01T00:00:00Z",` +
+		`"tags":` + tagsJSON + `,` +
+		`"blocks":[{"type":"prose","markdown":"body"}]}`
+	r, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	return r
+}
+
+func TestValidateTagsValidIsAccepted(t *testing.T) {
+	r := parseReportWithTags(t, `["devops","backend"]`)
+	if ps := r.Validate(); len(ps) != 0 {
+		t.Fatalf("valid tags should have no problems; got: %v", ps)
+	}
+}
+
+func TestValidateTagsEmptyTagIsRejected(t *testing.T) {
+	r := parseReportWithTags(t, `["devops",""]`)
+	ps := r.Validate()
+	if !hasValidationProblem(ps, "tags[1]") || !hasValidationProblem(ps, "empty tag") {
+		t.Errorf("empty tag should fail validation; got: %v", ps)
+	}
+}
+
+func TestValidateTagsWhitespaceTagIsRejected(t *testing.T) {
+	r := parseReportWithTags(t, `["devops","   "]`)
+	ps := r.Validate()
+	if !hasValidationProblem(ps, "tags[1]") || !hasValidationProblem(ps, "empty tag") {
+		t.Errorf("whitespace-only tag should fail validation; got: %v", ps)
+	}
+}
+
+func TestValidateTagsOmittedIsValid(t *testing.T) {
+	// Tags are optional; a report without them is still valid.
+	src := `{"schema":"harness-deck/report@1","id":"r1","project":"p","harness":"h",` +
+		`"title":"t","status":"draft","created":"2026-01-01T00:00:00Z",` +
+		`"blocks":[{"type":"prose","markdown":"body"}]}`
+	r, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if ps := r.Validate(); len(ps) != 0 {
+		t.Fatalf("report without tags should be valid; got: %v", ps)
+	}
+}

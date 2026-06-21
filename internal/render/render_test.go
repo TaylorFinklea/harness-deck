@@ -348,3 +348,40 @@ func TestUnknownBlockRendersFallback(t *testing.T) {
 		}
 	}
 }
+
+// TestTagsRenderAsChips confirms that a report with tags renders them as
+// .report-tag chip spans inside a .report-tags container in the banner.
+func TestTagsRenderAsChips(t *testing.T) {
+	html := renderJSON(t, `{
+	  "schema": "harness-deck/report@1",
+	  "id": "x", "project": "p", "harness": "h", "title": "t",
+	  "status": "draft", "created": "2026-01-01T00:00:00Z",
+	  "tags": ["devops", "backend"],
+	  "blocks": [{"type": "prose", "markdown": "body"}]
+	}`)
+
+	for _, want := range []string{
+		`class="report-tags"`,
+		`class="report-tag"`,
+		`devops`,
+		`backend`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("tags chips: output missing %q", want)
+		}
+	}
+}
+
+// TestNoTagsChipsWhenAbsent confirms that the .report-tags container is not
+// emitted when the report has no tags.
+func TestNoTagsChipsWhenAbsent(t *testing.T) {
+	html := renderJSON(t, `{
+	  "schema": "harness-deck/report@1",
+	  "id": "x", "project": "p", "harness": "h", "title": "t",
+	  "status": "draft", "created": "2026-01-01T00:00:00Z",
+	  "blocks": [{"type": "prose", "markdown": "body"}]
+	}`)
+	if strings.Contains(html, `class="report-tags"`) {
+		t.Error("report without tags should not render .report-tags div")
+	}
+}

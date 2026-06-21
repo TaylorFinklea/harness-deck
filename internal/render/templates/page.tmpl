@@ -90,6 +90,7 @@
       <div>
         {{with .Banner.Kicker}}<div class="kicker">{{.}}</div>{{end}}
         <h1>{{with .Banner.Scope}}<span class="scope">{{.}}</span> {{end}}{{.Banner.Title}}</h1>
+        {{if .Tags}}<div class="report-tags">{{range .Tags}}<span class="report-tag">{{.}}</span>{{end}}</div>{{end}}
       </div>
       <div class="meta">
         {{range .Banner.Meta}}<div><b>{{.Key}}</b> {{.Value}}</div>

@@ -6,16 +6,25 @@ import (
 	"time"
 )
 
-// fakeRecord is a test Record. Field is backed by a map; Text returns a
-// fixed body and increments textCalls so the lazy short-circuit invariant
-// can assert Text() is never opened when a structural predicate fails first.
+// fakeRecord is a test Record. Field is backed by a map; Fields returns the
+// tags slice for "tags" and nil otherwise; Text returns a fixed body and
+// increments textCalls so the lazy short-circuit invariant can assert Text()
+// is never opened when a structural predicate fails first.
 type fakeRecord struct {
 	fields    map[string]string
+	tags      []string
 	text      string
 	textCalls *int
 }
 
 func (r fakeRecord) Field(name string) string { return r.fields[name] }
+
+func (r fakeRecord) Fields(name string) []string {
+	if name == "tags" {
+		return r.tags
+	}
+	return nil
+}
 
 func (r fakeRecord) Text() string {
 	if r.textCalls != nil {
@@ -421,7 +430,7 @@ func TestSchema(t *testing.T) {
 	// /api/search/schema. Lock its canonical order and a representative op set so
 	// drift from the parser's field matrix is caught here.
 	got := Schema()
-	wantOrder := []string{"status", "project", "kind", "scope", "harness", "title", "agent", "verdict", "created"}
+	wantOrder := []string{"status", "project", "kind", "scope", "tags", "harness", "title", "agent", "verdict", "created"}
 	if len(got) != len(wantOrder) {
 		t.Fatalf("Schema() returned %d fields, want %d", len(got), len(wantOrder))
 	}
@@ -506,6 +515,195 @@ func TestMatchScope(t *testing.T) {
 		}
 		if !found {
 			t.Errorf("Schema() does not include 'scope' field")
+		}
+	})
+}
+
+// TestMatchTags verifies existential semantics for the multi-value tags field.
+func TestMatchTags(t *testing.T) {
+	mk := func(tags ...string) fakeRecord {
+		return fakeRecord{tags: tags}
+	}
+
+	// tags = X: matches when any tag equals X.
+	t.Run("eq-match-any", func(t *testing.T) {
+		q, err := Parse(`tags = devops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("backend", "devops"), fixedNow) {
+			t.Errorf("tags = devops should match record with tags [backend devops]")
+		}
+	})
+
+	t.Run("eq-match-single", func(t *testing.T) {
+		q, err := Parse(`tags = devops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("devops"), fixedNow) {
+			t.Errorf("tags = devops should match record with tag [devops]")
+		}
+	})
+
+	t.Run("eq-nomatch", func(t *testing.T) {
+		q, err := Parse(`tags = devops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("backend", "frontend"), fixedNow) {
+			t.Errorf("tags = devops should not match record with tags [backend frontend]")
+		}
+	})
+
+	t.Run("eq-case-insensitive", func(t *testing.T) {
+		q, err := Parse(`tags = DevOps`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("devops"), fixedNow) {
+			t.Errorf("tags = DevOps should match case-insensitively")
+		}
+	})
+
+	// tags != X: existential negative — a record WITH tag X is excluded; without matches.
+	t.Run("ne-excluded-when-tag-present", func(t *testing.T) {
+		q, err := Parse(`tags != devops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("backend", "devops"), fixedNow) {
+			t.Errorf("tags != devops should exclude record that has tag devops")
+		}
+	})
+
+	t.Run("ne-matches-when-tag-absent", func(t *testing.T) {
+		q, err := Parse(`tags != devops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("backend", "frontend"), fixedNow) {
+			t.Errorf("tags != devops should match record that does not have tag devops")
+		}
+	})
+
+	t.Run("ne-empty-tags", func(t *testing.T) {
+		q, err := Parse(`tags != devops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk(), fixedNow) {
+			t.Errorf("tags != devops should match record with no tags")
+		}
+	})
+
+	// tags IN (a,b): matches when any tag is in the list.
+	t.Run("in-match", func(t *testing.T) {
+		q, err := Parse(`tags IN (devops, backend)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("frontend", "devops"), fixedNow) {
+			t.Errorf("tags IN (devops,backend) should match record with tag devops")
+		}
+	})
+
+	t.Run("in-nomatch", func(t *testing.T) {
+		q, err := Parse(`tags IN (devops, backend)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("frontend", "security"), fixedNow) {
+			t.Errorf("tags IN (devops,backend) should not match record with tags [frontend security]")
+		}
+	})
+
+	// tags ~ substring: matches when any tag contains the substring.
+	t.Run("tilde-match", func(t *testing.T) {
+		q, err := Parse(`tags ~ ops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("backend", "devops"), fixedNow) {
+			t.Errorf("tags ~ ops should match record with tag devops")
+		}
+	})
+
+	t.Run("tilde-nomatch", func(t *testing.T) {
+		q, err := Parse(`tags ~ ops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("backend", "frontend"), fixedNow) {
+			t.Errorf("tags ~ ops should not match record with tags [backend frontend]")
+		}
+	})
+
+	// tags NOT IN (a,b): existential negative — a record with ANY tag in the
+	// list is excluded; one with no tag in the list (or no tags) matches.
+	t.Run("notin-excluded-when-tag-present", func(t *testing.T) {
+		q, err := Parse(`tags NOT IN (devops, backend)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("frontend", "devops"), fixedNow) {
+			t.Errorf("tags NOT IN (devops,backend) should exclude record that has tag devops")
+		}
+	})
+
+	t.Run("notin-matches-when-no-tag-in-list", func(t *testing.T) {
+		q, err := Parse(`tags NOT IN (devops, backend)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("frontend", "security"), fixedNow) {
+			t.Errorf("tags NOT IN (devops,backend) should match record with no listed tag")
+		}
+	})
+
+	t.Run("notin-empty-tags", func(t *testing.T) {
+		q, err := Parse(`tags NOT IN (devops)`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk(), fixedNow) {
+			t.Errorf("tags NOT IN (devops) should match record with no tags")
+		}
+	})
+
+	// tags !~ substring: existential negative — excluded when any tag contains
+	// the substring; matches when none do.
+	t.Run("ntilde-excluded-when-contained", func(t *testing.T) {
+		q, err := Parse(`tags !~ ops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if q.Match(mk("backend", "devops"), fixedNow) {
+			t.Errorf("tags !~ ops should exclude record with tag devops")
+		}
+	})
+
+	t.Run("ntilde-matches-when-none-contain", func(t *testing.T) {
+		q, err := Parse(`tags !~ ops`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !q.Match(mk("backend", "frontend"), fixedNow) {
+			t.Errorf("tags !~ ops should match record with tags [backend frontend]")
+		}
+	})
+
+	// Schema must include tags.
+	t.Run("schema-includes-tags", func(t *testing.T) {
+		found := false
+		for _, f := range Schema() {
+			if f.Name == "tags" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Schema() does not include 'tags' field")
 		}
 	})
 }

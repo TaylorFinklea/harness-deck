@@ -32,6 +32,7 @@ type Entry struct {
 	Status      string    `json:"status"`
 	Created     string    `json:"created"`
 	Verdict     string    `json:"verdict"`
+	Tags        []string  `json:"tags,omitempty"`
 	Source      string    `json:"source"` // "central" or "project"
 	Blocks      int       `json:"blocks"`
 	OpenAsks    int       `json:"open_asks"`
@@ -246,7 +247,7 @@ func loadEntry(path, source string) (Entry, string, error) {
 		Project: rep.Project, Run: rep.ID, Harness: rep.Harness, Agent: rep.Agent,
 		Title: rep.Title, Kind: rep.Kind, Scope: rep.Scope, Status: rep.Status, Created: rep.Created,
 		Verdict: rep.Verdict, Source: source, Blocks: len(rep.Blocks),
-		Archived: rep.Archived, Live: rep.Live,
+		Tags: rep.Tags, Archived: rep.Archived, Live: rep.Live,
 		Dir: filepath.Dir(path), Path: path,
 		SearchText: manifest.BlockText(rep),
 	}

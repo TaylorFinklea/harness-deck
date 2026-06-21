@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -57,6 +58,11 @@ func (r *Report) Validate() []Problem {
 	for i, kv := range r.Meta {
 		if kv.Key == "" {
 			add(fmt.Sprintf("meta[%d]", i), "missing key")
+		}
+	}
+	for i, tag := range r.Tags {
+		if strings.TrimSpace(tag) == "" {
+			add(fmt.Sprintf("tags[%d]", i), "empty tag")
 		}
 	}
 	for i, rel := range r.Related {

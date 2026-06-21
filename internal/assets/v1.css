@@ -292,6 +292,17 @@
     text-align: right;
   }
   .report-banner .meta b { color: var(--tn-fg-dark); font-weight: 400; }
+  .report-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .report-tag {
+    display: inline-block;
+    padding: 1px 7px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--tn-cyan);
+    background: rgba(125,207,255,.08);
+    border: 1px solid rgba(125,207,255,.2);
+    border-radius: 2px;
+  }
 
   /* ---------- metric grid ---------- */
   .metric-grid {

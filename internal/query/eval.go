@@ -7,11 +7,15 @@ import (
 )
 
 // eval evaluates a structural clause against rec. The created field is a time
-// comparison; all other fields are string comparisons per the value-semantics
-// table (= EqualFold, ~ Contains, IN fold-against-list, …).
+// comparison; list fields (e.g. tags) use existential semantics; all other
+// fields are string comparisons per the value-semantics table (= EqualFold,
+// ~ Contains, IN fold-against-list, …).
 func (n fieldPred) eval(rec Record, now time.Time) bool {
 	if n.field == "created" {
 		return evalCreated(rec.Field("created"), n.op, n.values[0], now)
+	}
+	if listFields[n.field] {
+		return evalList(rec.Fields(n.field), n.op, n.values)
 	}
 	got := rec.Field(n.field)
 	switch n.op {
@@ -27,6 +31,60 @@ func (n fieldPred) eval(rec Record, now time.Time) bool {
 		return foldIn(got, n.values)
 	case opNotIn:
 		return !foldIn(got, n.values)
+	}
+	return false
+}
+
+// evalList applies existential semantics to a multi-value field. For positive
+// operators (=, ~, IN) the clause matches when ANY value in vals satisfies it;
+// for negative operators (!=, !~, NOT IN) the clause matches when NO value
+// satisfies the positive counterpart (i.e. every value must fail).
+func evalList(vals []string, op operator, queryVals []string) bool {
+	switch op {
+	case opEq:
+		for _, v := range vals {
+			if strings.EqualFold(v, queryVals[0]) {
+				return true
+			}
+		}
+		return false
+	case opNe:
+		for _, v := range vals {
+			if strings.EqualFold(v, queryVals[0]) {
+				return false
+			}
+		}
+		return true
+	case opTilde:
+		lower := strings.ToLower(queryVals[0])
+		for _, v := range vals {
+			if strings.Contains(strings.ToLower(v), lower) {
+				return true
+			}
+		}
+		return false
+	case opNTild:
+		lower := strings.ToLower(queryVals[0])
+		for _, v := range vals {
+			if strings.Contains(strings.ToLower(v), lower) {
+				return false
+			}
+		}
+		return true
+	case opIn:
+		for _, v := range vals {
+			if foldIn(v, queryVals) {
+				return true
+			}
+		}
+		return false
+	case opNotIn:
+		for _, v := range vals {
+			if foldIn(v, queryVals) {
+				return false
+			}
+		}
+		return true
 	}
 	return false
 }
