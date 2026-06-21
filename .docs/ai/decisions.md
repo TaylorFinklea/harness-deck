@@ -886,3 +886,28 @@ saved-search CSS bug) only fell to Opus browser-verify. The division of labor �
 Sonnet implement + Sonnet adversarial + Haiku gate + Opus browser/functional
 verify — is the cost-efficient sweet spot for bounded Go+frontend features.
 `tags`-in-JQL is the only assessment sliver left (roadmap Next).
+
+## 2026-06-20 — Wave 10: tags + multi-value query fields
+
+The deferred sliver, and the first **multi-value** query field. Design choices:
+
+- **Record interface gains `Fields(name) []string`** (alongside `Field`) rather
+  than encoding a list into the single-value `Field` string. A `listFields` set
+  marks which fields are multi-valued; `eval` branches to existential semantics
+  for them and leaves every single-value path byte-for-byte unchanged.
+- **Existential semantics** (the load-bearing decision): `tags = X` / `IN` match
+  when ANY tag satisfies; `tags != X` / `NOT IN` / `!~` match when NO tag
+  satisfies. Corollary: an **untagged** report matches every negative predicate
+  (`tags != x` is vacuously true) — documented, and the natural read of "has no
+  tag equal to x". This is the classic negation-over-list trap; locked with
+  unit tests for all six ops incl. NOT IN / !~ + empty-tags, and live-verified
+  end-to-end through JSON→Entry→Fields→evalList→Match.
+- **Autocomplete dedup stays case-sensitive** (as-stored), consistent with
+  project/kind/scope — the matcher is EqualFold but the value list shows the
+  literal tags; normalizing only tags would diverge from the sibling fields.
+- Tags render as chips on the report page; join into the free-text `Text()` +
+  the metadata score pass (so a tag-matching text term scores like a metadata
+  hit, not a body hit).
+
+This **completes the assessment backlog** (Waves 1–10). Waves 1–9 in v0.2.8;
+Wave 10 unreleased.

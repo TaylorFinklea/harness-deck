@@ -114,6 +114,13 @@ One line each; detail in decisions.md + git log.
   section collapse + `Cmd+S` save-search. Same Sonnet-impl + Haiku-gate +
   2×Sonnet-review + Opus browser/functional-verify per wave. decisions.md
   "Assessment Waves 4–9".
+- **Wave 10 — `tags` in JQL** _(2026-06-20, `d3de13b`, unreleased)_ — the final
+  deferred item. `Report.Tags []string` + the query engine extended for
+  multi-value fields (Record gains `Fields()`, a `listFields` set, existential
+  eval: `tags = X`/`IN` = any matches, `tags != X`/`NOT IN`/`!~` = none matches);
+  chip render on the report page; autocomplete enumerates distinct tags.
+  Live-verified the existential pipeline (incl. negation) + chip render.
+  decisions.md "Wave 10".
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
@@ -159,16 +166,13 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
 ## Next
 
 **Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop
-feature-complete). The whole assessment backlog is now **shipped as Waves 1–9**
-(see "Post-MVP shipped" + decisions.md "Assessment Waves 1–3" / "Assessment
-Waves 4–9"). Substantial picks → Waves 1–6; polish → Waves 7–9.
+feature-complete). The whole assessment backlog is **shipped as Waves 1–10**
+(see "Post-MVP shipped" + decisions.md "Assessment Waves 1–3" / "Waves 4–9" /
+"Wave 10"). Substantial picks → Waves 1–6; polish → 7–9; `tags`-in-JQL → 10.
 
-The list is clear. One deferred sliver remains:
-
-- **`tags` in JQL** _(M, deferred)_ — Wave 7 added `scope` to the query engine;
-  `tags` needs a new `tags []string` field on the report first AND query-engine
-  list-membership support (the current Field() is single-value). Pull from
-  Backlog/Later when starting fresh.
+**The list is fully clear — nothing deferred.** Waves 1–9 are released in
+v0.2.8; Wave 10 (`d3de13b`, tags) is unreleased on top. Pull from Backlog /
+Later when starting fresh.
 
 Possible follow-ups (not yet scheduled):
 
