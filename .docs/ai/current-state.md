@@ -6,11 +6,11 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   Assessment Waves 1–9 (`8e9a0cc`…`9bb9e10`); GoReleaser + the new push/PR CI both
   green; `hdeck version` = 0.2.8, live features verified (scope-in-JQL, activity
   view, usage bar).
-- **Wave 10 — `tags` in JQL** _(`d3de13b`, 2026-06-20, UNPUSHED + unreleased)_ —
-  the final assessment item: `Report.Tags []string` + multi-value query support
-  (existential `tags =`/`!=`/`IN`/`NOT IN`/`~`/`!~`) + chip render. Live-verified
-  + unit-tested. **The assessment backlog is now 100% complete (Waves 1–10).**
-  A **v0.2.9** would release Wave 10.
+- **v0.2.9 released + installed + verified 2026-06-21** — ships **Wave 10
+  (`tags` in JQL)** (`d3de13b`): `Report.Tags []string` + multi-value query
+  support (existential `tags =`/`!=`/`IN`/`NOT IN`/`~`/`!~`) + chip render.
+  GoReleaser + CI green; `hdeck version` = 0.2.9, `tags` in the live schema.
+  **The assessment backlog is now 100% complete (Waves 1–10), all released.**
 - **v0.2.7 released + installed 2026-06-16** — usage monitors, perf wave, config
   live-reload, JS modularization, search query language, saved searches. Usage
   bar live (codex ✅; claude-code wired; opencode awaits its `auth` cookie).

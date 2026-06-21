@@ -114,7 +114,10 @@ One line each; detail in decisions.md + git log.
   section collapse + `Cmd+S` save-search. Same Sonnet-impl + Haiku-gate +
   2×Sonnet-review + Opus browser/functional-verify per wave. decisions.md
   "Assessment Waves 4–9".
-- **Wave 10 — `tags` in JQL** _(2026-06-20, `d3de13b`, unreleased)_ — the final
+- **v0.2.9 release** _(2026-06-21)_ — ships Wave 10 (tags in JQL); GoReleaser +
+  CI green; installed + verified (`tags` live in the search schema). Completes
+  the assessment backlog on Homebrew.
+- **Wave 10 — `tags` in JQL** _(2026-06-20, `d3de13b`, in v0.2.9)_ — the final
   deferred item. `Report.Tags []string` + the query engine extended for
   multi-value fields (Record gains `Fields()`, a `listFields` set, existential
   eval: `tags = X`/`IN` = any matches, `tags != X`/`NOT IN`/`!~` = none matches);
@@ -170,9 +173,8 @@ feature-complete). The whole assessment backlog is **shipped as Waves 1–10**
 (see "Post-MVP shipped" + decisions.md "Assessment Waves 1–3" / "Waves 4–9" /
 "Wave 10"). Substantial picks → Waves 1–6; polish → 7–9; `tags`-in-JQL → 10.
 
-**The list is fully clear — nothing deferred.** Waves 1–9 are released in
-v0.2.8; Wave 10 (`d3de13b`, tags) is unreleased on top. Pull from Backlog /
-Later when starting fresh.
+**The list is fully clear — nothing deferred, everything released.** Waves 1–9
+in v0.2.8, Wave 10 in v0.2.9. Pull from Backlog / Later when starting fresh.
 
 Possible follow-ups (not yet scheduled):
 
