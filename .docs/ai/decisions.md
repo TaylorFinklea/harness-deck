@@ -911,3 +911,34 @@ The deferred sliver, and the first **multi-value** query field. Design choices:
 
 This **completes the assessment backlog** (Waves 1–10). Waves 1–9 in v0.2.8;
 Wave 10 unreleased.
+
+## 2026-06-26 — opencode usage tile: local `opencode stats`, not the web cookie
+
+The opencode footer tile scraped opencode.ai's web `_server` RPC with a manually-
+pasted, expiring browser `auth` cookie + build-fingerprint hashes — fragile by its
+own admission. Brainstormed a better source.
+
+- **Investigated how CodexBar does it** (read its app binary):
+  `OpenCodeProviderImplementation.swift` hits the **same** `https://opencode.ai/_server`
+  with a **session cookie** — there is **no api-key/REST endpoint** for the Zen
+  plan-% (the opencode-go api key is for model *inference*, not billing; my
+  `api.opencode.ai/billing/usage` guess was GitHub/OpenAI strings bleeding into
+  the opencode binary). CodexBar's only edge is `OpenCodeCookieImporter` —
+  auto-importing the cookie from the browser + Keychain, a native-macOS trick.
+- **Conclusion:** the Zen plan-% is cookie-only. Auto-importing encrypted browser
+  cookies (Chrome AES+Keychain / Safari binarycookies + a SQLite dep) is OS-
+  specific and against harness-deck's portable, zero-dep, no-browser nature.
+- **Decision (user-chosen):** switch the tile to the **local** `opencode stats
+  --days N` CLI (which OpenCode now ships — the old "no usage API" note was
+  stale), reported as a `KindBudget` tile ("OC $X"). Robust (local DB, no auth,
+  unbreakable), dependency-free (shell out, parse). **Trade-off accepted:** it
+  shows local *spend*, not the plan-%, because spend is the only thing available
+  headlessly without the cookie. A cheap/free *model* was never needed — fetching
+  usage is an auth problem, and the local CLI sidesteps auth.
+- TUI-hang guard: `cmd.Stdin` left nil (= /dev/null) so a terminal-capability
+  query can't wedge the poll; `exec.CommandContext` lets the 12s Monitor timeout
+  kill a hung child. Parser is pure + unit-tested (binary-free). `opencode_cookie`
+  / `opencode_workspace_id` config kept parseable but deprecated.
+
+Commit `900f137`. Sonnet-impl + Haiku-gate + Sonnet-review + Opus live-verify
+(/api/usage returns the budget tile end-to-end).
