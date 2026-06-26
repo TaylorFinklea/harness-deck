@@ -239,11 +239,14 @@ credential simply drops off the footer.
 "usage": {
   "providers": ["codex", "openrouter", "claude-code", "copilot", "opencode"],
   "openrouter_key": "",            // else read from $OPENROUTER_API_KEY
-  "opencode_cookie": "",           // opencode.ai "auth" session cookie value
-  "opencode_workspace_id": "",     // optional; skips the workspace lookup
+  "opencode_days": 7,              // rolling window for opencode spend tile (default 7)
   "refresh_sec": 60                // poll cadence (default 60)
 }
 ```
+
+`opencode_cookie` and `opencode_workspace_id` are **deprecated and ignored** —
+they were used by the old web-scrape approach. Remove them from your config if
+present; harness-deck now reads `opencode stats` locally instead.
 
 Per provider:
 
@@ -253,7 +256,7 @@ Per provider:
 | `openrouter` | credit budget + spend | `OPENROUTER_API_KEY` env, or `usage.openrouter_key` |
 | `claude-code` | true 5h + weekly % + reset | reads the OAuth token from the macOS **Keychain** (`security`) — one "Always Allow" prompt on first read, silent after. `$CLAUDE_CODE_OAUTH_TOKEN` or file creds (`~/.claude/.credentials.json`) avoid the prompt. |
 | `copilot` | premium-request % + monthly reset | reads the local `ghu_` token (`~/.config/github-copilot/apps.json`). **Uses GitHub's undocumented `copilot_internal/user` endpoint — may be against Copilot ToS for non-official clients; opt in knowingly.** |
-| `opencode` | subscription rolling/weekly % | paste the opencode.ai `auth` cookie into `opencode_cookie`. Fragile: opencode has no usage API, so this scrapes an internal endpoint whose IDs change on their deploys — it degrades to hidden when they shift. |
+| `opencode` | N-day cumulative spend (cost) | requires the `opencode` CLI installed and logged in. Shells out to `opencode stats --days N` (default 7 days, configurable via `opencode_days`). Robust — no cookie, no network, no web fingerprints. Degrades gracefully when the binary is absent. |
 
 Restart the service after changing `usage`. Verify with `GET /api/usage`.
 

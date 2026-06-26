@@ -238,40 +238,6 @@ func TestCopilotUsage(t *testing.T) {
 	}
 }
 
-// --- OpenCode usage extractor (the tolerant scan) ---
-
-func TestExtractOpenCodeUsage(t *testing.T) {
-	body := `whatever({"rollingUsage":{"usagePercent":55,"resetInSec":3600},"weeklyUsage":{"usagePercent":80.5,"resetInSec":86400}})`
-	p, r, ok := extractOpenCodeUsage(body, "rollingUsage")
-	if !ok || p != 55 || r != 3600 {
-		t.Errorf("rolling = (%v,%v,%v), want 55,3600,true", p, r, ok)
-	}
-	wp, wr, ok := extractOpenCodeUsage(body, "weeklyUsage")
-	if !ok || wp != 80.5 || wr != 86400 {
-		t.Errorf("weekly = (%v,%v,%v), want 80.5,86400,true", wp, wr, ok)
-	}
-	if _, _, ok := extractOpenCodeUsage(body, "missing"); ok {
-		t.Error("missing key should not be ok")
-	}
-
-	// An empty target block must NOT leak the next sibling's numbers.
-	leak := `{"rollingUsage":{},"weeklyUsage":{"usagePercent":80,"resetInSec":86400}}`
-	if _, _, ok := extractOpenCodeUsage(leak, "rollingUsage"); ok {
-		t.Error("empty rollingUsage must degrade to ok:false, not borrow weeklyUsage")
-	}
-	// A partial target block must not borrow the sibling's resetInSec.
-	partial := `{"rollingUsage":{"usagePercent":55},"weeklyUsage":{"usagePercent":80,"resetInSec":86400}}`
-	if p, r, ok := extractOpenCodeUsage(partial, "rollingUsage"); !ok || p != 55 || r != 0 {
-		t.Errorf("partial rollingUsage = (%v,%v,%v), want 55,0,true (no reset leak)", p, r, ok)
-	}
-}
-
-func TestOpenCodeNoCookie(t *testing.T) {
-	if s := (openCodeProvider{}).Sample(context.Background()); s.OK {
-		t.Errorf("no cookie should not be OK: %+v", s)
-	}
-}
-
 // --- helpers ---
 
 func TestMoneyFormat(t *testing.T) {

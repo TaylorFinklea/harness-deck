@@ -110,10 +110,9 @@ func New(cfg config.Config) (*Server, error) {
 
 	// Footer usage monitors (CodexBar-style). nil when no providers configured.
 	s.usage = usage.NewMonitor(usage.Build(usage.Options{
-		Providers:           cfg.Usage.Providers,
-		OpenRouterKey:       cfg.Usage.OpenRouterKey,
-		OpenCodeCookie:      cfg.Usage.OpenCodeCookie,
-		OpenCodeWorkspaceID: cfg.Usage.OpenCodeWorkspaceID,
+		Providers:     cfg.Usage.Providers,
+		OpenRouterKey: cfg.Usage.OpenRouterKey,
+		OpenCodeDays:  cfg.Usage.OpenCodeDays,
 	}), time.Duration(cfg.Usage.RefreshSec)*time.Second)
 
 	mux := http.NewServeMux()

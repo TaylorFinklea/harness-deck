@@ -2,162 +2,96 @@ package usage
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 )
 
-// openCodeProvider reports OpenCode subscription-plan usage (rolling 5h +
-// weekly %), the CodexBar-style numbers. There is no OpenCode usage/balance
-// API (open feature request); the only source is the opencode.ai web app's
-// internal `_server` RPC, authenticated with the site's "auth" session cookie
-// (pasted into config; it is NOT in a tidy local file).
-//
-// FRAGILE BY DESIGN: the _server function IDs below are build fingerprints of
-// the opencode.ai frontend and CHANGE ON THEIR DEPLOYS. When they shift the
-// calls 404 and this provider degrades to OK:false (the footer simply drops
-// OpenCode) — update the consts here, or override the workspace id via config
-// to skip the first lookup. The session cookie also expires and must be
-// re-pasted.
+// openCodeProvider reports OpenCode spend by shelling out to `opencode stats
+// --days N`. It reads the CLI's local data — no cookie, no network, no
+// web-fingerprint hashes. The binary must be installed and logged in.
 type openCodeProvider struct {
-	cookie      string
-	workspaceID string
+	days int
 }
 
 func (openCodeProvider) Tool() string  { return "opencode" }
 func (openCodeProvider) Label() string { return "OC" }
 
-// opencode.ai _server build-fingerprint IDs (see the fragility note above).
-const (
-	openCodeWorkspacesHash   = "def39973159c7f0483d8793a822b8dbb10d067e12c65455fcb4608459ba0234f"
-	openCodeSubscriptionHash = "7abeebee372f304e050aaaf92be863f4a86490e382f8c79db68fd94040d691b4"
-)
-
-var (
-	reOpenCodeWrk  = regexp.MustCompile(`wrk_[A-Za-z0-9]+`)
-	reUsagePercent = regexp.MustCompile(`"usagePercent"\s*:\s*([0-9.]+)`)
-	reResetInSec   = regexp.MustCompile(`"resetInSec"\s*:\s*([0-9]+)`)
-)
-
 func (o openCodeProvider) Sample(ctx context.Context) Sample {
-	if o.cookie == "" {
-		return Sample{Err: "no opencode cookie (paste the opencode.ai 'auth' cookie into usage.opencode_cookie)"}
+	days := o.days
+	if days <= 0 {
+		days = 7
 	}
-	wrk := o.workspaceID
-	if wrk == "" {
-		body, err := o.serverGet(ctx, openCodeWorkspacesHash, "")
-		if err != nil {
-			return Sample{Err: "workspace lookup: " + err.Error()}
+	// cmd.Stdin is left nil: Go gives the child /dev/null — required so a TUI
+	// terminal-capability query on stdin doesn't block the poll goroutine forever.
+	cmd := exec.CommandContext(ctx, "opencode", "stats", "--days", strconv.Itoa(days))
+	out, err := cmd.Output()
+	if err != nil {
+		// exec.Command wraps a LookPath failure in *exec.Error{Err: exec.ErrNotFound}.
+		var e *exec.Error
+		if (errors.As(err, &e) && errors.Is(e.Err, exec.ErrNotFound)) ||
+			errors.Is(err, exec.ErrNotFound) {
+			return Sample{Err: "opencode CLI not found"}
 		}
-		if m := reOpenCodeWrk.FindString(body); m != "" {
-			wrk = m
-		} else {
-			return Sample{Err: "no workspace id in opencode response (hash may be stale)"}
-		}
+		return Sample{Err: "opencode stats failed: " + err.Error()}
 	}
 
-	body, err := o.serverGet(ctx, openCodeSubscriptionHash, `["`+wrk+`"]`)
-	if err != nil {
-		return Sample{Err: "usage lookup: " + err.Error()}
-	}
-	rp, rsec, ok := extractOpenCodeUsage(body, "rollingUsage")
+	cost, input, output, ok := parseOpenCodeStats(string(out))
 	if !ok {
-		return Sample{Err: "no rollingUsage in opencode response (hash may be stale)"}
+		return Sample{Err: "could not parse opencode stats output"}
 	}
-	s := Sample{OK: true, Kind: KindWindow, Percent: pct(rp)}
-	if rsec > 0 {
-		s.ResetAt = nowUTC().Add(time.Duration(rsec) * time.Second).Format(time.RFC3339)
+	detail := fmt.Sprintf("%dd", days)
+	if input != "" || output != "" {
+		detail = fmt.Sprintf("%dd · in %s / out %s", days, input, output)
 	}
-	if wp, wsec, ok := extractOpenCodeUsage(body, "weeklyUsage"); ok {
-		d := fmt.Sprintf("weekly %.0f%%", wp)
-		if wsec > 0 {
-			d += " · resets " + nowUTC().Add(time.Duration(wsec)*time.Second).Local().Format("Mon 15:04")
-		}
-		s.Detail = d
-	}
-	return s
+	return Sample{OK: true, Kind: KindBudget, Text: cost, Detail: detail}
 }
 
-// serverGet calls an opencode.ai _server function by its build-fingerprint id,
-// with the session cookie and the browser headers the endpoint requires.
-func (o openCodeProvider) serverGet(ctx context.Context, id, args string) (string, error) {
-	u := "https://opencode.ai/_server?id=" + id
-	if args != "" {
-		u += "&args=" + url.QueryEscape(args)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Cookie", "auth="+o.cookie)
-	req.Header.Set("X-Server-Id", id)
-	req.Header.Set("Origin", "https://opencode.ai")
-	req.Header.Set("Referer", "https://opencode.ai/")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
-	req.Header.Set("Accept", "*/*")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", &httpError{status: resp.StatusCode}
-	}
-	return string(body), nil
-}
+// reCost matches a dollar amount like $10.02 or $0.00.
+var reCost = regexp.MustCompile(`\$[0-9][0-9.,]*`)
 
-// extractOpenCodeUsage finds a named usage block (rollingUsage / weeklyUsage)
-// in the _server response and pulls its usagePercent + resetInSec. The body is
-// text/javascript, not guaranteed clean JSON, so this is a tolerant scan — but
-// it is bounded to the target block's own braces so a sibling block's numbers
-// can never leak in (an empty/partial block degrades to ok:false instead).
-func extractOpenCodeUsage(body, key string) (percent float64, resetSec int64, ok bool) {
-	block, found := jsonBlockAfter(body, `"`+key+`"`)
-	if !found {
-		return 0, 0, false
-	}
-	pm := reUsagePercent.FindStringSubmatch(block)
-	if pm == nil {
-		return 0, 0, false
-	}
-	percent, _ = strconv.ParseFloat(pm[1], 64)
-	if rm := reResetInSec.FindStringSubmatch(block); rm != nil {
-		resetSec, _ = strconv.ParseInt(rm[1], 10, 64)
-	}
-	return percent, resetSec, true
-}
-
-// jsonBlockAfter returns the brace-balanced {…} object that follows the first
-// occurrence of marker, so a scan stays within one block. (Good enough for the
-// numeric usage blocks; it does not account for braces inside string values,
-// which these blocks don't contain.)
-func jsonBlockAfter(body, marker string) (string, bool) {
-	i := strings.Index(body, marker)
-	if i < 0 {
-		return "", false
-	}
-	open := strings.IndexByte(body[i:], '{')
-	if open < 0 {
-		return "", false
-	}
-	open += i
-	depth := 0
-	for j := open; j < len(body); j++ {
-		switch body[j] {
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				return body[open : j+1], true
+// parseOpenCodeStats extracts cost, input tokens, and output tokens from the
+// box-drawing table printed by `opencode stats --days N`. It is package-internal
+// so it can be tested independently of the opencode binary.
+//
+// Expected line shapes (box chars and spacing vary):
+//
+//	│Total Cost                                        $10.02 │
+//	│Input                                             14.5M │
+//	│Output                                           545.5K │
+func parseOpenCodeStats(out string) (cost, input, output string, ok bool) {
+	for _, line := range strings.Split(out, "\n") {
+		switch {
+		case strings.Contains(line, "Total Cost"):
+			if m := reCost.FindString(line); m != "" {
+				cost = m
+			}
+		case strings.Contains(line, "Input"):
+			if tok := lastToken(line); tok != "" {
+				input = tok
+			}
+		case strings.Contains(line, "Output"):
+			if tok := lastToken(line); tok != "" {
+				output = tok
 			}
 		}
 	}
-	return "", false
+	ok = cost != ""
+	return
+}
+
+// lastToken returns the last whitespace-separated token before the trailing
+// box-drawing character (│ or similar) on a line. The token is the value field
+// in the stats table (e.g. "14.5M", "545.5K", "$10.02").
+func lastToken(line string) string {
+	// Strip trailing box char and whitespace.
+	line = strings.TrimRight(line, " \t│|")
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return ""
+	}
+	return fields[len(fields)-1]
 }

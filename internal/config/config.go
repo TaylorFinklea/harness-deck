@@ -68,12 +68,16 @@ type UsageConfig struct {
 	// OpenRouterKey authenticates the OpenRouter usage GET; falls back to the
 	// OPENROUTER_API_KEY environment variable when empty.
 	OpenRouterKey string `json:"openrouter_key,omitempty"`
-	// OpenCodeCookie is the opencode.ai "auth" session cookie value, required
-	// for the OpenCode subscription-usage scrape (it has no usage API).
+	// OpenCodeCookie is deprecated and unused. opencode usage now reads
+	// `opencode stats` locally — no cookie is needed. This field is kept so
+	// existing config files still parse without error.
 	OpenCodeCookie string `json:"opencode_cookie,omitempty"`
-	// OpenCodeWorkspaceID optionally pins the workspace id, skipping the
-	// lookup that breaks when opencode.ai redeploys.
+	// OpenCodeWorkspaceID is deprecated and unused. opencode usage now reads
+	// `opencode stats` locally. This field is kept so existing configs parse.
 	OpenCodeWorkspaceID string `json:"opencode_workspace_id,omitempty"`
+	// OpenCodeDays is the rolling window in days for the opencode spend tile
+	// (reads `opencode stats --days N`). Default 7.
+	OpenCodeDays int `json:"opencode_days,omitempty"`
 	// RefreshSec is the poll cadence in seconds (default 60). HTTP providers
 	// count against their service's rate limits, so keep it sane.
 	RefreshSec int `json:"refresh_sec,omitempty"`

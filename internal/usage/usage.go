@@ -66,10 +66,9 @@ type Provider interface {
 // credentials. Mirrors config.UsageConfig but keeps this package decoupled
 // from config (the server translates).
 type Options struct {
-	Providers           []string // enabled tool ids, in display order
-	OpenRouterKey       string   // else $OPENROUTER_API_KEY
-	OpenCodeCookie      string   // opencode.ai "auth" session cookie
-	OpenCodeWorkspaceID string   // optional override when _server lookup breaks
+	Providers     []string // enabled tool ids, in display order
+	OpenRouterKey string   // else $OPENROUTER_API_KEY
+	OpenCodeDays  int      // window in days for the opencode spend tile; default 7
 }
 
 // Build constructs the providers named in o.Providers, in order. Unknown names
@@ -99,7 +98,7 @@ func Build(o Options) []Provider {
 		case "copilot":
 			add(&copilotProvider{})
 		case "opencode":
-			add(&openCodeProvider{cookie: o.OpenCodeCookie, workspaceID: o.OpenCodeWorkspaceID})
+			add(&openCodeProvider{days: o.OpenCodeDays})
 		}
 	}
 	return ps
