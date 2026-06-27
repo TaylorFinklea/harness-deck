@@ -2,9 +2,10 @@ package usage
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,17 +26,15 @@ func (o openCodeProvider) Sample(ctx context.Context) Sample {
 	if days <= 0 {
 		days = 7
 	}
+	bin, found := opencodeBin()
+	if !found {
+		return Sample{Err: "opencode CLI not found"}
+	}
 	// cmd.Stdin is left nil: Go gives the child /dev/null — required so a TUI
 	// terminal-capability query on stdin doesn't block the poll goroutine forever.
-	cmd := exec.CommandContext(ctx, "opencode", "stats", "--days", strconv.Itoa(days))
+	cmd := exec.CommandContext(ctx, bin, "stats", "--days", strconv.Itoa(days))
 	out, err := cmd.Output()
 	if err != nil {
-		// exec.Command wraps a LookPath failure in *exec.Error{Err: exec.ErrNotFound}.
-		var e *exec.Error
-		if (errors.As(err, &e) && errors.Is(e.Err, exec.ErrNotFound)) ||
-			errors.Is(err, exec.ErrNotFound) {
-			return Sample{Err: "opencode CLI not found"}
-		}
 		return Sample{Err: "opencode stats failed: " + err.Error()}
 	}
 
@@ -48,6 +47,30 @@ func (o openCodeProvider) Sample(ctx context.Context) Sample {
 		detail = fmt.Sprintf("%dd · in %s / out %s", days, input, output)
 	}
 	return Sample{OK: true, Kind: KindBudget, Text: cost, Detail: detail}
+}
+
+// opencodeBin resolves the opencode CLI: $PATH first, then common install
+// locations. The dashboard usually runs under launchd (macOS) or systemd
+// (Linux), which give a minimal PATH that omits Homebrew (/opt/homebrew/bin)
+// and ~/.local/bin — so a bare exec/LookPath fails even when opencode is
+// installed and works in an interactive shell.
+func opencodeBin() (string, bool) {
+	if p, err := exec.LookPath("opencode"); err == nil {
+		return p, true
+	}
+	cands := []string{"/opt/homebrew/bin/opencode", "/usr/local/bin/opencode"}
+	if h := home(); h != "" {
+		cands = append(cands,
+			filepath.Join(h, ".opencode", "bin", "opencode"),
+			filepath.Join(h, ".local", "bin", "opencode"),
+		)
+	}
+	for _, c := range cands {
+		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
+			return c, true
+		}
+	}
+	return "", false
 }
 
 // reCost matches a dollar amount like $10.02 or $0.00.
