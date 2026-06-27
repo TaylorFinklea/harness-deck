@@ -942,3 +942,11 @@ own admission. Brainstormed a better source.
 
 Commit `900f137`. Sonnet-impl + Haiku-gate + Sonnet-review + Opus live-verify
 (/api/usage returns the budget tile end-to-end).
+
+**Landmine (fixed `e977d7e`):** any usage provider that shells out to a CLI must
+NOT rely on `exec.LookPath` alone — the dashboard runs under launchd/systemd
+with a minimal PATH that omits `/opt/homebrew/bin` & `~/.local/bin`, so a bare
+lookup fails even when the tool is installed. `opencodeBin()` probes common
+install dirs and execs the absolute path. v0.2.10 shipped with this bug (caught
+immediately by the post-release live `/api/usage` check, NOT by the workflow —
+the in-shell test had Homebrew on PATH); v0.2.11 carries the fix.
