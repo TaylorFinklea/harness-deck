@@ -22,7 +22,9 @@ func (f fakeProvider) Label() string                 { return f.label }
 func (f fakeProvider) Sample(context.Context) Sample { return f.s }
 
 func TestBuildSelectsAndOrders(t *testing.T) {
-	ps := Build(Options{Providers: []string{"codex", "openrouter", "bogus", "claude-code", "copilot", "opencode"}})
+	// OpenCodeEnabled lets the flagged opencode tile through so this test still
+	// exercises ordering across every provider.
+	ps := Build(Options{Providers: []string{"codex", "openrouter", "bogus", "claude-code", "copilot", "opencode"}, OpenCodeEnabled: true})
 	want := []string{"codex", "openrouter", "claude-code", "copilot", "opencode"}
 	if len(ps) != len(want) {
 		t.Fatalf("got %d providers, want %d", len(ps), len(want))
@@ -32,6 +34,28 @@ func TestBuildSelectsAndOrders(t *testing.T) {
 			t.Errorf("provider[%d] = %q, want %q", i, ps[i].Tool(), w)
 		}
 	}
+}
+
+// TestOpenCodeFeatureFlagged verifies the opencode tile is gated: listing it in
+// Providers does nothing unless OpenCodeEnabled is set. Off by default because
+// `opencode stats` can't see opencode-go/Zen cloud spend (decisions.md).
+func TestOpenCodeFeatureFlagged(t *testing.T) {
+	off := Build(Options{Providers: []string{"codex", "opencode"}})
+	if len(off) != 1 || off[0].Tool() != "codex" {
+		t.Fatalf("flag off: got %v, want only codex", toolNames(off))
+	}
+	on := Build(Options{Providers: []string{"codex", "opencode"}, OpenCodeEnabled: true})
+	if len(on) != 2 || on[1].Tool() != "opencode" {
+		t.Fatalf("flag on: got %v, want codex+opencode", toolNames(on))
+	}
+}
+
+func toolNames(ps []Provider) []string {
+	names := make([]string, len(ps))
+	for i, p := range ps {
+		names[i] = p.Tool()
+	}
+	return names
 }
 
 func TestNewMonitorNilWhenEmpty(t *testing.T) {

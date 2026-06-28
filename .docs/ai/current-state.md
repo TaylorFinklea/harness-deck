@@ -2,17 +2,20 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- **v0.2.11 released + installed + live-verified 2026-06-28** — ships the
-  launchd-PATH fix (`e977d7e`: `opencodeBin()` falls back from $PATH to common
-  install dirs) for the opencode usage tile. GoReleaser + CI green; `hdeck
-  version` = 0.2.11 (commit 3f158b5); live `/api/usage` now returns
-  `opencode {ok, kind:budget, text:"$0.00", detail:"7d · in 0 / out 0"}` —
-  no more "CLI not found". Closes the v0.2.10 regression.
-- Branch: main. **opencode usage tile redesign** — reads local `opencode stats
-  --days N` (KindBudget "OC $X", 7d) instead of the fragile pasted-cookie web-
-  scrape. No cookie/network/browser. `900f137` (feat) + `4cf216c` (docs),
-  PATH fix `e977d7e`. Trade-off: local spend, not Zen plan-% (cookie-only;
-  decisions.md). No opencode_cookie needed anymore.
+- Branch: main. **opencode usage tile DROPPED behind a feature flag** (uncommitted
+  → needs v0.2.12). Live verify of v0.2.11 showed the tile reads $0.00 because
+  `opencode stats` only sees local TUI sessions (4, newest Feb 6); real spend is
+  the opencode-go/Zen **cloud** plan (orchestra/pi), invisible to local CLI +
+  account-scoped on opencode.ai. Decision: footer = codex + claude-code only;
+  opencode gated by `usage.opencode_enabled` (default false), code kept for a
+  future cloud-Zen source. New `Options.OpenCodeEnabled`; `Build` opencode case
+  gated; `TestOpenCodeFeatureFlagged` pins it. decisions.md "opencode usage tile
+  disabled"; roadmap Later "opencode usage tile — needs a cloud-Zen source".
+  Build/test/vet green. **NOT yet committed/released.**
+- **v0.2.11 released + installed + live-verified 2026-06-28** — launchd-PATH fix
+  (`e977d7e`: `opencodeBin()` probes install dirs) for the opencode tile, closing
+  the v0.2.10 "CLI not found" regression. The PATH fix is correct; the tile's $0
+  is the separate cloud-blindness issue above, not this fix.
 - Branch: main. **v0.2.8 released + installed + verified 2026-06-20** — ships
   Assessment Waves 1–9 (`8e9a0cc`…`9bb9e10`); GoReleaser + the new push/PR CI both
   green; `hdeck version` = 0.2.8, live features verified (scope-in-JQL, activity
@@ -48,4 +51,6 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- None. v0.2.11 released; tree clean, all commits pushed.
+- Cut **v0.2.12** to ship the opencode-tile feature-flag drop (commit pending).
+  After release: upgrade + restart, confirm `/api/usage` shows only codex +
+  claude-code (no opencode).

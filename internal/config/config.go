@@ -78,6 +78,12 @@ type UsageConfig struct {
 	// OpenCodeDays is the rolling window in days for the opencode spend tile
 	// (reads `opencode stats --days N`). Default 7.
 	OpenCodeDays int `json:"opencode_days,omitempty"`
+	// OpenCodeEnabled is a feature flag for the opencode tile, off by default.
+	// `opencode stats` only sees local TUI sessions, so the tile reads $0 for
+	// anyone whose real spend runs through the opencode-go/Zen cloud plan. Even
+	// with "opencode" in Providers, the tile stays hidden unless this is true.
+	// Set it on to revisit once a cloud-usage source lands. See decisions.md.
+	OpenCodeEnabled bool `json:"opencode_enabled,omitempty"`
 	// RefreshSec is the poll cadence in seconds (default 60). HTTP providers
 	// count against their service's rate limits, so keep it sane.
 	RefreshSec int `json:"refresh_sec,omitempty"`

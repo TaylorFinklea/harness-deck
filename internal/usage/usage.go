@@ -69,6 +69,13 @@ type Options struct {
 	Providers     []string // enabled tool ids, in display order
 	OpenRouterKey string   // else $OPENROUTER_API_KEY
 	OpenCodeDays  int      // window in days for the opencode spend tile; default 7
+	// OpenCodeEnabled is a feature flag gating the opencode tile. It is off by
+	// default and kept separate from Providers on purpose: `opencode stats`
+	// only sees local TUI sessions, so the tile reads $0 for anyone whose real
+	// spend runs through the opencode-go/Zen cloud plan (orchestra/pi). Listing
+	// "opencode" in Providers does nothing unless this is also true. Flip it on
+	// to revisit once a cloud-usage source exists. See decisions.md.
+	OpenCodeEnabled bool
 }
 
 // Build constructs the providers named in o.Providers, in order. Unknown names
@@ -98,7 +105,9 @@ func Build(o Options) []Provider {
 		case "copilot":
 			add(&copilotProvider{})
 		case "opencode":
-			add(&openCodeProvider{days: o.OpenCodeDays})
+			if o.OpenCodeEnabled { // feature-flagged off by default; see Options.OpenCodeEnabled
+				add(&openCodeProvider{days: o.OpenCodeDays})
+			}
 		}
 	}
 	return ps

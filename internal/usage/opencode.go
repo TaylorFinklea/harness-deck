@@ -14,6 +14,13 @@ import (
 // openCodeProvider reports OpenCode spend by shelling out to `opencode stats
 // --days N`. It reads the CLI's local data — no cookie, no network, no
 // web-fingerprint hashes. The binary must be installed and logged in.
+//
+// Feature-flagged off by default (Options.OpenCodeEnabled). `opencode stats`
+// only counts local TUI sessions, so it reads $0 when the real spend runs
+// through the opencode-go/Zen cloud plan (orchestra/pi) — that usage is
+// account-scoped on opencode.ai and invisible to the local CLI. The code is
+// kept behind the flag to revisit once a cloud-usage source exists (a headless
+// Zen-API endpoint or the web session). See decisions.md.
 type openCodeProvider struct {
 	days int
 }

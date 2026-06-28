@@ -950,3 +950,39 @@ lookup fails even when the tool is installed. `opencodeBin()` probes common
 install dirs and execs the absolute path. v0.2.10 shipped with this bug (caught
 immediately by the post-release live `/api/usage` check, NOT by the workflow —
 the in-shell test had Homebrew on PATH); v0.2.11 carries the fix.
+
+## 2026-06-28 — opencode usage tile disabled behind a feature flag
+
+The local-`opencode stats` redesign (v0.2.10/v0.2.11) was the **wrong data
+source** for this user's actual usage, surfaced by the post-release live check:
+the tile read **$0.00 / 0 sessions** even though opencode is used heavily.
+
+**Root cause (investigated, confirmed):** `opencode stats` tallies only local
+opencode *TUI* sessions (`~/.local/share/opencode/storage`). This machine had 4
+local sessions, newest **Feb 6, 2026** (~141 days stale). The real spend runs
+through the **opencode-go / Zen cloud plan** (`auth.json` has an `api`-type
+`opencode-go` key serving `opencode-go/*` models — glm-5, kimi-k2.6, …), driven
+by `orchestra`/`pi`, which call the cloud API **directly** and never write local
+session files. That usage is **account-scoped on `opencode.ai/zen`** (binary
+strings show `credits` / `addCredits`) and is not exposed by any local CLI/SDK/
+config surface (checked the vendored `@opencode-ai/sdk` — local-server client
+only, no billing/usage methods). CodexBar reads it via the **browser session**,
+which the user explicitly rejected.
+
+**Decision:** drop the opencode tile from the live footer (codex + claude-code
+only) but keep the provider code behind a feature flag rather than deleting it.
+New `usage.opencode_enabled` (config) → `Options.OpenCodeEnabled` (off by
+default). Listing `"opencode"` in `providers` now does nothing unless the flag
+is also set — `Build`'s `opencode` case is gated. Re-enabling later is a
+one-line flag flip, no code change.
+
+**Why a flag, not a delete:** the work is sound for *local* TUI users and the
+investigation is captured here; a future revisit (headless Zen-API endpoint with
+the stored opencode-go key, or the web session) flips the flag back on. Test
+`TestOpenCodeFeatureFlagged` pins the gate. `opencode_cookie` /
+`opencode_workspace_id` / `opencode_days` stay parseable.
+
+**Open follow-up (roadmap Later):** a real cloud-Zen usage source. Unknown
+whether the opencode-go api key can read account balance/usage headlessly, or
+whether that endpoint requires the web session (CodexBar's path). One
+authenticated probe with the stored key would answer it — deferred.

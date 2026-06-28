@@ -237,16 +237,25 @@ credential simply drops off the footer.
 
 ```jsonc
 "usage": {
-  "providers": ["codex", "openrouter", "claude-code", "copilot", "opencode"],
+  "providers": ["codex", "openrouter", "claude-code", "copilot"],
   "openrouter_key": "",            // else read from $OPENROUTER_API_KEY
   "opencode_days": 7,              // rolling window for opencode spend tile (default 7)
+  "opencode_enabled": false,       // feature flag for the opencode tile (default off)
   "refresh_sec": 60                // poll cadence (default 60)
 }
 ```
 
 `opencode_cookie` and `opencode_workspace_id` are **deprecated and ignored** —
 they were used by the old web-scrape approach. Remove them from your config if
-present; harness-deck now reads `opencode stats` locally instead.
+present.
+
+The **`opencode` tile is feature-flagged off by default** (`opencode_enabled:
+false`). `opencode stats` only counts local opencode *TUI* sessions, so the tile
+reads `$0` for anyone whose real spend runs through the opencode-go/Zen **cloud**
+plan (e.g. driven by `orchestra`/`pi`) — that usage is account-scoped on
+opencode.ai and invisible to the local CLI. Listing `"opencode"` in `providers`
+does nothing unless you also set `opencode_enabled: true`; only do that if you
+use the local opencode TUI and want its local spend. See `.docs/ai/decisions.md`.
 
 Per provider:
 
@@ -256,7 +265,7 @@ Per provider:
 | `openrouter` | credit budget + spend | `OPENROUTER_API_KEY` env, or `usage.openrouter_key` |
 | `claude-code` | true 5h + weekly % + reset | reads the OAuth token from the macOS **Keychain** (`security`) — one "Always Allow" prompt on first read, silent after. `$CLAUDE_CODE_OAUTH_TOKEN` or file creds (`~/.claude/.credentials.json`) avoid the prompt. |
 | `copilot` | premium-request % + monthly reset | reads the local `ghu_` token (`~/.config/github-copilot/apps.json`). **Uses GitHub's undocumented `copilot_internal/user` endpoint — may be against Copilot ToS for non-official clients; opt in knowingly.** |
-| `opencode` | N-day cumulative spend (cost) | requires the `opencode` CLI installed and logged in. Shells out to `opencode stats --days N` (default 7 days, configurable via `opencode_days`). Robust — no cookie, no network, no web fingerprints. Degrades gracefully when the binary is absent. |
+| `opencode` | N-day cumulative **local** spend (cost) | **feature-flagged off** (`opencode_enabled`, default false) — local TUI sessions only, blind to opencode-go/Zen cloud spend. When enabled: shells out to `opencode stats --days N` (default 7, via `opencode_days`); no cookie/network; degrades gracefully when the binary is absent. |
 
 Restart the service after changing `usage`. Verify with `GET /api/usage`.
 

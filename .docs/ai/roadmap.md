@@ -243,6 +243,16 @@ the store-cache / projects / usage test gaps.
 
 ## Later / parking lot
 
+- **opencode usage tile — needs a cloud-Zen source** _(deferred 2026-06-28)_ —
+  the tile is feature-flagged **off** (`usage.opencode_enabled`, default false;
+  ships in v0.2.12) because `opencode stats` sees only local TUI sessions and
+  reads $0 for cloud (opencode-go/Zen) usage. To revive: find a headless way to
+  read account-scoped Zen usage/balance — probe the opencode.ai endpoint with
+  the stored `opencode-go` api key (auth.json), and if that needs the web
+  session instead, fall back to CodexBar's cookie path. One authenticated probe
+  answers the api-key question. Then flip the flag on. Code + investigation in
+  `internal/usage/opencode.go` + decisions.md "opencode usage tile disabled".
+
 - ~~**Search filters**~~ — **DONE 2026-06-15** as a JQL-like query language
   (`status = awaiting-review`, `project IN (a,b) AND kind = audit`,
   `created >= -7d`, mixed with free text) + as-you-type autocomplete. New
