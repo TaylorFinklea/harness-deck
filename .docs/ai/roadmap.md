@@ -124,6 +124,17 @@ One line each; detail in decisions.md + git log.
   chip render on the report page; autocomplete enumerates distinct tags.
   Live-verified the existential pipeline (incl. negation) + chip render.
   decisions.md "Wave 10".
+- **opencode usage tile → local `opencode stats`** _(2026-06-26/27, in v0.2.10)_
+  — replaced the fragile pasted-cookie web-scrape with a local `opencode stats
+  --days N` shell-out (`KindBudget`, "OC $X", 7d default). No cookie, network,
+  or browser. `900f137` (feat) + `4cf216c` (docs). Trade-off: shows local spend,
+  not the cookie-only Zen plan-%. decisions.md "opencode usage tile".
+- **v0.2.11 release** _(2026-06-28)_ — ships the launchd-PATH fix (`e977d7e`:
+  `opencodeBin()` falls back from $PATH to common install dirs) for the opencode
+  tile, closing the v0.2.10 regression where the LaunchAgent's minimal PATH
+  (no /opt/homebrew/bin) made `exec.LookPath` fail → "CLI not found". GoReleaser
+  + CI green; installed + live-verified — `/api/usage` now returns the opencode
+  budget tile on the real dashboard. decisions.md landmine note.
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 

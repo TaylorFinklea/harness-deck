@@ -2,14 +2,17 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
+- **v0.2.11 released + installed + live-verified 2026-06-28** — ships the
+  launchd-PATH fix (`e977d7e`: `opencodeBin()` falls back from $PATH to common
+  install dirs) for the opencode usage tile. GoReleaser + CI green; `hdeck
+  version` = 0.2.11 (commit 3f158b5); live `/api/usage` now returns
+  `opencode {ok, kind:budget, text:"$0.00", detail:"7d · in 0 / out 0"}` —
+  no more "CLI not found". Closes the v0.2.10 regression.
 - Branch: main. **opencode usage tile redesign** — reads local `opencode stats
   --days N` (KindBudget "OC $X", 7d) instead of the fragile pasted-cookie web-
-  scrape. No cookie/network/browser. `900f137` (feat) + `4cf216c` (docs)
-  RELEASED in **v0.2.10** — but v0.2.10 had a launchd-PATH bug (tile showed "CLI
-  not found" because LaunchAgent PATH omits /opt/homebrew/bin). **Fixed
-  `e977d7e` (opencodeBin probes common install dirs) — UNPUSHED; needs v0.2.11.**
-  Live-verified under a minimal PATH. Trade-off: local spend, not Zen plan-%
-  (cookie-only; decisions.md). No opencode_cookie needed anymore.
+  scrape. No cookie/network/browser. `900f137` (feat) + `4cf216c` (docs),
+  PATH fix `e977d7e`. Trade-off: local spend, not Zen plan-% (cookie-only;
+  decisions.md). No opencode_cookie needed anymore.
 - Branch: main. **v0.2.8 released + installed + verified 2026-06-20** — ships
   Assessment Waves 1–9 (`8e9a0cc`…`9bb9e10`); GoReleaser + the new push/PR CI both
   green; `hdeck version` = 0.2.8, live features verified (scope-in-JQL, activity
@@ -45,5 +48,4 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- Push `e977d7e` + cut **v0.2.11** — v0.2.10's opencode tile is broken on the
-  LaunchAgent ("CLI not found") until this PATH fix ships.
+- None. v0.2.11 released; tree clean, all commits pushed.
