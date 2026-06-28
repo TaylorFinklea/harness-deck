@@ -51,8 +51,14 @@ Pure functions over the herdr CLI/socket; no server coupling. Surface:
   `agent` (label), `agent_status` (`idle|working|blocked|done|unknown`), `cwd`,
   `focused` (bool), `workspace_id`, `tab_id`, `pane_id`, `terminal_id`, and
   `agent_session.value` (claude session id, when present).
-- `Read(ctx, target, opts) (string, error)` — wraps `herdr agent read <target>
-  --source visible` to capture the on-screen question text when an agent blocks.
+- `Read(ctx, target, opts) (string, bool, error)` — wraps `herdr agent read
+  <target> --source visible`; returns `result.read.text` (the rendered pane)
+  plus `result.read.truncated`. **Verified against a live idle claude agent:**
+  the JSON envelope carries `result.read.{text,truncated,source,revision,…}`;
+  `text` contained the prompt region (box chrome `│` + input indicator `❯`),
+  confirming a blocked agent's question is in the visible capture. On
+  `truncated == true` (long question), retry with `--source recent` /
+  `recent-unwrapped` or a larger `--lines N`.
 - `Send(ctx, target, text) error` — delivers the answer. Default path: literal
   text **+ Enter** (`herdr pane run <pane> <text>`); a no-Enter variant
   (`herdr agent send`) is available if a prompt needs raw keys.
@@ -151,9 +157,12 @@ type BlockedAgent struct {
 
 - Direct Unix-socket protocol vs shelling `herdr … --json`: default to shelling
   (simplest, version-tolerant); revisit only if latency/parsing forces it.
-- Whether `herdr agent read --source visible` reliably contains the full prompt
-  for every integrated agent (claude/codex differ) — validate against live
-  blocked agents during the build; may need `--lines N` tuning.
+- ~~Whether `herdr agent read --source visible` reliably contains the full
+  prompt~~ — **RESOLVED 2026-06-28.** Empirically, `--source visible` returns
+  `result.read.text` with the prompt region captured (box chrome + `❯`), and a
+  `truncated` flag flags scroll-off so we can fall back to `--source recent` or a
+  larger `--lines N`. Still confirm per-agent rendering (codex differs from
+  claude) against a real block during the build, but the mechanism is sound.
 
 ## Acceptance / verify
 
