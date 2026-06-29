@@ -6,7 +6,9 @@ package herdr
 
 import (
 	"context"
+	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 // Agent is one herdr-managed agent terminal.
@@ -55,4 +57,41 @@ func (c *Client) Read(ctx context.Context, target string) (string, bool, error) 
 		return "", false, err
 	}
 	return parseRead(out)
+}
+
+// resolveBin finds an executable: $PATH first, then the given fallback paths
+// (absolute). Mirrors usage.opencodeBin — the dashboard runs under launchd's
+// minimal PATH, so a bare LookPath fails even when herdr is installed.
+func resolveBin(name string, fallbacks []string) (string, bool) {
+	if p, err := exec.LookPath(name); err == nil {
+		return p, true
+	}
+	for _, c := range fallbacks {
+		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
+			return c, true
+		}
+	}
+	return "", false
+}
+
+// New resolves the herdr binary. ok=false means herdr is not installed; the
+// caller should leave the feature dark.
+func New() (*Client, bool) {
+	fallbacks := []string{"/opt/homebrew/bin/herdr", "/usr/local/bin/herdr"}
+	if h, err := os.UserHomeDir(); err == nil {
+		fallbacks = append(fallbacks, filepath.Join(h, ".local", "bin", "herdr"))
+	}
+	bin, ok := resolveBin("herdr", fallbacks)
+	if !ok {
+		return nil, false
+	}
+	return &Client{bin: bin}, true
+}
+
+// Send delivers text + Enter into the target pane so a blocked agent receives
+// the user's answer. Argv verified: `herdr pane run <pane_id> <text>` (Enter
+// included; no `--` separator).
+func (c *Client) Send(ctx context.Context, target, text string) error {
+	cmd := exec.CommandContext(ctx, c.bin, "pane", "run", target, text)
+	return cmd.Run()
 }
