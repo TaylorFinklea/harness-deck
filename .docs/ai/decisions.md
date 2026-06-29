@@ -1042,3 +1042,32 @@ future CLI adapters don't repeat the pattern from scratch.
 the user explicitly sets `agents.enabled = true`. Default false; graceful
 degradation (herdr unreachable → empty list, no surfaced error) consistent with
 usage providers.
+
+**Post-build hardening + security (2026-06-29).** After the 11-task build (all
+green, per-task adversarial review + completeness critic), a hardening pass
+closed the critic's low-severity findings: a failed/empty `agent read` now sets
+a placeholder question and logs (instead of paging with an empty body) and
+honors the spec's `truncated`→`recent` retry; a blocked agent that becomes
+*focused* clears the inbox immediately (not after the `askRetainTicks` debounce);
+and coverage was added for the herdr-error and clear-on-unblock paths.
+
+**Landmine — herdr's CLI parser is non-POSIX (no `--`).** An automated security
+review flagged argv flag-smuggling in `herdr.Send` (`pane run <pane> <text>`).
+The suggested generic fix — insert a `--` separator — was **verified to BREAK
+herdr** (`agent read --source visible -- w1:p1` fails; `-- -n` yields
+`unknown option: visible`). herdr treats any `-`-leading token as a flag even
+after positionals and honors no `--` terminator. So the mitigation is
+**boundary rejection**, not `--`: `herdr.Send` refuses a `-`-leading target/text
+before exec, and `handleAgentAnswer` returns 400 for a `-`-leading answer.
+Exploitability is low (local single-user tool; `target` is already validated
+against the live blocked list; `text` is the user's own input), but the guard
+also fixes a real functional bug — a legitimate `-1`/`--force` answer would
+otherwise be mis-parsed. Any future herdr-arg code must reject flag-like values
+rather than rely on `--`.
+
+**Browser-verified end-to-end (2026-06-29).** Drove an isolated instance whose
+`herdr` was a fake binary returning one blocked agent (no live-fleet
+disruption, full real-adapter path). Confirmed: the needs-you view renders the
+card with the captured question; prefill buttons fill the field without
+submitting; Send delivers `pane run <pane> <text>` to herdr; the security guard
+rejects a `-`-leading answer with 400 (never reaching herdr); 0 console errors.

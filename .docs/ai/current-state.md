@@ -2,15 +2,23 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- **herdr mobile inbox COMPLETE 2026-06-29** — all 11 tasks committed on main.
-  `internal/herdr` adapter (List/Read/Send/resolveBin), `config.Agents` opt-in
-  block, agent-status watcher tick (push + SSE on newly-blocked), `GET /api/agents`,
-  `POST /api/agents/{key}/answer` (re-check before send), needs-you view + answer
-  UX (`/agents`), docs (SETUP.md §9, decisions.md ADR, roadmap Later marked done).
-  Build/test green. Not yet released.
-- Branch: main. **opencode usage tile DROPPED behind a feature flag** — `opencode
-  stats` sees only local TUI sessions ($0 for cloud/Zen spend). Footer = codex +
-  claude-code only; `usage.opencode_enabled` flag (default false). Build/test green.
+- **herdr mobile inbox COMPLETE + verified 2026-06-29** — on branch
+  **`feat/herdr-mobile-inbox`** (NOT yet on main; user reviews + merges). 11
+  TDD tasks (per-task Opus adversarial review) + a hardening pass + a security
+  fix + live browser-verify. `internal/herdr` adapter (List/Read/Send/resolveBin),
+  `config.Agents` opt-in block, agent-status watcher tick (push + SSE on
+  newly-blocked, focused-suppression, retain debounce), `GET /api/agents`,
+  `POST /api/agents/{key}/answer` (status re-check before send), needs-you view +
+  answer UX (`/agents`, prefill-not-submit), docs (SETUP.md §9, decisions.md ADR,
+  roadmap Later done). **Security:** argv flag-smuggling guard — herdr's parser
+  is non-POSIX (no `--`), so `-`-leading target/text is rejected at the boundary
+  (decisions.md landmine). Browser-verified end-to-end via a fake-herdr instance:
+  card renders, prefill fills-not-submits, Send delivers, `-`-answer→400, 0
+  console errors. `go build`/`go test ./...` green; `go.mod` unchanged. Not released.
+- **v0.2.12 released + verified 2026-06-29** — opencode usage tile DROPPED
+  behind `usage.opencode_enabled` (default false; `opencode stats` sees only
+  local TUI sessions, $0 for cloud/Zen spend). Live `/api/usage` confirmed
+  footer = codex + claude-code only.
 - **v0.2.11 released + installed + live-verified 2026-06-28** — launchd-PATH fix
   (`e977d7e`). opencode tile's $0 is a separate cloud-blindness issue, not this fix.
 
@@ -28,6 +36,10 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- Cut **v0.2.12** to ship: opencode-tile feature-flag drop + herdr mobile inbox.
-  After release: upgrade + restart, confirm `/api/usage` shows only codex +
-  claude-code, and `/api/agents` is live.
+- **Review + merge `feat/herdr-mobile-inbox`** (14 commits; build/test green,
+  browser-verified). Then release (v0.2.13) and, to use it: set
+  `agents.enabled: true` in config, ensure push is configured (`hdeck vapid` +
+  TLS for iOS), restart. True end-to-end (real blocked agent → phone push →
+  answer → resume) still needs one human check against a live herdr block —
+  the build was verified via a fake-herdr instance, which can't exercise push
+  to a real device.
