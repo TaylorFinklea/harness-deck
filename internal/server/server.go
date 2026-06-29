@@ -145,6 +145,7 @@ func New(cfg config.Config) (*Server, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleShell)
+	mux.HandleFunc("GET /agents", s.handleShell) // push notification URL → agents view
 	mux.HandleFunc("GET /api/reports", s.handleReports)
 	mux.HandleFunc("GET /api/projects", s.handleProjects)
 	mux.HandleFunc("POST /api/projects/toggle", s.handleProjectToggle)

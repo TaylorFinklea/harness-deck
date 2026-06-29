@@ -16,7 +16,8 @@
   var VIEWS = [
     { id: 'inbox', label: 'inbox' },
     { id: 'projects', label: 'projects' },
-    { id: 'activity', label: 'activity' }
+    { id: 'activity', label: 'activity' },
+    { id: 'agents', label: 'agents' }
   ];
 
   /* activeReports — non-archived only. Every default view operates on
@@ -30,6 +31,12 @@
     return (data.reports || []).filter(function (r) { return r.archived; });
   }
   var data = { reports: [], errors: [], projects: [], discovered: [] };
+  // herdr mobile-inbox state — kept separate from report data so agent
+  // refreshes don't interfere with the report render cycle.
+  var agentsData = { blocked: [], agents: [] };
+  // Quick-tap prefill tokens for the answer control. Buttons prefill only —
+  // they never auto-submit, so the user always edits/confirms before send.
+  var AGENT_PREFILLS = ['yes', 'no', 'approve'];
   var currentView = 'inbox';
   var trackedOpen = false;     // is the "tracked projects" panel expanded?
   var draggedName = null;      // project name currently being dragged, or null
@@ -757,10 +764,88 @@
     return nodes;
   }
 
+  /* refreshAgents fetches the live agent snapshot and re-renders the agents
+     view when it is active. Called on the SSE 'agents' event, when the user
+     switches to the agents tab, and once at init when the path is /agents.
+     It does NOT call renderContent on its own to avoid a render loop;
+     instead it relies on the agents-view render triggered by the caller. */
+  function refreshAgents() {
+    fetch('/api/agents', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : { blocked: [], agents: [] }; })
+      .then(function (d) {
+        agentsData = d || { blocked: [], agents: [] };
+        if (currentView === 'agents') {
+          render();
+        }
+      })
+      .catch(function () {});
+  }
+
+  /* viewAgents — the mobile-first needs-you inbox. Each blocked-agent card
+     shows project · label + the captured question, plus quick-tap prefill
+     buttons (yes / no / approve), a free-text field, and a single Send
+     button that POSTs to /api/agents/{key}/answer.
+     Buttons only prefill — they never auto-submit — so the user always
+     confirms before the answer is delivered into the agent session. */
+  function viewAgents() {
+    var blocked = agentsData.blocked || [];
+    var total = (agentsData.agents || []).length;
+
+    var strip = metricStrip([
+      metricChip(blocked.length, 'needs you'),
+      metricChip(total, 'fleet')
+    ]);
+
+    if (!blocked.length) {
+      return [strip, panel('needs you', null, [
+        emptyState([el('b', { text: 'all clear.' }), el('br'),
+          'no agents are blocked.'])
+      ])];
+    }
+
+    var cards = blocked.map(function (b) {
+      var key = b.PaneID || '';
+      var qInput = el('input', {
+        type: 'text',
+        class: 'agent-answer-input',
+        placeholder: 'type answer…',
+        data: { key: key }
+      });
+      var qBtns = AGENT_PREFILLS.map(function (ans) {
+        return el('button', {
+          type: 'button',
+          class: 'agent-prefill-btn',
+          data: { key: key, answer: ans }
+        }, [ans]);
+      });
+      var qSend = el('button', {
+        type: 'button',
+        class: 'agent-send-btn',
+        data: { key: key }
+      }, ['Send']);
+      var qNotice = el('div', { class: 'agent-notice', style: 'display:none' });
+
+      return el('div', { class: 'agent-card', data: { key: key } }, [
+        el('div', { class: 'agent-card-head' }, [
+          el('span', { class: 'agent-project', text: b.Project || '' }),
+          el('span', { class: 'agent-sep', text: ' · ' }),
+          el('span', { class: 'agent-label', text: b.Label || '' })
+        ]),
+        el('div', { class: 'agent-question', text: b.Question || '(no question captured)' }),
+        el('div', { class: 'agent-prefills' }, qBtns),
+        qInput,
+        qSend,
+        qNotice
+      ]);
+    });
+
+    return [strip, panel('needs you', pill(blocked.length + ' blocked', 'warn'), cards)];
+  }
+
   /* BUILDERS maps view id → builder function. v0.2.0 keeps just the
      two top-level views; viewSettings is now rendered into a modal
      overlay (settingsOverlayBody) instead. */
-  var BUILDERS = { inbox: viewInbox, projects: viewProjects, activity: viewActivity };
+  var BUILDERS = { inbox: viewInbox, projects: viewProjects, activity: viewActivity, agents: viewAgents };
 
   function renderContent() {
     var tabs = el('div', { class: 'view-tabs' }, VIEWS.map(function (v) {
@@ -831,7 +916,7 @@
   /* one delegated click handler for every navigable row */
   document.addEventListener('click', function (e) {
     var tab = e.target.closest('.view-tab');
-    if (tab) { showView(tab.dataset.view); return; }
+    if (tab) { showView(tab.dataset.view); if (tab.dataset.view === 'agents') { refreshAgents(); } return; }
     var secHead = e.target.closest('.proj-sec.collapsible');
     if (secHead) {
       var secKey = secHead.dataset.proj + '\x00' + secHead.dataset.sec;
@@ -910,6 +995,44 @@
     }
     var sv = e.target.closest('[data-saved]');
     if (sv) { if (window.HDSearch) HDSearch.open(sv.dataset.saved); return; }
+    /* agents view: quick-tap prefill button fills the answer input, no submit. */
+    var apfBtn = e.target.closest('.agent-prefill-btn');
+    if (apfBtn) {
+      e.stopPropagation();
+      var apfCard = apfBtn.closest('.agent-card');
+      if (apfCard) {
+        var apfInput = apfCard.querySelector('.agent-answer-input');
+        if (apfInput) apfInput.value = apfBtn.dataset.answer;
+      }
+      return;
+    }
+    /* agents view: Send button POSTs the answer text; re-checks status first. */
+    var asSendBtn = e.target.closest('.agent-send-btn');
+    if (asSendBtn) {
+      e.stopPropagation();
+      var asSendCard = asSendBtn.closest('.agent-card');
+      if (!asSendCard) return;
+      var asSendInput = asSendCard.querySelector('.agent-answer-input');
+      var asSendKey = asSendBtn.dataset.key;
+      var asSendText = (asSendInput ? asSendInput.value : '').trim();
+      if (!asSendText) return;
+      asSendBtn.disabled = true;
+      fetch('/api/agents/' + encodeURIComponent(asSendKey) + '/answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: asSendText })
+      }).then(function (r) {
+        if (r.status === 409) {
+          var asNotice = asSendCard.querySelector('.agent-notice');
+          if (asNotice) { asNotice.textContent = 'agent already moved on — refreshing…'; asNotice.style.display = ''; }
+          setTimeout(refreshAgents, 0);
+          return;
+        }
+        if (!r.ok) { asSendBtn.disabled = false; return; }
+        setTimeout(refreshAgents, 0);
+      }).catch(function () { asSendBtn.disabled = false; });
+      return;
+    }
     var row = e.target.closest('[data-url]');
     if (row) { window.location.href = row.dataset.url; }
   });
@@ -1056,6 +1179,7 @@
   HDKeys.chord('g', 'p', function () { showView('projects'); });
   HDKeys.chord('g', 'a', function () { showView('inbox'); archiveFilter = true; render(); });
   HDKeys.chord('g', 'l', function () { showView('activity'); });
+  HDKeys.chord('g', 'n', function () { showView('agents'); refreshAgents(); });
   HDKeys.chord('g', 'g', function () { window.scrollTo({ top: 0, behavior: 'instant' }); });
 
   /* Inbox cursor key handler — capture phase so we intercept j/k
@@ -1215,11 +1339,13 @@
   }
 
   /* live updates — the server pushes a 'change' event when the report index
-     changes on disk; EventSource reconnects on its own if the stream drops. */
+     changes on disk; an 'agents' event when a herdr agent becomes newly blocked
+     or answers; EventSource reconnects on its own if the stream drops. */
   function connectEvents() {
     if (typeof EventSource === 'undefined') return;
     var es = new EventSource('/events');
     es.addEventListener('change', function () { refresh(); });
+    es.addEventListener('agents', function () { refreshAgents(); });
   }
 
   /* migrateLegacyURL — old `?v=overview|latest|archive|settings`
@@ -1228,6 +1354,10 @@
      inbox. Rewrites the URL via history.replaceState so refreshes
      don't keep re-triggering the migration. */
   function migrateLegacyURL() {
+    // /agents direct path (push notification URL) — switch to the agents view.
+    if (window.location.pathname === '/agents') {
+      currentView = 'agents';
+    }
     var params = new URLSearchParams(window.location.search);
     var v = params.get('v');
     var openSettings = false;
@@ -1243,6 +1373,10 @@
     }
     else if (v === 'activity') {
       currentView = 'activity';
+      params.delete('v');
+    }
+    else if (v === 'agents') {
+      currentView = 'agents';
       params.delete('v');
     }
     else if (v === 'inbox') {
@@ -1292,6 +1426,7 @@
     VimNav.addCommand('inbox', function () { archiveFilter = false; render(); showView('inbox'); }, 'go to inbox');
     VimNav.addCommand('projects', function () { showView('projects'); }, 'go to projects');
     VimNav.addCommand('activity', function () { showView('activity'); }, 'go to activity timeline');
+    VimNav.addCommand('agents', function () { showView('agents'); refreshAgents(); }, 'go to needs-you agents view');
     VimNav.addCommand('archive', function () { showView('inbox'); archiveFilter = !archiveFilter; render(); }, 'toggle archive filter on inbox');
     VimNav.addCommand('settings', function () { openSettingsOverlay(); }, 'open the settings overlay');
     VimNav.addCommand('cheat', function () { HDHelp.open(); }, 'open the keymap cheat sheet');
@@ -1319,7 +1454,7 @@
   });
   window.addEventListener('hd:saved-changed', function () { renderTree(); });
 
-  window.HarnessDeck = { reload: refresh, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
+  window.HarnessDeck = { reload: refresh, reloadAgents: refreshAgents, openSettings: openSettingsOverlay, toggleSettings: toggleSettingsOverlay };
   migrateLegacyURL();
   registerCommands();
   // Seed the inbox cursor from sessionStorage before the first render so
@@ -1328,3 +1463,6 @@
   restoreFocus();
   refresh();
   connectEvents();
+  // When the shell is loaded at /agents (via a push notification tap), kick off
+  // the initial agent fetch so the view populates without waiting for an SSE event.
+  if (currentView === 'agents') { setTimeout(refreshAgents, 0); }

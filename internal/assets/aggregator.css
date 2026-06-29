@@ -607,3 +607,98 @@
   color: var(--tn-comment);
   font-size: 10px;
 }
+
+/* --- agents needs-you view ---
+   Phone-first layout: full-width cards, large tap targets, question
+   text readable at arm's length. Desktop shows the same compact form. */
+.agent-card {
+  padding: 14px 4px;
+  border-top: 1px dotted var(--tn-bg-highlight);
+}
+.agent-card:first-child { border-top: none; }
+.agent-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.agent-project { color: var(--tn-blue); font-weight: 500; }
+.agent-sep { color: var(--tn-comment); }
+.agent-label { color: var(--tn-fg-dark); }
+.agent-question {
+  font-family: inherit;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--tn-fg);
+  background: var(--tn-bg-highlight);
+  border: 1px solid var(--tn-bg-dark);
+  border-radius: 3px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.agent-prefills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.agent-prefill-btn {
+  padding: 6px 14px;
+  min-height: 36px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--tn-bg-highlight);
+  border: 1px solid var(--tn-bg-dark);
+  border-radius: 3px;
+  color: var(--tn-fg);
+  cursor: pointer;
+}
+.agent-prefill-btn:hover,
+.agent-prefill-btn:active {
+  background: var(--tn-blue);
+  color: var(--tn-bg);
+  border-color: var(--tn-blue);
+}
+.agent-answer-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  min-height: 40px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--tn-bg-dark);
+  border: 1px solid var(--tn-bg-highlight);
+  border-radius: 3px;
+  color: var(--tn-fg);
+  margin-bottom: 8px;
+  display: block;
+}
+.agent-answer-input:focus {
+  outline: none;
+  border-color: var(--tn-blue);
+}
+.agent-send-btn {
+  padding: 8px 20px;
+  min-height: 40px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  background: var(--tn-blue);
+  color: var(--tn-bg);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.agent-send-btn:hover,
+.agent-send-btn:active { background: var(--tn-cyan); }
+.agent-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.agent-notice {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--tn-yellow);
+}
