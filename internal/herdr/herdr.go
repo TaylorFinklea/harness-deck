@@ -45,3 +45,14 @@ func (c *Client) List(ctx context.Context) ([]Agent, error) {
 	}
 	return parseAgentList(out)
 }
+
+// Read returns the visible pane text for an agent plus herdr's truncated flag.
+// On truncated==true the caller may retry with a larger window; see the spec.
+func (c *Client) Read(ctx context.Context, target string) (string, bool, error) {
+	cmd := exec.CommandContext(ctx, c.bin, "agent", "read", target, "--source", "visible")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false, err
+	}
+	return parseRead(out)
+}

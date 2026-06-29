@@ -36,3 +36,17 @@ func TestParseAgentListEmpty(t *testing.T) {
 		t.Fatalf("got (%v,%v), want empty,nil", got, err)
 	}
 }
+
+func TestParseRead(t *testing.T) {
+	const readFixture = `{"id":"cli:agent:read","result":{"read":{"format":"text","pane_id":"w1:p1","revision":0,"source":"visible","tab_id":"w1:t1","text":"Do you want to apply migration 0007? (y/n)","truncated":false,"workspace_id":"w1"},"type":"agent_read"}}`
+	text, truncated, err := parseRead([]byte(readFixture))
+	if err != nil {
+		t.Fatalf("parseRead: %v", err)
+	}
+	if truncated {
+		t.Errorf("truncated = true, want false")
+	}
+	if text != "Do you want to apply migration 0007? (y/n)" {
+		t.Errorf("text = %q", text)
+	}
+}

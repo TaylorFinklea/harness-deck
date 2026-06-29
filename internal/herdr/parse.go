@@ -52,3 +52,21 @@ func parseAgentList(raw []byte) ([]Agent, error) {
 	}
 	return out, nil
 }
+
+type rawRead struct {
+	Result struct {
+		Read struct {
+			Text      string `json:"text"`
+			Truncated bool   `json:"truncated"`
+		} `json:"read"`
+	} `json:"result"`
+}
+
+// parseRead extracts the captured pane text and herdr's truncation flag.
+func parseRead(raw []byte) (text string, truncated bool, err error) {
+	var rr rawRead
+	if err = json.Unmarshal(raw, &rr); err != nil {
+		return "", false, err
+	}
+	return rr.Result.Read.Text, rr.Result.Read.Truncated, nil
+}
