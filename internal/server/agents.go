@@ -2,12 +2,23 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"log"
+	"net/http"
+	"sync"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/herdr"
 	"github.com/TaylorFinklea/harness-deck/internal/push"
 )
+
+// agentSnapshot is the mutex-guarded latest state served by GET /api/agents.
+// setAgentSnapshot writes it; handleAgents reads it.
+type agentSnapshot struct {
+	mu      sync.RWMutex
+	agents  []herdr.Agent
+	blocked map[string]BlockedAgent
+}
 
 // herdrClient is the interface the agent watcher uses to interact with herdr.
 // *herdr.Client satisfies it; tests inject a fakeHerdr.
@@ -100,6 +111,45 @@ func (s *Server) tickAgents(ctx context.Context, prev agentState) agentState {
 	// askRetainTicks ticks so a 1-tick status flicker doesn't drop + re-page.
 	merged, nextMisses := agentMergeRetained(prev.blocked, cur, prev.misses)
 	return agentState{blocked: merged, misses: nextMisses}
+}
+
+// setAgentSnapshot stores the latest tick output so GET /api/agents can serve
+// it without holding the watcher goroutine. Mirrors how usage.Monitor.Samples()
+// caches usage snapshots for /api/usage.
+func (s *Server) setAgentSnapshot(agents []herdr.Agent, blocked map[string]BlockedAgent) {
+	s.agentsSnap.mu.Lock()
+	s.agentsSnap.agents = agents
+	s.agentsSnap.blocked = blocked
+	s.agentsSnap.mu.Unlock()
+}
+
+// handleAgents serves the live agent snapshot as JSON:
+//
+//	{ "blocked": [...BlockedAgent], "agents": [...Agent] }
+//
+// "blocked" is the subset waiting on user input (not focused); "agents" is the
+// full fleet from the last tick. Both are empty arrays (never null) when herdr
+// has not reported any agents yet.
+func (s *Server) handleAgents(w http.ResponseWriter, _ *http.Request) {
+	s.agentsSnap.mu.RLock()
+	agents := s.agentsSnap.agents
+	blockedMap := s.agentsSnap.blocked
+	s.agentsSnap.mu.RUnlock()
+
+	// Convert blocked map to a stable slice for JSON serialisation.
+	blocked := make([]BlockedAgent, 0, len(blockedMap))
+	for _, b := range blockedMap {
+		blocked = append(blocked, b)
+	}
+	if agents == nil {
+		agents = []herdr.Agent{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"blocked": blocked,
+		"agents":  agents,
+	})
 }
 
 // notifyBlockedAgent fires on a newly-blocked agent: fires the test seam

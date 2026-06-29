@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/TaylorFinklea/harness-deck/internal/herdr"
@@ -65,5 +67,23 @@ func TestNotifyBlockedAgentPayload(t *testing.T) {
 	}
 	if got.Body != "apply?" {
 		t.Errorf("body = %q", got.Body)
+	}
+}
+
+func TestHandleAgentsJSON(t *testing.T) {
+	s := &Server{}
+	s.setAgentSnapshot([]herdr.Agent{{PaneID: "w1:p1", Status: "blocked", Project: "refrigate"}},
+		map[string]BlockedAgent{"w1:p1": {Agent: herdr.Agent{PaneID: "w1:p1", Project: "refrigate"}, Question: "apply?"}})
+	rr := httptest.NewRecorder()
+	s.handleAgents(rr, httptest.NewRequest("GET", "/api/agents", nil))
+	if rr.Code != 200 {
+		t.Fatalf("status %d", rr.Code)
+	}
+	var body struct {
+		Blocked []BlockedAgent `json:"blocked"`
+	}
+	json.NewDecoder(rr.Body).Decode(&body)
+	if len(body.Blocked) != 1 || body.Blocked[0].Question != "apply?" {
+		t.Errorf("blocked = %+v", body.Blocked)
 	}
 }

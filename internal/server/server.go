@@ -65,6 +65,9 @@ type Server struct {
 	// agents is the herdr client used by the agent-status watcher. nil when the
 	// feature is disabled (config.Agents.Enabled == false) or herdr is absent.
 	agents herdrClient
+	// agentsSnap is the latest agent snapshot served by GET /api/agents.
+	// setAgentSnapshot writes it; handleAgents reads it.
+	agentsSnap agentSnapshot
 
 	// testNotifyFn, when non-nil, is called once per new-ask notification
 	// instead of (in addition to) the real push/fanout path. Tests use this
@@ -147,6 +150,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /api/search", s.handleSearch)
 	mux.HandleFunc("GET /api/search/schema", s.handleSearchSchema)
 	mux.HandleFunc("GET /api/usage", s.handleUsage)
+	mux.HandleFunc("GET /api/agents", s.handleAgents)
 	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
 	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)
