@@ -269,6 +269,73 @@ Per provider:
 
 Restart the service after changing `usage`. Verify with `GET /api/usage`.
 
+## 9. Optional: herdr mobile inbox
+
+When you run a fleet of agents under **herdr** (a terminal workspace manager),
+harness-deck can page your phone the moment an agent blocks waiting for input
+and let you answer from the needs-you view.
+
+### Prerequisites
+
+- **herdr installed** — the binary must be reachable at `/opt/homebrew/bin/herdr`,
+  `/usr/local/bin/herdr`, or `~/.local/bin/herdr` (or on `$PATH`). harness-deck
+  probes those dirs because its launchd/systemd service runs with a minimal PATH
+  that omits Homebrew.
+- **Push configured** — phone pages require `hdeck vapid` + TLS cert/key (see
+  §6 above). Without push the needs-you view still works at `/agents` on your
+  phone but you won't receive a push notification.
+
+### Enable
+
+Add the `agents` block to your config:
+
+```json
+{
+  "agents": {
+    "enabled": true,
+    "refresh_sec": 2
+  }
+}
+```
+
+`enabled` is the opt-in gate — nothing shells out to herdr unless it is `true`.
+`refresh_sec` is the poll cadence (default `2`, matching the report watcher).
+Restart the service after adding the block.
+
+### Behavior
+
+- Every `refresh_sec` harness-deck calls `herdr agent list --json` and diffs the
+  result against the previous tick.
+- A **newly-blocked** agent that is **not currently focused** in herdr triggers:
+  1. A Web Push to your phone (title: `<project> — <agent> needs you`; body: the
+     captured visible pane text, i.e. the agent's question).
+  2. A live `agents` SSE event so any open browser tab refreshes immediately.
+- An agent that is **focused** (the user is already at the herdr terminal) is
+  suppressed — no push, no inbox entry.
+- A still-blocked agent does **not** re-page every tick; one push per block event.
+- If herdr is unreachable (binary absent or socket down) the agent list degrades
+  to empty with no surfaced error.
+
+### Answering from the phone
+
+Open `<public_url>/agents` (or tap the push notification). The needs-you view
+shows each blocked agent's project, label, and captured question. Quick-tap
+buttons (Yes / No / Approve) **prefill** an editable text field — they never
+blind-send. Edit the pre-filled text if needed, then tap **Send**. The server
+re-checks the agent's status before sending; if the agent is no longer blocked
+it returns a "no longer blocked" notice and refreshes the list.
+
+### Verify
+
+```sh
+# confirm the agent list endpoint is live
+curl http://127.0.0.1:7420/api/agents
+# with a real blocked herdr agent:
+#   - check the phone receives a push
+#   - open /agents, confirm the question appears
+#   - tap Send, confirm the agent resumes
+```
+
 ## Agent checklist
 
 - Install with Homebrew when available.

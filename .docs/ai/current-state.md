@@ -2,44 +2,21 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main. **opencode usage tile DROPPED behind a feature flag** (uncommitted
-  → needs v0.2.12). Live verify of v0.2.11 showed the tile reads $0.00 because
-  `opencode stats` only sees local TUI sessions (4, newest Feb 6); real spend is
-  the opencode-go/Zen **cloud** plan (orchestra/pi), invisible to local CLI +
-  account-scoped on opencode.ai. Decision: footer = codex + claude-code only;
-  opencode gated by `usage.opencode_enabled` (default false), code kept for a
-  future cloud-Zen source. New `Options.OpenCodeEnabled`; `Build` opencode case
-  gated; `TestOpenCodeFeatureFlagged` pins it. decisions.md "opencode usage tile
-  disabled"; roadmap Later "opencode usage tile — needs a cloud-Zen source".
-  Build/test/vet green. **NOT yet committed/released.**
+- **herdr mobile inbox COMPLETE 2026-06-29** — all 11 tasks committed on main.
+  `internal/herdr` adapter (List/Read/Send/resolveBin), `config.Agents` opt-in
+  block, agent-status watcher tick (push + SSE on newly-blocked), `GET /api/agents`,
+  `POST /api/agents/{key}/answer` (re-check before send), needs-you view + answer
+  UX (`/agents`), docs (SETUP.md §9, decisions.md ADR, roadmap Later marked done).
+  Build/test green. Not yet released.
+- Branch: main. **opencode usage tile DROPPED behind a feature flag** — `opencode
+  stats` sees only local TUI sessions ($0 for cloud/Zen spend). Footer = codex +
+  claude-code only; `usage.opencode_enabled` flag (default false). Build/test green.
 - **v0.2.11 released + installed + live-verified 2026-06-28** — launchd-PATH fix
-  (`e977d7e`: `opencodeBin()` probes install dirs) for the opencode tile, closing
-  the v0.2.10 "CLI not found" regression. The PATH fix is correct; the tile's $0
-  is the separate cloud-blindness issue above, not this fix.
-- Branch: main. **v0.2.8 released + installed + verified 2026-06-20** — ships
-  Assessment Waves 1–9 (`8e9a0cc`…`9bb9e10`); GoReleaser + the new push/PR CI both
-  green; `hdeck version` = 0.2.8, live features verified (scope-in-JQL, activity
-  view, usage bar).
-- **v0.2.9 released + installed + verified 2026-06-21** — ships **Wave 10
-  (`tags` in JQL)** (`d3de13b`): `Report.Tags []string` + multi-value query
-  support (existential `tags =`/`!=`/`IN`/`NOT IN`/`~`/`!~`) + chip render.
-  GoReleaser + CI green; `hdeck version` = 0.2.9, `tags` in the live schema.
-  **The assessment backlog is now 100% complete (Waves 1–10), all released.**
-- **v0.2.7 released + installed 2026-06-16** — usage monitors, perf wave, config
-  live-reload, JS modularization, search query language, saved searches. Usage
-  bar live (codex ✅; claude-code wired; opencode awaits its `auth` cookie).
-- **Assessment backlog COMPLETE 2026-06-16/19** — the 7-agent feature assessment
-  shipped as Waves 1–9 (all unreleased): W1 response-loop (note field, SSE
-  `response`, notify env, CI), W2 multi-select asks, W3 activity timeline, W4
-  search-text cache, W5 cross-report `related[]`, W6 response history, W7 scope
-  in JQL + TLS-expiry warning, W8 card-grid block, W9 inbox-sort/section-collapse/
-  Cmd+S; **W10 tags in JQL**. decisions.md "Assessment Waves 1–3" + "Waves 4–9"
-  + "Wave 10". Each Sonnet-impl + Haiku-gate + 2×Sonnet-review + Opus verify.
+  (`e977d7e`). opencode tile's $0 is a separate cloud-blindness issue, not this fix.
 
 ## Plan
 
-- Empty. **Assessment backlog 100% done (Waves 1–10), nothing deferred.** Pull
-  from Backlog / Later when starting fresh.
+- Empty. herdr mobile inbox 100% done (Tasks 1–11). Pull from Backlog / Later.
 
 ## Blockers
 
@@ -51,6 +28,6 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- Cut **v0.2.12** to ship the opencode-tile feature-flag drop (commit pending).
+- Cut **v0.2.12** to ship: opencode-tile feature-flag drop + herdr mobile inbox.
   After release: upgrade + restart, confirm `/api/usage` shows only codex +
-  claude-code (no opencode).
+  claude-code, and `/api/agents` is live.

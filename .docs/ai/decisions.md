@@ -986,3 +986,59 @@ the stored opencode-go key, or the web session) flips the flag back on. Test
 whether the opencode-go api key can read account balance/usage headlessly, or
 whether that endpoint requires the web session (CodexBar's path). One
 authenticated probe with the stored key would answer it — deferred.
+
+## 2026-06-29 — herdr mobile inbox: design decisions + implementation findings
+
+The "herdr ↔ harness-deck active integration" parking-lot item shipped as a
+full feature. Four brainstorm decisions locked before implementation:
+
+1. **Mobile-first remote-unblock loop, not a fleet board.** The product is
+   *reach* — paging the user when an agent needs them and letting them answer
+   from the phone. A desktop fleet board was explicitly rejected (the user
+   already has herdr at the desk). This scoped the feature to: detect block →
+   push → phone answers → agent resumes.
+
+2. **Answer UX = quick buttons that prefill, not auto-send.** Prefill buttons
+   (Yes / No / Approve) fill an editable text field; the user edits and
+   confirms before Send. Blind auto-send was rejected because different agents
+   expect different formats (a numbered-menu `1` vs a `y` vs a full sentence).
+   One literal-text-plus-Enter delivery path (`herdr pane run`) covers
+   everything; keystroke fidelity risk is handled by human review of the
+   prefilled value.
+
+3. **Dedicated live agent channel, not the report/ask pipeline.** Blocked-agent
+   state is live and ephemeral (a 2s tick diff). Synthesizing `report.json`s
+   per block would push durable-store semantics onto inherently transient state.
+   The feature uses its own `GET /api/agents` endpoint + `agents` SSE event
+   name + push trigger, completely separate from the report watcher.
+
+4. **Data source = herdr CLI adapter, stdlib-only.** Shell out to
+   `herdr … --json`; direct Unix-socket access is a future option. Same
+   zero-dependency rule as the rest of the repo; the herdr CLI is the stable,
+   version-tolerant surface.
+
+**Verified read-fidelity finding (pre-build, 2026-06-28):** `herdr agent read
+<target> --source visible` returns `result.read.text` containing the rendered
+pane including the prompt region (box chrome `│` + input indicator `❯`). A
+`truncated` boolean flags scroll-off so callers can fall back to
+`--source recent` or a larger `--lines N`. This confirmed the mechanism before
+writing a line of code — the open-question in the spec was resolved by a live
+probe against a real (idle) claude agent.
+
+**Send argv verified (2026-06-29):** `herdr pane run <pane_id> <text>` delivers
+text + Enter (the answer-submit path). `herdr agent send <target> <text>` writes
+raw keys without Enter (not used in v1). There is no `--` separator between the
+pane id and the text.
+
+**launchd-PATH pattern reused from opencode.** `resolveBin()` in
+`internal/herdr/herdr.go` mirrors `opencodeBin()` in
+`internal/usage/opencode.go`: `exec.LookPath` first, then probe
+`/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`. The lesson from the
+v0.2.10 opencode regression (bare LookPath fails under launchd's minimal PATH)
+applies to every CLI-shelling feature — centralized into a named helper so
+future CLI adapters don't repeat the pattern from scratch.
+
+**Opt-in gate (`config.Agents.Enabled`):** nothing shells out to herdr unless
+the user explicitly sets `agents.enabled = true`. Default false; graceful
+degradation (herdr unreachable → empty list, no surfaced error) consistent with
+usage providers.

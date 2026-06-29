@@ -271,8 +271,13 @@ the store-cache / projects / usage test gaps.
 - **lark-plug-hdeck response writing** — re-deferred 2026-06-10. Trigger:
   *catching myself opening the browser just to tap yes/no on an ask.*
   Until then read-only stands.
-- **herdr ↔ harness-deck active integration** — unchanged gate: requires a
-  herdr extension; wait until used in anger.
+- ~~**herdr ↔ harness-deck active integration**~~ — **DONE 2026-06-29.**
+  Shipped as the herdr mobile inbox: detect blocked agent → Web Push → phone
+  answers from `/agents` needs-you view → `herdr pane run` delivers the text +
+  Enter. `internal/herdr` adapter + `GET /api/agents` + `POST …/answer` + the
+  needs-you view + `config.Agents` opt-in block. decisions.md "herdr mobile
+  inbox"; spec/plan in `.docs/ai/phases/herdr-mobile-inbox-{spec,plan}.md`;
+  setup docs in `docs/SETUP.md` §9.
 - **responses.json evolution** — version field + `Values []string` for
   multi-select answers; pairs with any richer-answer-types work.
 - **Search text-cache + archived exclusion from /api/reports** — only above
