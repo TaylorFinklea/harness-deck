@@ -1,0 +1,56 @@
+package server
+
+import (
+	"context"
+	"testing"
+
+	"github.com/TaylorFinklea/harness-deck/internal/herdr"
+)
+
+type fakeHerdr struct {
+	agents []herdr.Agent
+	read   string
+}
+
+func (f *fakeHerdr) List(context.Context) ([]herdr.Agent, error) { return f.agents, nil }
+func (f *fakeHerdr) Read(context.Context, string) (string, bool, error) {
+	return f.read, false, nil
+}
+func (f *fakeHerdr) Send(context.Context, string, string) error { return nil }
+
+func TestTickAgentsFiresOnNewBlock(t *testing.T) {
+	fh := &fakeHerdr{read: "apply migration?"}
+	s := &Server{agents: fh} // minimal server; see existing tests for the pattern
+	var pushes int
+	s.testAgentNotifyFn = func() { pushes++ }
+
+	// idle → no block
+	fh.agents = []herdr.Agent{{PaneID: "w1:p1", Status: "idle"}}
+	st := s.tickAgents(context.Background(), agentState{blocked: map[string]BlockedAgent{}, misses: map[string]int{}})
+	if pushes != 0 || len(st.blocked) != 0 {
+		t.Fatalf("idle: pushes=%d blocked=%d, want 0/0", pushes, len(st.blocked))
+	}
+
+	// becomes blocked (not focused) → one push, captured question
+	fh.agents = []herdr.Agent{{PaneID: "w1:p1", Status: "blocked"}}
+	st = s.tickAgents(context.Background(), st)
+	if pushes != 1 || len(st.blocked) != 1 {
+		t.Fatalf("blocked: pushes=%d blocked=%d, want 1/1", pushes, len(st.blocked))
+	}
+	if st.blocked["w1:p1"].Question != "apply migration?" {
+		t.Errorf("question = %q", st.blocked["w1:p1"].Question)
+	}
+
+	// still blocked → no re-fire
+	st = s.tickAgents(context.Background(), st)
+	if pushes != 1 {
+		t.Fatalf("still blocked: pushes=%d, want 1 (no re-fire)", pushes)
+	}
+
+	// focused block is suppressed
+	fh.agents = []herdr.Agent{{PaneID: "w2:p1", Status: "blocked", Focused: true}}
+	st = s.tickAgents(context.Background(), agentState{blocked: map[string]BlockedAgent{}, misses: map[string]int{}})
+	if pushes != 1 || len(st.blocked) != 0 {
+		t.Fatalf("focused: pushes=%d blocked=%d, want unchanged/0", pushes, len(st.blocked))
+	}
+}

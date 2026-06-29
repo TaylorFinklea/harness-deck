@@ -62,10 +62,18 @@ type Server struct {
 	// reads from the watcher and writes from /api/notifications/* CRUD.
 	notifMu sync.RWMutex
 
+	// agents is the herdr client used by the agent-status watcher. nil when the
+	// feature is disabled (config.Agents.Enabled == false) or herdr is absent.
+	agents herdrClient
+
 	// testNotifyFn, when non-nil, is called once per new-ask notification
 	// instead of (in addition to) the real push/fanout path. Tests use this
 	// seam to count notification fires without needing real VAPID keys.
 	testNotifyFn func()
+
+	// testAgentNotifyFn, when non-nil, is called once per newly-blocked agent
+	// notification. Tests use this seam to count fires without real VAPID keys.
+	testAgentNotifyFn func()
 
 	// testDigestCountFn, when non-nil, is called each time currentAskDigests
 	// is actually invoked. Tests use this seam to verify signature-gated
