@@ -102,6 +102,17 @@ func (f *sendSpyHerdr) Send(_ context.Context, target, text string) error {
 	return nil
 }
 
+func TestAnswerDisabledWhenAgentsNil(t *testing.T) {
+	s := &Server{} // s.agents is nil: feature disabled
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/agents/w1:p1/answer", strings.NewReader(`{"text":"yes"}`))
+	req.SetPathValue("key", "w1:p1")
+	s.handleAgentAnswer(rr, req)
+	if rr.Code != 503 {
+		t.Fatalf("status = %d, want 503 (agents feature disabled)", rr.Code)
+	}
+}
+
 func TestAnswerRefusesUnblocked(t *testing.T) {
 	fh := &fakeHerdr{agents: []herdr.Agent{{PaneID: "w1:p1", Status: "working"}}}
 	s := &Server{agents: fh}

@@ -158,8 +158,13 @@ func (s *Server) handleAgents(w http.ResponseWriter, _ *http.Request) {
 //
 // 400 — missing or empty text.
 // 409 — agent not found in herdr's current list, or no longer blocked.
+// 503 — agents feature disabled (s.agents is nil).
 // 200 — answer delivered; broadcasts SSE "agents" / "answered".
 func (s *Server) handleAgentAnswer(w http.ResponseWriter, r *http.Request) {
+	if s.agents == nil {
+		http.Error(w, "agents feature disabled", http.StatusServiceUnavailable)
+		return
+	}
 	key := r.PathValue("key")
 
 	var body struct {
