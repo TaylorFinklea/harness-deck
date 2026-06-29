@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -92,6 +93,22 @@ func TestLoadReadsBindAndTLS(t *testing.T) {
 	}
 	if c.TLS.Cert != "/x/cert.pem" || c.TLS.Key != "/x/key.pem" {
 		t.Errorf("TLS = %+v", c.TLS)
+	}
+}
+
+// TestAgentsConfigParse verifies that the agents opt-in block defaults to
+// disabled and round-trips correctly from JSON.
+func TestAgentsConfigParse(t *testing.T) {
+	c := Default()
+	if c.Agents.Enabled {
+		t.Errorf("Agents.Enabled default = true, want false (opt-in)")
+	}
+	const j = `{"agents":{"enabled":true,"refresh_sec":3}}`
+	if err := json.Unmarshal([]byte(j), &c); err != nil {
+		t.Fatal(err)
+	}
+	if !c.Agents.Enabled || c.Agents.RefreshSec != 3 {
+		t.Errorf("Agents = %+v, want enabled/3", c.Agents)
 	}
 }
 

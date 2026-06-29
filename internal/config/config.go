@@ -56,6 +56,9 @@ type Config struct {
 	// nothing reads credentials or hits the network unless a provider is
 	// listed in Usage.Providers.
 	Usage UsageConfig `json:"usage,omitempty"`
+	// Agents drives the herdr mobile-inbox feature. Opt-in: nothing shells
+	// out to herdr unless Agents.Enabled is true.
+	Agents AgentsConfig `json:"agents,omitempty"`
 }
 
 // UsageConfig drives the footer usage indicators. It is fully opt-in: an empty
@@ -86,6 +89,17 @@ type UsageConfig struct {
 	OpenCodeEnabled bool `json:"opencode_enabled,omitempty"`
 	// RefreshSec is the poll cadence in seconds (default 60). HTTP providers
 	// count against their service's rate limits, so keep it sane.
+	RefreshSec int `json:"refresh_sec,omitempty"`
+}
+
+// AgentsConfig drives the herdr mobile-inbox feature. Opt-in: nothing shells
+// out to herdr unless Enabled. RefreshSec is the herdr poll cadence (default
+// 2s, matching the report watcher) when zero.
+type AgentsConfig struct {
+	// Enabled turns on herdr agent polling, the /api/agents channel, and
+	// block→push. Off by default — the dashboard never touches herdr otherwise.
+	Enabled bool `json:"enabled,omitempty"`
+	// RefreshSec is the herdr poll cadence in seconds (default 2 when zero).
 	RefreshSec int `json:"refresh_sec,omitempty"`
 }
 
