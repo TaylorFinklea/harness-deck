@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/TaylorFinklea/harness-deck/internal/herdr"
+	"github.com/TaylorFinklea/harness-deck/internal/push"
 )
 
 type fakeHerdr struct {
@@ -52,5 +53,17 @@ func TestTickAgentsFiresOnNewBlock(t *testing.T) {
 	st = s.tickAgents(context.Background(), agentState{blocked: map[string]BlockedAgent{}, misses: map[string]int{}})
 	if pushes != 1 || len(st.blocked) != 0 {
 		t.Fatalf("focused: pushes=%d blocked=%d, want unchanged/0", pushes, len(st.blocked))
+	}
+}
+
+func TestNotifyBlockedAgentPayload(t *testing.T) {
+	var got push.Payload
+	s := &Server{testAgentPushFn: func(p push.Payload) { got = p }}
+	s.notifyBlockedAgent(BlockedAgent{Agent: herdr.Agent{Label: "claude", Project: "refrigate", PaneID: "w1:p1"}, Question: "apply?"})
+	if got.Tag != "w1:p1" || got.URL != "/agents" {
+		t.Errorf("payload = %+v, want tag w1:p1 / url /agents", got)
+	}
+	if got.Body != "apply?" {
+		t.Errorf("body = %q", got.Body)
 	}
 }

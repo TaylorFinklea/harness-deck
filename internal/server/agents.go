@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/herdr"
+	"github.com/TaylorFinklea/harness-deck/internal/push"
 )
 
 // herdrClient is the interface the agent watcher uses to interact with herdr.
@@ -101,11 +102,32 @@ func (s *Server) tickAgents(ctx context.Context, prev agentState) agentState {
 	return agentState{blocked: merged, misses: nextMisses}
 }
 
-// notifyBlockedAgent fires on a newly-blocked agent. Task 5 stub: calls the
-// test seam only. Task 6 adds the full Web Push + SSE broadcast.
+// notifyBlockedAgent fires on a newly-blocked agent: fires the test seam
+// (for Task 5 test compatibility), sends a Web Push to all subscriptions, and
+// broadcasts an SSE "agents" event so any open live view updates immediately.
+// Mirrors notifyNewAsks in push.go.
 func (s *Server) notifyBlockedAgent(b BlockedAgent) {
+	// Fire the count seam first so Task 5 tests pass without VAPID keys.
 	if s.testAgentNotifyFn != nil {
 		s.testAgentNotifyFn()
 	}
-	// Full implementation (deliverPush + hub.broadcastEvent) added in Task 6.
+
+	p := push.Payload{
+		Title: b.Project + " — " + b.Label + " needs you",
+		Body:  truncateBody(b.Question),
+		Tag:   b.Key(),
+		URL:   "/agents",
+	}
+
+	if s.testAgentPushFn != nil {
+		// Payload seam: lets tests assert on Tag/URL/Body without real VAPID.
+		s.testAgentPushFn(p)
+	} else if s.pushEnabled() && s.subs != nil && s.subs.Count() > 0 {
+		go s.deliverPush(p)
+	}
+
+	// Broadcast so any connected browser view refreshes immediately.
+	if s.hub != nil {
+		s.hub.broadcastEvent("agents", "blocked")
+	}
 }

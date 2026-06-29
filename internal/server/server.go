@@ -75,6 +75,11 @@ type Server struct {
 	// notification. Tests use this seam to count fires without real VAPID keys.
 	testAgentNotifyFn func()
 
+	// testAgentPushFn, when non-nil, is called with the push.Payload instead of
+	// (not in addition to) the real deliverPush path. Tests use this seam to
+	// assert on payload fields without needing real VAPID keys or subscriptions.
+	testAgentPushFn func(push.Payload)
+
 	// testDigestCountFn, when non-nil, is called each time currentAskDigests
 	// is actually invoked. Tests use this seam to verify signature-gated
 	// skipping behaviour.
