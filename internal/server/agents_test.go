@@ -13,15 +13,20 @@ import (
 )
 
 type fakeHerdr struct {
-	agents  []herdr.Agent
-	read    string
-	readErr error
-	listErr error
+	agents     []herdr.Agent
+	read       string // returned for source "visible"
+	readRecent string // returned for source "recent" (truncated-retry path)
+	truncated  bool   // truncated flag returned for the "visible" read
+	readErr    error
+	listErr    error
 }
 
 func (f *fakeHerdr) List(context.Context) ([]herdr.Agent, error) { return f.agents, f.listErr }
-func (f *fakeHerdr) Read(_ context.Context, _ string, _ string) (string, bool, error) {
-	return f.read, false, f.readErr
+func (f *fakeHerdr) Read(_ context.Context, _ string, source string) (string, bool, error) {
+	if source == "recent" {
+		return f.readRecent, false, f.readErr
+	}
+	return f.read, f.truncated, f.readErr
 }
 func (f *fakeHerdr) Send(context.Context, string, string) error { return nil }
 
@@ -162,6 +167,36 @@ func TestTickAgentsReadError(t *testing.T) {
 	const wantQ = "(question unavailable — open the agent in herdr)"
 	if st.blocked["w1:p1"].Question != wantQ {
 		t.Errorf("Question = %q, want placeholder %q", st.blocked["w1:p1"].Question, wantQ)
+	}
+}
+
+// TestTickAgentsTruncatedRetry verifies the spec's truncated→recent fallback:
+// when the "visible" read returns truncated==true, tickAgents retries with the
+// "recent" scrollback window and uses that fuller text as the question.
+func TestTickAgentsTruncatedRetry(t *testing.T) {
+	fh := &fakeHerdr{read: "clipped…", truncated: true, readRecent: "full recovered question"}
+	s := &Server{agents: fh}
+	s.testAgentNotifyFn = func() {}
+
+	fh.agents = []herdr.Agent{{PaneID: "w1:p1", Status: "blocked"}}
+	st := s.tickAgents(context.Background(), agentState{blocked: map[string]BlockedAgent{}, misses: map[string]int{}})
+	if got := st.blocked["w1:p1"].Question; got != "full recovered question" {
+		t.Fatalf("Question = %q, want the recent-window text", got)
+	}
+}
+
+// TestAnswerRejectsFlagLikeText verifies the argv flag-smuggling guard at the
+// handler boundary: a "-"-leading answer is refused with 400 before any List or
+// Send, so herdr's flag-anywhere parser can't be tricked.
+func TestAnswerRejectsFlagLikeText(t *testing.T) {
+	fh := &fakeHerdr{agents: []herdr.Agent{{PaneID: "w1:p1", Status: "blocked"}}}
+	s := &Server{agents: fh}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/agents/w1:p1/answer", strings.NewReader(`{"text":"-rf"}`))
+	req.SetPathValue("key", "w1:p1")
+	s.handleAgentAnswer(rr, req)
+	if rr.Code != 400 {
+		t.Fatalf("status = %d, want 400 for flag-like answer", rr.Code)
 	}
 }
 

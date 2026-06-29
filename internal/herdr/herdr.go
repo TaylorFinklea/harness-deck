@@ -6,9 +6,11 @@ package herdr
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Agent is one herdr-managed agent terminal.
@@ -91,10 +93,29 @@ func New() (*Client, bool) {
 	return &Client{bin: bin}, true
 }
 
+// flagLike reports whether s would be parsed as an option by herdr's CLI.
+// herdr's parser is non-POSIX: it treats any "-"-leading token as a flag even
+// after positionals, and does NOT honor a "--" terminator (verified against the
+// live CLI — inserting "--" corrupts parsing). So the only safe mitigation for
+// argv flag-smuggling is to reject flag-like values at the boundary.
+func flagLike(s string) bool { return strings.HasPrefix(s, "-") }
+
 // Send delivers text + Enter into the target pane so a blocked agent receives
-// the user's answer. Argv verified: `herdr pane run <pane_id> <text>` (Enter
-// included; no `--` separator).
+// the user's answer. Argv: `herdr pane run <pane_id> <text>` (Enter included;
+// no `--` separator — herdr has none).
+//
+// It refuses a "-"-leading target or text: herdr would otherwise smuggle such a
+// value in as a flag (e.g. a "-n" answer becoming an option to `pane run`).
+// target is normally a herdr-supplied pane id (never flag-like); text is the
+// user's answer, the genuinely free input, so this guards the realistic case
+// and also prevents a legitimate "-1"/"--force" answer from being mis-parsed.
 func (c *Client) Send(ctx context.Context, target, text string) error {
+	if flagLike(target) {
+		return fmt.Errorf("herdr: refusing flag-like pane id %q", target)
+	}
+	if flagLike(text) {
+		return fmt.Errorf("herdr: refusing flag-like answer %q", text)
+	}
 	cmd := exec.CommandContext(ctx, c.bin, "pane", "run", target, text)
 	return cmd.Run()
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -112,7 +113,11 @@ func (s *Server) tickAgents(ctx context.Context, prev agentState) agentState {
 			text, truncated, err := s.agents.Read(ctx, key, "visible")
 			if err != nil || text == "" {
 				b.Question = questionPlaceholder
-				log.Printf("harness-deck: herdr read %s: %v", key, err)
+				if err != nil {
+					log.Printf("harness-deck: herdr read %s: %v", key, err)
+				} else {
+					log.Printf("harness-deck: herdr read %s: empty pane text", key)
+				}
 			} else {
 				// herdr signals truncation when the viewport clipped the question;
 				// retry once with the scrollback window to recover the full text.
@@ -224,6 +229,14 @@ func (s *Server) handleAgentAnswer(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Text == "" {
 		http.Error(w, "text is required", http.StatusBadRequest)
+		return
+	}
+	// Reject a flag-like answer up front with a clean 400: herdr's non-POSIX
+	// parser has no "--" terminator, so a "-"-leading answer would be smuggled
+	// in as a CLI flag to `pane run` (herdr.Send guards this too, but a 400 is
+	// clearer than the 500 that guard would surface).
+	if strings.HasPrefix(body.Text, "-") {
+		http.Error(w, "answer may not begin with '-' (herdr would parse it as a flag)", http.StatusBadRequest)
 		return
 	}
 
