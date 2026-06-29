@@ -110,7 +110,21 @@ func (s *Server) tickAgents(ctx context.Context, prev agentState) agentState {
 	// Debounce clearing: carry forward recently-vanished blocked agents up to
 	// askRetainTicks ticks so a 1-tick status flicker doesn't drop + re-page.
 	merged, nextMisses := agentMergeRetained(prev.blocked, cur, prev.misses)
+	s.setAgentSnapshot(agents, merged)
 	return agentState{blocked: merged, misses: nextMisses}
+}
+
+// watchAgents polls herdr on an interval, calling tickAgents each tick to
+// detect newly-blocked agents and fire push/SSE. It is the agent-channel
+// sibling of watch in sse.go and follows the same tick/state pattern.
+// Only called when s.agents != nil (gated by cfg.Agents.Enabled in New).
+func (s *Server) watchAgents(interval time.Duration) {
+	st := agentState{blocked: map[string]BlockedAgent{}, misses: map[string]int{}}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for range t.C {
+		st = s.tickAgents(context.Background(), st)
+	}
 }
 
 // setAgentSnapshot stores the latest tick output so GET /api/agents can serve

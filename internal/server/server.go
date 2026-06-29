@@ -21,6 +21,7 @@ import (
 	harnessdeck "github.com/TaylorFinklea/harness-deck"
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/herdr"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
 	"github.com/TaylorFinklea/harness-deck/internal/projects"
 	"github.com/TaylorFinklea/harness-deck/internal/push"
@@ -132,6 +133,16 @@ func New(cfg config.Config) (*Server, error) {
 		OpenCodeEnabled: cfg.Usage.OpenCodeEnabled,
 	}), time.Duration(cfg.Usage.RefreshSec)*time.Second)
 
+	// Herdr mobile-inbox (opt-in). The feature stays dark when Agents.Enabled
+	// is false or herdr is not installed — nothing shells out to herdr otherwise.
+	if cfg.Agents.Enabled {
+		if hc, ok := herdr.New(); ok {
+			s.agents = hc
+		} else {
+			log.Print("harness-deck: agents enabled but herdr not found — feature dark")
+		}
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleShell)
 	mux.HandleFunc("GET /api/reports", s.handleReports)
@@ -200,6 +211,13 @@ func (s *Server) Handler() http.Handler { return s.mux }
 func (s *Server) Serve() error {
 	s.usage.Start(context.Background())
 	go s.watch(pollInterval)
+	if s.agents != nil {
+		agentInterval := time.Duration(s.cfg.Agents.RefreshSec) * time.Second
+		if agentInterval <= 0 {
+			agentInterval = pollInterval
+		}
+		go s.watchAgents(agentInterval)
+	}
 	addr := fmt.Sprintf("%s:%d", s.cfg.Bind, s.cfg.Port)
 	if s.cfg.TLS.Enabled() {
 		// Expand ~ in cert/key paths so config files can use the standard
