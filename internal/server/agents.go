@@ -24,7 +24,7 @@ type agentSnapshot struct {
 // *herdr.Client satisfies it; tests inject a fakeHerdr.
 type herdrClient interface {
 	List(context.Context) ([]herdr.Agent, error)
-	Read(context.Context, string) (string, bool, error)
+	Read(context.Context, string, string) (string, bool, error)
 	Send(context.Context, string, string) error
 }
 
@@ -48,13 +48,22 @@ type agentState struct {
 // It carries forward any blocked agent from prev that is transiently absent
 // from cur (up to askRetainTicks) to prevent a 1-tick status flicker from
 // clearing the entry and re-paging on the next reappearance.
-func agentMergeRetained(prev, cur map[string]BlockedAgent, misses map[string]int) (map[string]BlockedAgent, map[string]int) {
+//
+// excluded is the set of keys that are present in the live herdr agent list
+// but intentionally not in cur this tick (blocked+focused: user is already at
+// the terminal). Such an exclusion is NOT transient — the agent was suppressed
+// on purpose — so those keys are dropped from the retained baseline immediately,
+// mirroring how mergeRetainedAsks uses the closed set in sse.go.
+func agentMergeRetained(prev, cur map[string]BlockedAgent, misses map[string]int, excluded map[string]bool) (map[string]BlockedAgent, map[string]int) {
 	merged := map[string]BlockedAgent{}
 	nextMisses := map[string]int{}
 	for key, b := range cur {
 		merged[key] = b
 	}
 	for key, b := range prev {
+		if excluded[key] {
+			continue // intentionally focused — drop immediately, not after retain window
+		}
 		if _, present := cur[key]; present {
 			continue
 		}
@@ -99,17 +108,42 @@ func (s *Server) tickAgents(ctx context.Context, prev agentState) agentState {
 			cur[key] = existing
 		} else {
 			// Newly blocked: read the pane to capture the question.
-			text, _, _ := s.agents.Read(ctx, key)
-			b.Question = text
+			const questionPlaceholder = "(question unavailable — open the agent in herdr)"
+			text, truncated, err := s.agents.Read(ctx, key, "visible")
+			if err != nil || text == "" {
+				b.Question = questionPlaceholder
+				log.Printf("harness-deck: herdr read %s: %v", key, err)
+			} else {
+				// herdr signals truncation when the viewport clipped the question;
+				// retry once with the scrollback window to recover the full text.
+				if truncated {
+					if text2, _, err2 := s.agents.Read(ctx, key, "recent"); err2 == nil && text2 != "" {
+						text = text2
+					}
+				}
+				b.Question = text
+			}
 			b.Since = time.Now()
 			cur[key] = b
 			s.notifyBlockedAgent(b)
 		}
 	}
 
+	// Compute the intentionally-excluded set: blocked+focused agents that were
+	// suppressed from cur this tick. Unlike a transient disappearance (e.g. a
+	// 1-tick herdr hiccup), a focused agent should NOT be retained — the user is
+	// already at that terminal, so dropping the inbox entry immediately is correct.
+	excluded := map[string]bool{}
+	for _, a := range agents {
+		if a.Blocked() && a.Focused {
+			excluded[a.Key()] = true
+		}
+	}
+
 	// Debounce clearing: carry forward recently-vanished blocked agents up to
 	// askRetainTicks ticks so a 1-tick status flicker doesn't drop + re-page.
-	merged, nextMisses := agentMergeRetained(prev.blocked, cur, prev.misses)
+	// Intentionally-excluded (focused) agents are NOT retained.
+	merged, nextMisses := agentMergeRetained(prev.blocked, cur, prev.misses, excluded)
 	s.setAgentSnapshot(agents, merged)
 	return agentState{blocked: merged, misses: nextMisses}
 }

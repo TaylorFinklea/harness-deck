@@ -48,11 +48,14 @@ func (c *Client) List(ctx context.Context) ([]Agent, error) {
 	return parseAgentList(out)
 }
 
-// Read returns the visible pane text for an agent plus herdr's truncated flag.
-// On truncated==true the caller may retry with a larger window; see the spec.
-func (c *Client) Read(ctx context.Context, target string) (string, bool, error) {
-	cmd := exec.CommandContext(ctx, c.bin, "agent", "read", target, "--source", "visible")
-	out, err := cmd.Output()
+// Read returns the pane text for an agent plus herdr's truncated flag.
+// source selects the buffer to read: "visible" returns the on-screen viewport,
+// "recent" returns a larger scrollback window useful when visible is truncated,
+// and "recent-unwrapped" is the same without terminal line-wrap artifacts.
+// On truncated==true the caller may retry with source "recent"; see agents.go.
+func (c *Client) Read(ctx context.Context, target, source string) (string, bool, error) {
+	cmd := exec.CommandContext(ctx, c.bin, "agent", "read", target, "--source", source)
+	out, err := cmd.Output() // Stdin nil = /dev/null (TUI-hang guard)
 	if err != nil {
 		return "", false, err
 	}
