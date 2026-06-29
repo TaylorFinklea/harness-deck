@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/TaylorFinklea/harness-deck/internal/herdr"
@@ -85,5 +86,43 @@ func TestHandleAgentsJSON(t *testing.T) {
 	json.NewDecoder(rr.Body).Decode(&body)
 	if len(body.Blocked) != 1 || body.Blocked[0].Question != "apply?" {
 		t.Errorf("blocked = %+v", body.Blocked)
+	}
+}
+
+// sendSpyHerdr embeds fakeHerdr and records Send calls via an onSend hook.
+type sendSpyHerdr struct {
+	fakeHerdr
+	onSend func(target, text string)
+}
+
+func (f *sendSpyHerdr) Send(_ context.Context, target, text string) error {
+	if f.onSend != nil {
+		f.onSend(target, text)
+	}
+	return nil
+}
+
+func TestAnswerRefusesUnblocked(t *testing.T) {
+	fh := &fakeHerdr{agents: []herdr.Agent{{PaneID: "w1:p1", Status: "working"}}}
+	s := &Server{agents: fh}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/agents/w1:p1/answer", strings.NewReader(`{"text":"yes"}`))
+	req.SetPathValue("key", "w1:p1")
+	s.handleAgentAnswer(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("status = %d, want 409 (no longer blocked)", rr.Code)
+	}
+}
+
+func TestAnswerDeliversWhenBlocked(t *testing.T) {
+	sent := ""
+	fh := &sendSpyHerdr{fakeHerdr: fakeHerdr{agents: []herdr.Agent{{PaneID: "w1:p1", Status: "blocked"}}}, onSend: func(_, t string) { sent = t }}
+	s := &Server{agents: fh}
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/agents/w1:p1/answer", strings.NewReader(`{"text":"yes"}`))
+	req.SetPathValue("key", "w1:p1")
+	s.handleAgentAnswer(rr, req)
+	if rr.Code != 200 || sent != "yes" {
+		t.Fatalf("status=%d sent=%q, want 200/yes", rr.Code, sent)
 	}
 }

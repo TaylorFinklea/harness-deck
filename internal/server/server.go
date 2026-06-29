@@ -151,6 +151,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /api/search/schema", s.handleSearchSchema)
 	mux.HandleFunc("GET /api/usage", s.handleUsage)
 	mux.HandleFunc("GET /api/agents", s.handleAgents)
+	mux.HandleFunc("POST /api/agents/{key}/answer", s.handleAgentAnswer)
 	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
 	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)

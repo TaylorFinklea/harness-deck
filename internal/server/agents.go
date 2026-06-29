@@ -152,6 +152,62 @@ func (s *Server) handleAgents(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+// handleAgentAnswer handles POST /api/agents/{key}/answer.
+// Body: { "text": "…" }. It re-checks the agent's live status before
+// delivering so a stale answer never gets sent into an active session.
+//
+// 400 — missing or empty text.
+// 409 — agent not found in herdr's current list, or no longer blocked.
+// 200 — answer delivered; broadcasts SSE "agents" / "answered".
+func (s *Server) handleAgentAnswer(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if body.Text == "" {
+		http.Error(w, "text is required", http.StatusBadRequest)
+		return
+	}
+
+	// Re-check live status before delivering to avoid sending stale answers.
+	ctx := r.Context()
+	agents, err := s.agents.List(ctx)
+	if err != nil {
+		http.Error(w, "herdr unavailable: "+err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	var target *herdr.Agent
+	for i := range agents {
+		if agents[i].Key() == key {
+			target = &agents[i]
+			break
+		}
+	}
+	if target == nil || !target.Blocked() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"agent no longer blocked"}`))
+		return
+	}
+
+	if err := s.agents.Send(ctx, key, body.Text); err != nil {
+		http.Error(w, "herdr send failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if s.hub != nil {
+		s.hub.broadcastEvent("agents", "answered")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"ok":true}`))
+}
+
 // notifyBlockedAgent fires on a newly-blocked agent: fires the test seam
 // (for Task 5 test compatibility), sends a Web Push to all subscriptions, and
 // broadcasts an SSE "agents" event so any open live view updates immediately.
