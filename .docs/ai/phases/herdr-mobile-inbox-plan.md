@@ -319,7 +319,7 @@ git commit -m "feat(herdr): Read captures blocked question + truncation flag"
 **Interfaces:**
 - Produces: `func New() (*Client, bool)` (resolves the herdr binary; `false` when not found); `func (c *Client) Send(ctx context.Context, target, text string) error`.
 
-- [ ] **Step 1: VERIFY the herdr send invocation before coding.** Run `herdr pane run --help < /dev/null` and `herdr agent send --help < /dev/null`. Confirm which delivers *text + Enter* to a pane (the spec assumes `pane run`). Use the verified argv in Step 3. Do NOT guess — if `pane run` takes `<pane_id> -- <argv...>`, the Send below must match it.
+- [ ] **Step 1: herdr send invocation — VERIFIED 2026-06-29 (no need to re-probe).** `herdr pane run <pane_id> <command>` delivers text **+ Enter** (the answer-submit path — use this). `herdr agent send <target> <text>` writes literal text **without** Enter (raw-keys fallback, not used in v1). There is **no `--` separator** — argv is exactly `pane run <pane_id> <text>`.
 
 - [ ] **Step 2: Write the failing `resolveBin` test**
 
@@ -390,10 +390,11 @@ func New() (*Client, bool) {
 	return &Client{bin: bin}, true
 }
 
-// Send delivers text (followed by Enter) into the target pane so a blocked
-// agent receives the user's answer. ARGV VERIFIED IN STEP 1 — adjust to match.
+// Send delivers text + Enter into the target pane so a blocked agent receives
+// the user's answer. Argv verified: `herdr pane run <pane_id> <text>` (Enter
+// included; no `--` separator).
 func (c *Client) Send(ctx context.Context, target, text string) error {
-	cmd := exec.CommandContext(ctx, c.bin, "pane", "run", target, "--", text)
+	cmd := exec.CommandContext(ctx, c.bin, "pane", "run", target, text)
 	return cmd.Run()
 }
 ```
