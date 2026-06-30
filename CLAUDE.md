@@ -150,3 +150,22 @@ truth for cross-session continuity. Read them at the start of a session and
 update them at the end — `current-state.md` is a short breadcrumb (blockers,
 build status, recent progress), `decisions.md` is an append-only ADR log.
 Phases 0–5 are complete; further plan context lives in `roadmap.md`.
+
+## Task tracking — beads pilot (2026-06-30)
+
+**The forward backlog / "what to work on next" for this repo is piloted in [beads](https://github.com/steveyegge/beads) (`bd`), not the roadmap's Now/Next list.** Local-only stealth install — `.beads/` is git-excluded via `.git/info/exclude`; nothing is committed, so the pilot leaves no trace if dropped.
+
+Agent loop (harness-agnostic — `bd` is just a CLI):
+- `bd ready` — priority-sorted, dependency-aware queue of unblocked work (`--json`; `bd ready --claim --json` atomically claims the top item).
+- `bd show <id>` — full detail before starting.
+- `bd update <id> --claim` — set in_progress + assignee atomically.
+- Run `go build ./... && go test ./...` first, then `bd close <id> --reason "…"`.
+- `bd create "Title" -t task -p 2 -d "…"` — file work discovered mid-task; `bd dep add <new> <parent> -t discovered-from` records provenance.
+- `bd dep add <issue> <blocker>` — `<issue>` is blocked-by `<blocker>` (hidden from `bd ready` until the blocker closes).
+
+Layer split — beads owns ONLY the backlog/ready-queue. Do NOT migrate these into beads:
+- **Rationale / ADRs → `.docs/ai/decisions.md`** (prose, unchanged).
+- **Loop state → `.docs/ai/current-state.md`** (unchanged).
+- `roadmap.md` keeps the durable narrative; new *actionable* work goes into `bd`.
+
+`user-verify`-labeled issues = human merge/release/verify gates, not agent dev work. Part of a 5-repo pilot; see chezmoi-config `.docs/ai/phases/beads-pilot-spec.md`.

@@ -2,6 +2,8 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
+> **Backlog/ready-queue → beads (`bd ready`) as of 2026-06-30 (pilot).** New actionable work is filed in beads, not roadmap Now or this file. `.beads/` is git-excluded (stealth, local-only); decisions/loop-state stay prose. See CLAUDE.md → "Task tracking — beads pilot".
+
 - **herdr mobile inbox COMPLETE + verified 2026-06-29** — on branch
   **`feat/herdr-mobile-inbox`** (NOT yet on main; user reviews + merges). 11
   TDD tasks (per-task Opus adversarial review) + a hardening pass + a security
