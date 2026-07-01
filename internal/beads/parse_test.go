@@ -86,6 +86,24 @@ func TestDeriveEdgesDedupes(t *testing.T) {
 	}
 }
 
+func TestNonClosedKeepsInProgress(t *testing.T) {
+	xs := []Issue{
+		{ID: "a", Status: "open"},
+		{ID: "b", Status: "in_progress"},
+		{ID: "c", Status: "closed"},
+		{ID: "d", Status: "blocked"},
+	}
+	got := nonClosed(xs)
+	if len(got) != 3 {
+		t.Fatalf("want 3 non-closed, got %d", len(got))
+	}
+	for _, i := range got {
+		if i.ID == "c" {
+			t.Error("closed issue c must be dropped")
+		}
+	}
+}
+
 func TestParseIssuesEmptyAndGarbage(t *testing.T) {
 	if got, err := parseIssues([]byte(`[]`)); err != nil || len(got) != 0 {
 		t.Errorf("empty: %v %v", got, err)

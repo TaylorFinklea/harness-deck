@@ -98,13 +98,32 @@ func (c *Client) Blocked(ctx context.Context, root string) ([]Issue, error) {
 	return parseBlocked(b)
 }
 
-// List returns all open issues (source of node attributes + parent links).
+// List returns all non-closed issues (open, in_progress, blocked, deferred) —
+// the source of graph node attributes + parent links. `bd list` returns every
+// issue including closed; we drop closed so the graph doesn't sprout resolved
+// nodes, but keep in_progress (a claimed issue must still render with its real
+// title/priority, not as a stub).
 func (c *Client) List(ctx context.Context, root string) ([]Issue, error) {
-	b, err := c.run(ctx, root, "list", "--status", "open", "--json")
+	b, err := c.run(ctx, root, "list", "--json")
 	if err != nil {
 		return nil, err
 	}
-	return parseIssues(b)
+	xs, err := parseIssues(b)
+	if err != nil {
+		return nil, err
+	}
+	return nonClosed(xs), nil
+}
+
+// nonClosed keeps every issue whose status is not "closed".
+func nonClosed(xs []Issue) []Issue {
+	out := make([]Issue, 0, len(xs))
+	for _, i := range xs {
+		if i.Status != "closed" {
+			out = append(out, i)
+		}
+	}
+	return out
 }
 
 // Status returns the per-repo counts summary.

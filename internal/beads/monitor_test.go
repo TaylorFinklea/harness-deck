@@ -44,6 +44,13 @@ func TestMonitorRefreshCachesAndFiresOnce(t *testing.T) {
 	if fires != 2 {
 		t.Fatalf("changed refresh must fire, got %d", fires)
 	}
+
+	// A priority-only change (bd may not bump updated_at) must still fire.
+	f.ready = []Issue{{ID: "a", Status: "closed", Priority: 2}}
+	m.refreshOnce(context.Background())
+	if fires != 3 {
+		t.Fatalf("priority change must fire onChange, got %d", fires)
+	}
 }
 
 func TestMonitorRepoErrorIsolated(t *testing.T) {

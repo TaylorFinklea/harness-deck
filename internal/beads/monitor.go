@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	"io"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -124,15 +125,18 @@ func (m *Monitor) Snapshot() Snapshot {
 	return m.snap
 }
 
-// fingerprint hashes the identity + state of every issue so that an identical
-// refresh does not fire onChange (the Updated timestamp is deliberately excluded).
+// fingerprint hashes every field the Backlog view reflects — id, status,
+// priority, title, blocked_by, and updated — so any change a user would see
+// (e.g. a priority bump, which bd does not always stamp into updated_at) fires
+// onChange, while an identical refresh does not.
 func fingerprint(repos []RepoSnapshot) string {
 	h := fnv.New64a()
 	for _, r := range repos {
 		io.WriteString(h, r.Name+"|"+r.Err+"\n")
 		for _, group := range [][]Issue{r.Ready, r.Blocked, r.All} {
 			for _, is := range group {
-				io.WriteString(h, is.ID+"|"+is.Status+"|"+is.Updated+"\n")
+				io.WriteString(h, is.ID+"|"+is.Status+"|"+strconv.Itoa(is.Priority)+"|"+
+					is.Title+"|"+strings.Join(is.BlockedBy, ",")+"|"+is.Updated+"\n")
 			}
 		}
 	}
