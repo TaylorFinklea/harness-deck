@@ -18,6 +18,9 @@
     { id: 'projects', label: 'projects' },
     { id: 'activity', label: 'activity' }
   ];
+  // Backlog view (beads/bd issues) is opt-in: the shell sets window.HD_BEADS
+  // from config.beads.enabled, so a disabled deployment shows no extra tab.
+  if (window.HD_BEADS) VIEWS.push({ id: 'backlog', label: 'backlog' });
 
   /* activeReports — non-archived only. Every default view operates on
      these so the inbox stays the "things you actually care about" list.
@@ -30,6 +33,7 @@
     return (data.reports || []).filter(function (r) { return r.archived; });
   }
   var data = { reports: [], errors: [], projects: [], discovered: [] };
+  var beadsData = { repos: [], available: false }; // Backlog view data (/api/beads)
   var currentView = 'inbox';
   var trackedOpen = false;     // is the "tracked projects" panel expanded?
   var draggedName = null;      // project name currently being dragged, or null
@@ -760,7 +764,14 @@
   /* BUILDERS maps view id → builder function. v0.2.0 keeps just the
      two top-level views; viewSettings is now rendered into a modal
      overlay (settingsOverlayBody) instead. */
-  var BUILDERS = { inbox: viewInbox, projects: viewProjects, activity: viewActivity };
+  /* viewBacklog — the beads Backlog view. Delegates all rendering (lists, the
+     inline-SVG dependency graph, drill-in) to the HDBacklog module, which owns
+     its own cursor + detail state. */
+  function viewBacklog() {
+    return window.HDBacklog ? HDBacklog.render(beadsData) : [emptyState(['backlog unavailable'])];
+  }
+
+  var BUILDERS = { inbox: viewInbox, projects: viewProjects, activity: viewActivity, backlog: viewBacklog };
 
   function renderContent() {
     var tabs = el('div', { class: 'view-tabs' }, VIEWS.map(function (v) {
@@ -826,6 +837,8 @@
     // Tree-focus state survives renders too — repaint after the new
     // tree DOM is in place.
     HDTree.paint();
+    // Backlog cursor + open detail survive renders too.
+    if (window.HDBacklog) HDBacklog.paint();
   }
 
   /* one delegated click handler for every navigable row */
@@ -1056,6 +1069,7 @@
   HDKeys.chord('g', 'p', function () { showView('projects'); });
   HDKeys.chord('g', 'a', function () { showView('inbox'); archiveFilter = true; render(); });
   HDKeys.chord('g', 'l', function () { showView('activity'); });
+  if (window.HD_BEADS) HDKeys.chord('g', 'b', function () { showView('backlog'); refreshBeads(); });
   HDKeys.chord('g', 'g', function () { window.scrollTo({ top: 0, behavior: 'instant' }); });
 
   /* Inbox cursor key handler — capture phase so we intercept j/k
@@ -1113,6 +1127,18 @@
     // g-chord owner, which arms and dispatches (our registered
     // completions above included).
     if (e.key === '?') { HDHelp.open(); consume(); return; }
+
+    // --- Backlog view owns j/k/G/Enter/Esc over its own issue rows ---
+    if (currentView === 'backlog' && window.HDBacklog) {
+      switch (e.key) {
+        case 'j': HDBacklog.moveCursor(+1); consume(); return;
+        case 'k': HDBacklog.moveCursor(-1); consume(); return;
+        case 'G': HDBacklog.moveCursorTo('bottom'); consume(); return;
+        case 'Enter':
+        case 'o': HDBacklog.openFocused(); consume(); return;
+        case 'Escape': if (HDBacklog.closeDetail()) { consume(); return; } break;
+      }
+    }
 
     // Below: row actions, only meaningful when a row list is visible.
     if (!visibleRows().length) return;
@@ -1214,12 +1240,30 @@
     });
   }
 
+  /* refreshBeads pulls the /api/beads snapshot for the Backlog view. Fired on
+     the SSE 'beads' event and on entering the view. Tolerant: a failure leaves
+     the last good data. Only re-renders when the Backlog view is showing. */
+  function refreshBeads() {
+    fetch('/api/beads', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : { repos: [], available: false }; })
+      .then(function (d) {
+        beadsData = d || { repos: [], available: false };
+        if (window.HDBacklog) HDBacklog.setData(beadsData);
+        // Re-render so the (pre-built) backlog view picks up fresh data even
+        // when the user is on another view. render() preserves the inbox cursor.
+        render();
+      })
+      .catch(function () {});
+  }
+
   /* live updates — the server pushes a 'change' event when the report index
      changes on disk; EventSource reconnects on its own if the stream drops. */
   function connectEvents() {
     if (typeof EventSource === 'undefined') return;
     var es = new EventSource('/events');
     es.addEventListener('change', function () { refresh(); });
+    // 'beads' fires when the beads snapshot changes on disk (bd writes).
+    es.addEventListener('beads', function () { refreshBeads(); });
   }
 
   /* migrateLegacyURL — old `?v=overview|latest|archive|settings`
@@ -1292,6 +1336,7 @@
     VimNav.addCommand('inbox', function () { archiveFilter = false; render(); showView('inbox'); }, 'go to inbox');
     VimNav.addCommand('projects', function () { showView('projects'); }, 'go to projects');
     VimNav.addCommand('activity', function () { showView('activity'); }, 'go to activity timeline');
+    if (window.HD_BEADS) VimNav.addCommand('backlog', function () { showView('backlog'); refreshBeads(); }, 'go to the beads backlog');
     VimNav.addCommand('archive', function () { showView('inbox'); archiveFilter = !archiveFilter; render(); }, 'toggle archive filter on inbox');
     VimNav.addCommand('settings', function () { openSettingsOverlay(); }, 'open the settings overlay');
     VimNav.addCommand('cheat', function () { HDHelp.open(); }, 'open the keymap cheat sheet');
@@ -1327,4 +1372,5 @@
   // of snapping to the top on initial load.
   restoreFocus();
   refresh();
+  if (window.HD_BEADS) refreshBeads();
   connectEvents();

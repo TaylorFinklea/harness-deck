@@ -241,3 +241,9 @@
   .term-chrome { padding-top: env(safe-area-inset-top); }
   .statusline { padding-bottom: max(env(safe-area-inset-bottom), 4px); }
 }
+
+/* Backlog view: stack the ready/blocked columns on a phone; the dependency
+   graph keeps its own horizontal scroll (overflow-x on .bk-graph). */
+@media (max-width: 720px) {
+  .bk-cols { grid-template-columns: 1fr; }
+}
