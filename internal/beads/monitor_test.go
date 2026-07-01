@@ -8,13 +8,14 @@ import (
 type fakeFetcher struct {
 	ready, blocked, all []Issue
 	counts              Counts
-	err                 error
+	err                 error // fails ready/blocked/list
+	statusErr           error // fails only status
 }
 
 func (f *fakeFetcher) Ready(context.Context, string) ([]Issue, error)   { return f.ready, f.err }
 func (f *fakeFetcher) Blocked(context.Context, string) ([]Issue, error) { return f.blocked, f.err }
 func (f *fakeFetcher) List(context.Context, string) ([]Issue, error)    { return f.all, f.err }
-func (f *fakeFetcher) Status(context.Context, string) (Counts, error)   { return f.counts, f.err }
+func (f *fakeFetcher) Status(context.Context, string) (Counts, error)   { return f.counts, f.statusErr }
 
 func TestMonitorRefreshCachesAndFiresOnce(t *testing.T) {
 	f := &fakeFetcher{ready: []Issue{{ID: "a", Status: "open"}}, counts: Counts{Ready: 1, Open: 1}}
@@ -60,6 +61,27 @@ func TestMonitorRepoErrorIsolated(t *testing.T) {
 	snap := m.Snapshot()
 	if len(snap.Repos) != 1 || snap.Repos[0].Err == "" {
 		t.Fatalf("want per-repo Err, got %+v", snap)
+	}
+}
+
+func TestMonitorStatusFailureKeepsIssues(t *testing.T) {
+	f := &fakeFetcher{
+		ready:     []Issue{{ID: "a", Status: "open"}, {ID: "b", Status: "open"}},
+		blocked:   []Issue{{ID: "c", Status: "open"}},
+		all:       []Issue{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		statusErr: context.DeadlineExceeded, // only Status fails
+	}
+	m := NewMonitor(f, func() []Repo { return []Repo{{Name: "r", Root: "/r"}} }, 0, nil)
+	m.refreshOnce(context.Background())
+	repo := m.Snapshot().Repos[0]
+	if repo.Err != "" {
+		t.Fatalf("a status-only failure must NOT mark the repo errored: %q", repo.Err)
+	}
+	if len(repo.Ready) != 2 || len(repo.Blocked) != 1 {
+		t.Fatalf("issues must survive a status failure: %+v", repo)
+	}
+	if repo.Counts.Ready != 2 || repo.Counts.Blocked != 1 || repo.Counts.Open != 3 {
+		t.Errorf("counts should fall back to list lengths, got %+v", repo.Counts)
 	}
 }
 

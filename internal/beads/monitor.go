@@ -85,8 +85,11 @@ func (m *Monitor) refreshOnce(ctx context.Context) {
 	}
 }
 
-// fetchRepo pulls one repo's ready/blocked/all/status. A failing call sets Err
-// and leaves the rest zero so one broken repo can't sink the others.
+// fetchRepo pulls one repo's ready/blocked/all/status. A failure on one of the
+// three essential calls (ready/blocked/list) sets Err and leaves the rest zero
+// so one broken repo can't sink the others. Status is best-effort: it only
+// carries summary counts, so if it fails we keep the already-fetched issues and
+// derive counts from the lists rather than discarding a healthy backlog.
 func (m *Monitor) fetchRepo(ctx context.Context, r Repo) RepoSnapshot {
 	rs := RepoSnapshot{Name: r.Name, Root: r.Root}
 	ready, err := m.fetch.Ready(ctx, r.Root)
@@ -104,14 +107,13 @@ func (m *Monitor) fetchRepo(ctx context.Context, r Repo) RepoSnapshot {
 		rs.Err = err.Error()
 		return rs
 	}
-	counts, err := m.fetch.Status(ctx, r.Root)
-	if err != nil {
-		rs.Err = err.Error()
-		return rs
-	}
 	rs.Ready, rs.Blocked, rs.All = ready, blocked, all
-	rs.Counts = counts
 	rs.Edges = deriveEdges(all, blocked)
+	if counts, err := m.fetch.Status(ctx, r.Root); err == nil {
+		rs.Counts = counts
+	} else {
+		rs.Counts = Counts{Ready: len(ready), Blocked: len(blocked), Open: len(all), Total: len(all)}
+	}
 	return rs
 }
 

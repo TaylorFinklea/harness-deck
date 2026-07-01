@@ -1241,8 +1241,10 @@
   }
 
   /* refreshBeads pulls the /api/beads snapshot for the Backlog view. Fired on
-     the SSE 'beads' event and on entering the view. Tolerant: a failure leaves
-     the last good data. Only re-renders when the Backlog view is showing. */
+     the SSE 'beads' event, on entering the view, and once at startup. Tolerant:
+     a failure leaves the last good data. Always re-renders so the (pre-built)
+     backlog view picks up fresh data even from another view; render() preserves
+     the inbox cursor, so the extra render is cheap and harmless. */
   function refreshBeads() {
     fetch('/api/beads', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : { repos: [], available: false }; })

@@ -17,6 +17,7 @@ window.HDBacklog = (function () {
     cursor: null, // bkey of the focused row
     detail: null  // { project, id, data } when a detail panel is open
   };
+  var graphSeq = 0; // monotonic id source so each graph's arrowhead marker is unique
 
   function svgEl(tag, attrs, kids) {
     var n = document.createElementNS(SVGNS, tag);
@@ -147,9 +148,12 @@ window.HDBacklog = (function () {
     });
     var W = PADX + (maxLayer + 1) * COLW, H = PADY * 2 + (maxRow + 1) * ROWH;
 
+    // Unique marker id per graph: multiple repo graphs share one HTML document,
+    // so a fixed id would duplicate and every arrow would point at the first.
+    var arrID = 'bk-arr-' + (graphSeq++);
     var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, class: 'bk-svg' });
     svg.appendChild(svgEl('defs', {}, [
-      svgEl('marker', { id: 'bk-arr', markerWidth: '9', markerHeight: '9', refX: '7', refY: '3', orient: 'auto' }, [
+      svgEl('marker', { id: arrID, markerWidth: '9', markerHeight: '9', refX: '7', refY: '3', orient: 'auto' }, [
         svgEl('path', { class: 'bk-arr-head', d: 'M0,0 L7,3 L0,6 z' })
       ])
     ]));
@@ -159,7 +163,7 @@ window.HDBacklog = (function () {
       svg.appendChild(svgEl('line', {
         class: 'bk-edge' + (e.kind === 'parent' ? ' parent' : ''),
         x1: a.x + NW, y1: a.y + NH / 2, x2: b.x - 3, y2: b.y + NH / 2,
-        'marker-end': 'url(#bk-arr)'
+        'marker-end': 'url(#' + arrID + ')'
       }));
     });
     ids.forEach(function (id) {
@@ -318,8 +322,19 @@ window.HDBacklog = (function () {
     panel.scrollIntoView({ block: 'nearest', behavior: 'instant' });
   }
 
+  // ensureCursor re-snaps to the first row when the focused issue vanished from
+  // a live refresh (e.g. bd closed it), so the cursor stays visible rather than
+  // silently disappearing — mirrors the inbox's ensureFocused.
+  function ensureCursor() {
+    if (!state.cursor) return;
+    var rows = rowList();
+    if (!rows.length) { state.cursor = null; return; }
+    if (!rows.some(function (r) { return r.bkey === state.cursor; })) state.cursor = rows[0].bkey;
+  }
+
   // re-apply cursor + detail after a core render rebuilt the view DOM
   function paint() {
+    ensureCursor();
     applyHighlight();
     if (state.detail) paintDetail();
   }

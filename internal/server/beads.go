@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
 
 	"github.com/TaylorFinklea/harness-deck/internal/beads"
 )
@@ -57,7 +59,14 @@ func (s *Server) handleBeadsIssue(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	issue, err := s.beadsClient.Show(ctx, root, id)
 	if err != nil {
-		http.Error(w, "issue not found", http.StatusNotFound)
+		// Distinguish a genuinely-missing issue (404) from a transient bd
+		// failure (exec error / timeout / bad JSON) so a wedged bd isn't
+		// silently reported as "not found".
+		if errors.Is(err, os.ErrNotExist) {
+			http.Error(w, "issue not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "bd unavailable", http.StatusBadGateway)
+		}
 		return
 	}
 	// Blockers/dependents/comments are best-effort: a failure on any one leaves

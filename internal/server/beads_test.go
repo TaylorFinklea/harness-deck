@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -101,6 +102,30 @@ func TestHandleBeadsIssueUnknownProject(t *testing.T) {
 	s.handleBeadsIssue(rr, beadsIssueReq("nope", "harness-deck-5ph.1"))
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("want 404 for unknown project, got %d", rr.Code)
+	}
+}
+
+func TestHandleBeadsIssueShowErrors(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "myrepo", ".beads"), 0o755)
+	cfg := config.Config{ScanRoots: []string{root}}
+	cases := []struct {
+		name    string
+		showErr error
+		want    int
+	}{
+		{"missing issue -> 404", os.ErrNotExist, http.StatusNotFound},
+		{"transient bd failure -> 502", errors.New("bd: exit status 1"), http.StatusBadGateway},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &Server{cfg: cfg, beadsClient: fakeDetailer{err: tc.showErr}}
+			rr := httptest.NewRecorder()
+			s.handleBeadsIssue(rr, beadsIssueReq("myrepo", "myrepo-abc"))
+			if rr.Code != tc.want {
+				t.Fatalf("want %d, got %d", tc.want, rr.Code)
+			}
+		})
 	}
 }
 
