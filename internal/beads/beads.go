@@ -51,6 +51,24 @@ func resolveBin(name string, fallbacks []string) (string, bool) {
 // (any '-'-leading token). Used to reject hostile drill-in ids at the boundary.
 func flagLike(s string) bool { return strings.HasPrefix(s, "-") }
 
+// ValidID reports whether id is a safe bd issue id to pass as an argv value:
+// non-empty, not flag-like, and limited to the bd id charset [A-Za-z0-9._-].
+// Handlers use it to reject a hostile path param with 400 before shelling bd.
+func ValidID(id string) bool {
+	if id == "" || flagLike(id) {
+		return false
+	}
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '.' || r == '-' || r == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // run executes `bd -C <root> <args...>` and returns stdout. Stdin is left nil
 // (child gets /dev/null) so a bd that probes the terminal can't hang.
 func (c *Client) run(ctx context.Context, root string, args ...string) ([]byte, error) {

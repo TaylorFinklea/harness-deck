@@ -20,6 +20,7 @@ import (
 
 	harnessdeck "github.com/TaylorFinklea/harness-deck"
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
+	"github.com/TaylorFinklea/harness-deck/internal/beads"
 	"github.com/TaylorFinklea/harness-deck/internal/config"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
 	"github.com/TaylorFinklea/harness-deck/internal/projects"
@@ -52,6 +53,14 @@ type Server struct {
 	// usage is the footer usage monitor, or nil when no usage providers are
 	// configured. Serve starts it; /api/usage serves its cached samples.
 	usage *usage.Monitor
+
+	// Beads Backlog view (read-only bd issues), all nil unless beads.enabled
+	// and the bd binary was found. beads serves cached snapshots (an interface
+	// so tests inject a fake), beadsMonitor is started by Serve, and beadsClient
+	// shells drill-in detail on demand.
+	beads        beadsSource
+	beadsMonitor *beads.Monitor
+	beadsClient  beadsDetailer
 
 	// docCache memoizes rendered project markdown (roadmap.md / current-state.md)
 	// keyed by file path, invalidated by mtime, so /api/projects doesn't
@@ -116,6 +125,20 @@ func New(cfg config.Config) (*Server, error) {
 		OpenCodeEnabled: cfg.Usage.OpenCodeEnabled,
 	}), time.Duration(cfg.Usage.RefreshSec)*time.Second)
 
+	// Beads Backlog view (read-only). Opt-in and dark unless bd is installed.
+	if cfg.Beads.Enabled {
+		if bc, ok := beads.New(); ok {
+			s.beadsClient = bc
+			repos := func() []beads.Repo { return beads.Discover(s.cfg.ScanRoots, s.cfg.Projects) }
+			s.beadsMonitor = beads.NewMonitor(bc, repos,
+				time.Duration(cfg.Beads.RefreshSec)*time.Second,
+				func() { s.hub.broadcastEvent("beads", "changed") })
+			s.beads = s.beadsMonitor
+		} else {
+			log.Print("harness-deck: beads enabled but bd not found — Backlog view dark")
+		}
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleShell)
 	mux.HandleFunc("GET /api/reports", s.handleReports)
@@ -134,6 +157,8 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /api/search", s.handleSearch)
 	mux.HandleFunc("GET /api/search/schema", s.handleSearchSchema)
 	mux.HandleFunc("GET /api/usage", s.handleUsage)
+	mux.HandleFunc("GET /api/beads", s.handleBeads)
+	mux.HandleFunc("GET /api/beads/{project}/{id}", s.handleBeadsIssue)
 	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
 	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)
@@ -181,6 +206,7 @@ func (s *Server) Handler() http.Handler { return s.mux }
 // dashboard to a phone.
 func (s *Server) Serve() error {
 	s.usage.Start(context.Background())
+	s.beadsMonitor.Start(context.Background()) // nil-safe
 	go s.watch(pollInterval)
 	addr := fmt.Sprintf("%s:%d", s.cfg.Bind, s.cfg.Port)
 	if s.cfg.TLS.Enabled() {
@@ -251,18 +277,20 @@ func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 		HDDomJS, VimJS, AppJS, MobileJS, TabsJS, SavedJS, SearchJS, UsageJS template.JS
 		Favicon                                                             template.URL
 		Addr                                                                string
+		BeadsEnabled                                                        bool
 	}{
-		CSS:      template.CSS(assets.DeckUICSS),
-		HDDomJS:  template.JS(assets.HDDomJSInline),
-		VimJS:    template.JS(assets.VimNavJSInline),
-		AppJS:    template.JS(assets.AggregatorJS),
-		MobileJS: template.JS(assets.MobileJSInline),
-		TabsJS:   template.JS(assets.TabsJSInline),
-		SavedJS:  template.JS(assets.SavedJSInline),
-		SearchJS: template.JS(assets.SearchJSInline),
-		UsageJS:  template.JS(assets.UsageJSInline),
-		Favicon:  template.URL(assets.FaviconDataURI),
-		Addr:     statusAddr(s.cfg),
+		CSS:          template.CSS(assets.DeckUICSS),
+		HDDomJS:      template.JS(assets.HDDomJSInline),
+		VimJS:        template.JS(assets.VimNavJSInline),
+		AppJS:        template.JS(assets.AggregatorJS),
+		MobileJS:     template.JS(assets.MobileJSInline),
+		TabsJS:       template.JS(assets.TabsJSInline),
+		SavedJS:      template.JS(assets.SavedJSInline),
+		SearchJS:     template.JS(assets.SearchJSInline),
+		UsageJS:      template.JS(assets.UsageJSInline),
+		Favicon:      template.URL(assets.FaviconDataURI),
+		Addr:         statusAddr(s.cfg),
+		BeadsEnabled: s.beads != nil,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -21,6 +21,19 @@ func TestResolveBinFallback(t *testing.T) {
 	}
 }
 
+func TestValidID(t *testing.T) {
+	for _, s := range []string{"harness-deck-5ph.1", "abc_1", "tga-0iqq"} {
+		if !ValidID(s) {
+			t.Errorf("%q should be valid", s)
+		}
+	}
+	for _, s := range []string{"", "-rf", "--force", "a b", "a/b", "a;rm", "a$(x)"} {
+		if ValidID(s) {
+			t.Errorf("%q should be invalid", s)
+		}
+	}
+}
+
 func TestFlagLike(t *testing.T) {
 	for _, s := range []string{"-rf", "--force", "-1"} {
 		if !flagLike(s) {
