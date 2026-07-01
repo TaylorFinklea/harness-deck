@@ -27,6 +27,42 @@ func TestLoadReadsScanRoots(t *testing.T) {
 	}
 }
 
+// TestLoadBeadsConfig checks the opt-in beads gate parses from config.
+func TestLoadBeadsConfig(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"beads":{"enabled":true,"refresh_sec":20}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !c.Beads.Enabled || c.Beads.RefreshSec != 20 {
+		t.Errorf("Beads = %+v, want {Enabled:true RefreshSec:20}", c.Beads)
+	}
+}
+
+// TestLoadBeadsDefaultDisabled checks beads is off with no config.
+func TestLoadBeadsDefaultDisabled(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.Beads.Enabled {
+		t.Errorf("Beads.Enabled = true, want false by default")
+	}
+}
+
 // TestPathExpandsTildeInOverride checks that a HARNESS_DECK_CONFIG override
 // with a leading ~ is expanded to a home-relative path so the file is found.
 func TestPathExpandsTildeInOverride(t *testing.T) {

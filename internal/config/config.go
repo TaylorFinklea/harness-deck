@@ -56,6 +56,19 @@ type Config struct {
 	// nothing reads credentials or hits the network unless a provider is
 	// listed in Usage.Providers.
 	Usage UsageConfig `json:"usage,omitempty"`
+	// Beads gates the read-only Backlog view over `bd` (beads) issues. Opt-in:
+	// the dashboard shells `bd` and shows the view only when Beads.Enabled.
+	Beads BeadsConfig `json:"beads,omitempty"`
+}
+
+// BeadsConfig gates the read-only Backlog view. Fully opt-in: with Enabled
+// false (the default) nothing shells `bd` and the view is not registered.
+type BeadsConfig struct {
+	// Enabled turns the Backlog view on. Requires the `bd` binary on PATH.
+	Enabled bool `json:"enabled,omitempty"`
+	// RefreshSec is the poll cadence in seconds for re-reading `bd` across the
+	// discovered repos. Default 15 when <= 0.
+	RefreshSec int `json:"refresh_sec,omitempty"`
 }
 
 // UsageConfig drives the footer usage indicators. It is fully opt-in: an empty
