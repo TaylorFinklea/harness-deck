@@ -269,6 +269,35 @@ Per provider:
 
 Restart the service after changing `usage`. Verify with `GET /api/usage`.
 
+## 9. Optional: beads Backlog view
+
+The dashboard can show a read-only **Backlog** view over the [beads](https://github.com/steveyegge/beads)
+(`bd`) issue tracker — the priority-sorted ready queue, blocked items with their
+blockers, and a per-repo dependency graph, with drill-in to one issue. It is
+**opt-in** and requires the `bd` binary on `PATH` (or a common install dir).
+
+```jsonc
+"beads": {
+  "enabled": true,       // off by default; shows the Backlog view (g b / :backlog)
+  "refresh_sec": 15      // how often bd is re-read across repos (default 15)
+}
+```
+
+- **Discovery** is by a `.beads/` directory: every depth-1 child of a `scan_roots`
+  entry (plus explicit `projects`) that holds `.beads/` appears — independent of
+  the `.docs/ai` keying used by the projects view, so a repo with beads but no
+  `.docs/ai` still shows up.
+- **Never touches `.beads/` directly** (it is a binary Dolt DB); all reads go
+  through `bd … --json`.
+- **Graceful degradation:** if `bd` is not installed the view is dark and
+  `/api/beads` reports `available:false`; a repo whose `bd` calls fail is shown
+  with its error and does not sink the others.
+- Live-refreshes over SSE (a `beads` event) like the rest of the dashboard.
+- **Read-only** in this phase — no claim/close/create from the UI yet.
+
+Restart the service after changing `beads`. Verify with `GET /api/beads` and the
+`g b` view in the dashboard.
+
 ## Agent checklist
 
 - Install with Homebrew when available.

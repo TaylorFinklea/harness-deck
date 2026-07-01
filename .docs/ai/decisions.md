@@ -982,6 +982,49 @@ the stored opencode-go key, or the web session) flips the flag back on. Test
 `TestOpenCodeFeatureFlagged` pins the gate. `opencode_cookie` /
 `opencode_workspace_id` / `opencode_days` stay parseable.
 
+## 2026-06-30 — Beads Backlog viewer (Phase 1, read-only)
+
+A **Backlog** view over the `bd` (beads) issue tracker — the cockpit for the
+multi-repo beads pilot. Bead `harness-deck-5ph.1`. Spec/plan in
+`phases/beads-backlog-viewer-{spec,plan}.md`.
+
+**Live server-side view, not a report block.** Beads data is live + external, so
+it mirrors the `usage`/`agents` shape (adapter → cached snapshot → `/api/…` →
+dashboard view), not a `report.json` manifest block. The block registry has no
+precedent for server-computed content, so **no new block type and no
+`TestRegistryCrossCheck` involvement**. `internal/beads` mirrors `internal/usage`
+(a `Monitor` with its own goroutine + RWMutex snapshot) and `internal/projects`
+(discovery).
+
+**Discover by `.beads/`, not `.docs/ai`.** Greenfield repos (tga, portfolio-new)
+have `.beads/` and no `.docs/ai`, so beads discovery is independent of the
+projects view and keys on the `.beads/` dir. The pilot has grown to ~23 repos
+under `~/git`; the view sorts them by open-issue count so active repos lead.
+
+**Graph edges from structured JSON, not mermaid.** `bd dep tree --format=mermaid`
+exists, but the graph is built from `blocked --json`'s `blocked_by[]` (blocks
+edges) + `list --json`'s `parent` (parent-child) — 4 `bd` reads/repo/refresh. The
+graph is a **hand-rolled inline-SVG layered DAG** (longest-path layering) built
+client-side with `createElementNS`, colored by theme classes — keeps the
+zero-dependency rule (no mermaid lib, no npm).
+
+**Refresh cadence + SSE.** A separate `beads.Monitor` polls every `refresh_sec`
+(default 15s, not the 2s report watcher — shelling `bd` across ~23 repos is
+heavier) and broadcasts an SSE `beads` event on change; the frontend re-fetches.
+Opt-in via `beads.enabled` (default off), gated to the JS by `window.HD_BEADS` so
+a disabled deployment shows no extra tab. Drill-in (`/api/beads/{project}/{id}`)
+shells `bd show/dep/comments` on demand; the `{id}` is guarded by
+`beads.ValidID` (charset + flag-like rejection) before it reaches argv.
+
+**Two bugs caught in browser verification** (not by unit tests): (1) `List` used
+`bd list --status open`, which drops `in_progress` issues — a *claimed* issue
+rendered as a stub node in the graph; fixed to `bd list --json` minus closed. (2)
+the change fingerprint hashed `id|status|updated` only, so a **priority bump**
+(which bd doesn't stamp into `updated_at`) never fired `onChange` → no live SSE
+refresh; fixed to hash priority/title/blocked_by too. Both now have regression
+tests. Lesson: fingerprint every field the UI reflects, and verify live-refresh
+against a real external write, not just a status change.
+
 **Open follow-up (roadmap Later):** a real cloud-Zen usage source. Unknown
 whether the opencode-go api key can read account balance/usage headlessly, or
 whether that endpoint requires the web session (CodexBar's path). One

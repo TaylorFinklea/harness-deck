@@ -135,6 +135,15 @@ One line each; detail in decisions.md + git log.
   (no /opt/homebrew/bin) made `exec.LookPath` fail → "CLI not found". GoReleaser
   + CI green; installed + live-verified — `/api/usage` now returns the opencode
   budget tile on the real dashboard. decisions.md landmine note.
+- **Beads Backlog viewer — Phase 1** _(2026-06-30, branch `feat/beads-backlog-viewer`, unreleased)_
+  — read-only Backlog view over `bd` issues: `internal/beads` adapter (mirrors
+  `usage`) + `Monitor` + `/api/beads` + `/api/beads/{project}/{id}` + a 4th
+  dashboard view (`g b`) with a hand-rolled inline-SVG dependency graph +
+  drill-in, live-refreshed over an SSE `beads` event. Opt-in (`beads.enabled`),
+  discovers `.beads/` repos (independent of `.docs/ai`), stdlib-only. Bead
+  `harness-deck-5ph.1`. Browser-verified across ~23 pilot repos (2 bugs caught +
+  fixed live). decisions.md "Beads Backlog viewer"; spec/plan in
+  `phases/beads-backlog-viewer-{spec,plan}.md`. Phase 2 (actions) = `5ph.2`.
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
