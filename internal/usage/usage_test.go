@@ -128,6 +128,11 @@ func TestCodexReadsLatestRateLimits(t *testing.T) {
 	if !contains(s.Detail, "plan plus") || !contains(s.Detail, "weekly 76%") {
 		t.Errorf("detail = %q, want plan + weekly", s.Detail)
 	}
+	if len(s.Windows) != 2 ||
+		s.Windows[0].Label != "5h" || s.Windows[0].Percent != 62.5 ||
+		s.Windows[1].Label != "wk" || s.Windows[1].Percent != 76 {
+		t.Errorf("windows = %+v, want [5h 62.5, wk 76]", s.Windows)
+	}
 }
 
 func TestCodexPastResetShowsZero(t *testing.T) {
@@ -229,6 +234,11 @@ func TestClaudeUsageViaEnvToken(t *testing.T) {
 	}
 	if !contains(s.Detail, "weekly 10%") {
 		t.Errorf("detail = %q, want weekly", s.Detail)
+	}
+	if len(s.Windows) != 2 ||
+		s.Windows[0].Label != "5h" || s.Windows[0].Percent != 42 ||
+		s.Windows[1].Label != "wk" || s.Windows[1].Percent != 10 {
+		t.Errorf("windows = %+v, want [5h 42, wk 10]", s.Windows)
 	}
 }
 

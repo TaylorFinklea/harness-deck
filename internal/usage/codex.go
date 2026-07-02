@@ -84,6 +84,7 @@ func (c codexProvider) Sample(ctx context.Context) Sample {
 func codexSample(primary codexWindow, secondary *codexWindow, plan string) Sample {
 	s := Sample{OK: true, Kind: KindWindow}
 	s.Percent, s.ResetAt = windowState(primary)
+	s.Windows = []Window{{Label: "5h", Percent: *s.Percent, ResetAt: s.ResetAt}}
 
 	var detail []string
 	if plan != "" {
@@ -91,6 +92,7 @@ func codexSample(primary codexWindow, secondary *codexWindow, plan string) Sampl
 	}
 	if secondary != nil {
 		wp, wr := windowState(*secondary)
+		s.Windows = append(s.Windows, Window{Label: "wk", Percent: *wp, ResetAt: wr})
 		d := fmt.Sprintf("weekly %.0f%%", *wp)
 		if wr != "" {
 			if t, err := time.Parse(time.RFC3339, wr); err == nil {

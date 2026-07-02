@@ -40,13 +40,22 @@ const (
 // Sample is one provider's latest reading, normalized for the footer. A
 // provider with no data this cycle returns {OK: false} (Err explains why, for
 // diagnostics — it is not shown to the user).
+// Window is one rate-limit window (e.g. the 5-hour or the weekly limit),
+// surfaced structured so the footer can draw a bar per window.
+type Window struct {
+	Label   string  `json:"label"`              // short: "5h", "wk"
+	Percent float64 `json:"percent"`            // 0–100 used
+	ResetAt string  `json:"reset_at,omitempty"` // RFC3339
+}
+
 type Sample struct {
 	Tool    string   `json:"tool"`               // stable id: "codex", "claude-code", …
 	Label   string   `json:"label"`              // short footer label: "CX", "CC", …
 	OK      bool     `json:"ok"`                 // data available this cycle
 	Kind    Kind     `json:"kind,omitempty"`     // window | budget
-	Percent *float64 `json:"percent,omitempty"`  // 0–100 used (window kind)
-	ResetAt string   `json:"reset_at,omitempty"` // RFC3339 reset (window kind)
+	Percent *float64 `json:"percent,omitempty"`  // 0–100 used (window kind) — primary window
+	ResetAt string   `json:"reset_at,omitempty"` // RFC3339 reset (window kind) — primary window
+	Windows []Window `json:"windows,omitempty"`  // all rate-limit windows (5h, weekly, …) for the bar view
 	Text    string   `json:"text,omitempty"`     // short value (budget kind), e.g. "$12.30"
 	Detail  string   `json:"detail,omitempty"`   // tooltip: secondary window, plan, breakdown
 	Err     string   `json:"err,omitempty"`      // why OK is false (diagnostics only)
