@@ -14,6 +14,22 @@
     return ''; // ok: default dark-on-blue, no class
   }
 
+  // barSev picks the fill color class for a mini usage bar.
+  function barSev(p) { return p >= 90 ? 'crit' : (p >= 70 ? 'warn' : ''); }
+
+  // miniBar renders one rate-limit window as a labeled progress bar + percent,
+  // like Claude Code's /usage bars. No innerHTML: width set on the fill node.
+  function miniBar(label, pct) {
+    var p = Math.max(0, Math.min(100, pct || 0));
+    var fill = el('span', { class: 'usage-fill ' + barSev(p) });
+    fill.style.width = p + '%';
+    return el('span', { class: 'usage-win' }, [
+      el('span', { class: 'usage-win-label', text: label }),
+      el('span', { class: 'usage-bar' }, [fill]),
+      el('span', { class: 'usage-win-pct', text: Math.round(p) + '%' })
+    ]);
+  }
+
   // fmtReset turns an ISO8601 reset into a compact countdown ("3h12m", "2d").
   function fmtReset(iso) {
     if (!iso) return '';
@@ -34,11 +50,19 @@
     host.textContent = '';
     (samples || []).forEach(function (s) {
       if (!s || !s.ok) return;
-      var pctView = s.kind === 'window' && s.percent != null;
-      var val = el('span', pctView
-        ? { text: Math.round(s.percent) + '%', class: colorFor(s.percent) }
-        : { text: s.text || '' });
-      var seg = el('span', { class: 'usage-seg' }, [el('b', { text: s.label }), ' ', val]);
+      var seg;
+      if (s.kind === 'window' && s.windows && s.windows.length) {
+        // one mini bar per rate-limit window (5h, weekly, …)
+        var kids = [el('b', { text: s.label })];
+        s.windows.forEach(function (w) { kids.push(miniBar(w.label, w.percent)); });
+        seg = el('span', { class: 'usage-seg usage-seg-bars' }, kids);
+      } else {
+        var pctView = s.kind === 'window' && s.percent != null;
+        var val = el('span', pctView
+          ? { text: Math.round(s.percent) + '%', class: colorFor(s.percent) }
+          : { text: s.text || '' });
+        seg = el('span', { class: 'usage-seg' }, [el('b', { text: s.label }), ' ', val]);
+      }
 
       var tip = [];
       if (s.kind === 'window' && s.reset_at) {
