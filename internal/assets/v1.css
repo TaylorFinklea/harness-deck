@@ -515,6 +515,14 @@
   .statusline .usage-seg b { font-weight: 700; }
   .statusline .usage-warn { padding: 0 4px; border-radius: 3px; background: var(--tn-yellow); color: var(--tn-bg); }
   .statusline .usage-crit { padding: 0 4px; border-radius: 3px; background: var(--tn-red); color: #fff; }
+  .statusline .usage-seg-bars { gap: 8px; }
+  .statusline .usage-win { display: inline-flex; gap: 3px; align-items: center; }
+  .statusline .usage-win-label { color: var(--tn-comment); font-size: 10px; }
+  .statusline .usage-win-pct { font-size: 10px; }
+  .statusline .usage-bar { display: inline-block; width: 34px; height: 6px; border-radius: 3px; background: var(--tn-bg-highlight); overflow: hidden; vertical-align: middle; }
+  .statusline .usage-fill { display: block; height: 100%; background: var(--tn-green); border-radius: 3px; }
+  .statusline .usage-fill.warn { background: var(--tn-yellow); }
+  .statusline .usage-fill.crit { background: var(--tn-red); }
 
   /* ---------- keyhints in titlebar ---------- */
   .keyhints {

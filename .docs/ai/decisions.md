@@ -1060,6 +1060,18 @@ TOCTOU window remains but bd is authoritative). Reuses the existing
 Browser-verified end-to-end (create→claim→close a throwaway repo) + 403/no-affordances
 when read-only. Scope guard: no edit/reopen/delete/dep-editing (future beads).
 
+## 2026-07-02 — Usage footer: per-window bars (5h + weekly)
+
+Branch `feat/usage-weekly-bars` (off main). The footer showed one percentage per
+provider (the 5-hour window); the weekly (`seven_day`) window was fetched but only
+stringified into the tooltip. Surfaced it as **structured data** — a new
+`usage.Window{Label,Percent,ResetAt}` slice on `Sample.Windows`, populated for
+codex + claude-code (both already fetch primary + secondary windows) — and render
+a **mini progress bar per window** in `usage.js` (label + filled bar + %,
+severity-colored via CSS in v1.css). Kept `Percent`/`Detail` for backward compat +
+tooltip. Budget-kind providers (openrouter, opencode) unchanged. Chose structured
+`Windows` over client-side parsing of the display string (fragile). Browser-verified.
+
 **Open follow-up (roadmap Later):** a real cloud-Zen usage source. Unknown
 whether the opencode-go api key can read account balance/usage headlessly, or
 whether that endpoint requires the web session (CodexBar's path). One

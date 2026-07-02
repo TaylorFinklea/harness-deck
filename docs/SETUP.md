@@ -233,7 +233,10 @@ server named `harness-deck` with command `hdeck` and args `["mcp"]`, or command
 The dashboard footer can show CodexBar-style usage for AI coding tools next to
 the address. It is **opt-in**: nothing reads credentials or hits the network
 unless a provider is listed in `usage.providers`. A provider with no data or
-credential simply drops off the footer.
+credential simply drops off the footer. Window-kind providers (codex,
+claude-code) render a small progress bar per rate-limit window — the **5-hour
+and the weekly limit** — severity-colored (≥90% red, ≥70% yellow); budget-kind
+providers show a text value.
 
 ```jsonc
 "usage": {

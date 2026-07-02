@@ -2,21 +2,17 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- **Branch: `feat/beads-backlog-viewer` (off main). Beads Backlog viewer
-  Phase 1 + Phase 2 COMPLETE + browser-verified.** Beads `harness-deck-5ph.1`
-  (Phase 1, read-only) + `5ph.2` (Phase 2, actions). `internal/beads`
-  adapter+Monitor (mirrors `usage`), `/api/beads` (+ `{id}` drill-in +
-  claim/close/create POSTs), 4th dashboard view (`g b`) with inline-SVG dep graph
-  + drill-in + actions, live SSE. Two flags: `beads.enabled` (view) +
-  `beads.writable` (mutations, default off; 403 + no affordances when off).
-  Discovers `.beads/` repos (~23 under ~/git). TDD; `go build`/`go test ./...`
-  green, gofmt clean, `go.mod` unchanged. P1: 2 bugs caught+fixed in verify. P2:
-  create→claim→close browser-verified in a throwaway repo. decisions.md "Beads
-  Backlog viewer" + "Beads actions"; specs/plans `phases/beads-{backlog-viewer,actions}-*`.
-  **Not merged, not released.**
-- _(below reflects main's baseline; the herdr branch carries newer state)_ Branch:
-  main. **opencode usage tile DROPPED behind a feature flag** (uncommitted
-  → needs v0.2.12). Live verify of v0.2.11 showed the tile reads $0.00 because
+- **v0.2.13 (releasing now, on `main`): beads Backlog viewer (Phase 1+2) + usage
+  per-window bars — both MERGED + browser-verified.** Beads `5ph.1`/`5ph.2`/epic
+  `5ph` closed. `internal/beads` adapter+Monitor, `/api/beads` (+ `{id}` drill-in +
+  claim/close/create POSTs), 4th view (`g b`) with inline-SVG dep graph + drill-in +
+  actions, live SSE; two flags `beads.enabled`/`beads.writable` (both default off).
+  Usage footer: `Sample.Windows` (5h+wk) → mini bar per window for codex/claude-code.
+  TDD + adversarial review (beads: 4 review findings fixed); build/test/gofmt green,
+  `go.mod` unchanged. decisions.md "Beads Backlog viewer" + "Beads actions" +
+  "Usage footer: per-window bars".
+- **opencode usage tile DROPPED behind a feature flag** (shipped v0.2.12).
+  Live verify of v0.2.11 showed the tile reads $0.00 because
   `opencode stats` only sees local TUI sessions (4, newest Feb 6); real spend is
   the opencode-go/Zen **cloud** plan (orchestra/pi), invisible to local CLI +
   account-scoped on opencode.ai. Decision: footer = codex + claude-code only;
@@ -24,7 +20,7 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   future cloud-Zen source. New `Options.OpenCodeEnabled`; `Build` opencode case
   gated; `TestOpenCodeFeatureFlagged` pins it. decisions.md "opencode usage tile
   disabled"; roadmap Later "opencode usage tile — needs a cloud-Zen source".
-  Build/test/vet green. **NOT yet committed/released.**
+  Build/test/vet green. Shipped in v0.2.12.
 - **v0.2.11 released + installed + live-verified 2026-06-28** — launchd-PATH fix
   (`e977d7e`: `opencodeBin()` probes install dirs) for the opencode tile, closing
   the v0.2.10 "CLI not found" regression. The PATH fix is correct; the tile's $0
@@ -51,9 +47,8 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Plan
 
-- Beads Backlog viewer Phase 1 + Phase 2 — DONE (TDD + adversarial review).
-  Beads `5ph.1` + `5ph.2` closed. **Next:** usage-footer weekly-limit bars
-  (separate feature, own branch off main). Then `bd ready`.
+- Beads viewer (P1+P2) + usage per-window bars — DONE + merged to main.
+  **Cutting v0.2.13** (tag → GoReleaser → tap → `brew upgrade`). Then `bd ready`.
 
 ## Blockers
 
@@ -65,10 +60,8 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- **Review + merge `feat/beads-backlog-viewer`** (Phase 1 + 2, ~15 commits off
-  main; build/test green, browser-verified). To use after merge: set
-  `beads.enabled: true` (+ `beads.writable: true` for actions), ensure `bd` on
-  PATH, restart → `g b`.
-- Cut **v0.2.12** to ship the opencode-tile feature-flag drop (commit pending).
-  After release: upgrade + restart, confirm `/api/usage` shows only codex +
-  claude-code (no opencode).
+- **v0.2.13 release** (in progress): beads viewer + usage bars merged to main.
+  After GoReleaser + tap land: `brew upgrade` → restart the LaunchAgent →
+  hard-reload the PWA (service worker may cache the old shell). Usage bars appear
+  automatically; the beads Backlog view needs `beads.enabled: true`
+  (+ `beads.writable: true` for actions) added to `~/.config/harness-deck/config.json`.

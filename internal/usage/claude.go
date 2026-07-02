@@ -61,10 +61,13 @@ func (c claudeProvider) Sample(ctx context.Context) Sample {
 	s := Sample{OK: true, Kind: KindWindow}
 	s.Percent = pct(r.FiveHour.Utilization)
 	s.ResetAt = normalizeReset(r.FiveHour.ResetsAt)
+	s.Windows = []Window{{Label: "5h", Percent: *s.Percent, ResetAt: s.ResetAt}}
 	if r.SevenDay != nil {
+		wr := normalizeReset(r.SevenDay.ResetsAt)
+		s.Windows = append(s.Windows, Window{Label: "wk", Percent: *pct(r.SevenDay.Utilization), ResetAt: wr})
 		d := fmt.Sprintf("weekly %.0f%%", r.SevenDay.Utilization)
-		if t := normalizeReset(r.SevenDay.ResetsAt); t != "" {
-			if pt, e := time.Parse(time.RFC3339, t); e == nil {
+		if wr != "" {
+			if pt, e := time.Parse(time.RFC3339, wr); e == nil {
 				d += " · resets " + pt.Local().Format("Mon 15:04")
 			}
 		}
