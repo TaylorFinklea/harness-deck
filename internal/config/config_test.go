@@ -45,6 +45,23 @@ func TestLoadBeadsConfig(t *testing.T) {
 	}
 }
 
+// TestLoadBeadsWritable checks the separate write gate parses.
+func TestLoadBeadsWritable(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"beads":{"enabled":true,"writable":true}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !c.Beads.Writable {
+		t.Errorf("Beads.Writable = false, want true")
+	}
+}
+
 // TestLoadBeadsDefaultDisabled checks beads is off with no config.
 func TestLoadBeadsDefaultDisabled(t *testing.T) {
 	dir := t.TempDir()

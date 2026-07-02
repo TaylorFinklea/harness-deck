@@ -34,6 +34,29 @@ func TestValidID(t *testing.T) {
 	}
 }
 
+func TestValidTypeAndPriority(t *testing.T) {
+	for _, ty := range []string{"bug", "feature", "task", "epic", "chore"} {
+		if !ValidType(ty) {
+			t.Errorf("%q should be a valid type", ty)
+		}
+	}
+	for _, ty := range []string{"", "epi", "event", "Task", "-x"} {
+		if ValidType(ty) {
+			t.Errorf("%q should be invalid type", ty)
+		}
+	}
+	for _, p := range []string{"0", "1", "2", "3", "4"} {
+		if !ValidPriority(p) {
+			t.Errorf("%q should be valid priority", p)
+		}
+	}
+	for _, p := range []string{"", "5", "-1", "P2", "10"} {
+		if ValidPriority(p) {
+			t.Errorf("%q should be invalid priority", p)
+		}
+	}
+}
+
 func TestFlagLike(t *testing.T) {
 	for _, s := range []string{"-rf", "--force", "-1"} {
 		if !flagLike(s) {

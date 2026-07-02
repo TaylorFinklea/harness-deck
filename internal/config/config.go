@@ -69,6 +69,10 @@ type BeadsConfig struct {
 	// RefreshSec is the poll cadence in seconds for re-reading `bd` across the
 	// discovered repos. Default 15 when <= 0.
 	RefreshSec int `json:"refresh_sec,omitempty"`
+	// Writable enables mutations (claim/close/create) from the Backlog view.
+	// Off by default so the view stays read-only even when Enabled. Restart to
+	// apply.
+	Writable bool `json:"writable,omitempty"`
 }
 
 // UsageConfig drives the footer usage indicators. It is fully opt-in: an empty

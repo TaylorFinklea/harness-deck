@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
@@ -15,8 +16,12 @@ import (
 const callTimeout = 10 * time.Second
 
 // Client shells the resolved bd binary. All reads go through it; the .beads/
-// directory is never touched directly.
-type Client struct{ bin string }
+// directory is never touched directly. writeMu serializes mutations because
+// bd's embedded Dolt is single-writer per repo; reads stay unlocked.
+type Client struct {
+	bin     string
+	writeMu sync.Mutex
+}
 
 // New resolves the bd binary. ok is false when bd is not installed, in which
 // case the beads feature stays dark (graceful degradation).
@@ -180,6 +185,59 @@ func (c *Client) Comments(ctx context.Context, root, id string) (string, error) 
 	}
 	b, err := c.run(ctx, root, "comments", id)
 	return string(b), err
+}
+
+// --- writes (mutations). Serialized by writeMu for Dolt's single-writer DB. ---
+
+var beadTypes = map[string]bool{"bug": true, "feature": true, "task": true, "epic": true, "chore": true}
+
+// ValidType reports whether t is a bd issue type accepted by create.
+func ValidType(t string) bool { return beadTypes[t] }
+
+// ValidPriority reports whether p is a single digit 0..4.
+func ValidPriority(p string) bool { return len(p) == 1 && p[0] >= '0' && p[0] <= '4' }
+
+// Claim sets the issue in_progress + assigned to the caller (bd --claim is
+// idempotent).
+func (c *Client) Claim(ctx context.Context, root, id string) error {
+	if !ValidID(id) {
+		return os.ErrInvalid
+	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	_, err := c.run(ctx, root, "update", id, "--claim")
+	return err
+}
+
+// Close closes the issue, recording an optional reason.
+func (c *Client) Close(ctx context.Context, root, id, reason string) error {
+	if !ValidID(id) {
+		return os.ErrInvalid
+	}
+	args := []string{"close", id}
+	if reason != "" {
+		args = append(args, "--reason="+reason)
+	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	_, err := c.run(ctx, root, args...)
+	return err
+}
+
+// Create makes a new issue and returns its id. bd --silent prints only the id,
+// so all values pass as --flag=value (equals form, argv-safe under exec.Command).
+func (c *Client) Create(ctx context.Context, root, title, itype, priority, description string) (string, error) {
+	args := []string{"create", "--silent", "--title=" + title, "--type=" + itype, "--priority=" + priority}
+	if description != "" {
+		args = append(args, "--description="+description)
+	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	out, err := c.run(ctx, root, args...)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // Repo is a discovered beads-enabled repository root.
