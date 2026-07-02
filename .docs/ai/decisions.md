@@ -1025,6 +1025,41 @@ refresh; fixed to hash priority/title/blocked_by too. Both now have regression
 tests. Lesson: fingerprint every field the UI reflects, and verify live-refresh
 against a real external write, not just a status change.
 
+## 2026-07-02 — Beads actions (Phase 2: claim / close / create)
+
+Mutating actions on the Backlog view. Bead `harness-deck-5ph.2`. Spec/plan in
+`phases/beads-actions-{spec,plan}.md`.
+
+**Two-flag gate (`beads.writable`, default false), separate from `beads.enabled`.**
+A read-only cockpit stays read-only unless writes are explicitly opted in — no
+accidental close from a phone tap, and the view is safe to expose. Enforced
+server-side (403 on every write endpoint), independent of the `HD_BEADS_WRITABLE`
+JS flag (which is UX only). Chosen over reusing `beads.enabled` (which the bead
+hinted at) because mutating the pilot DBs warrants an explicit second switch.
+
+**Argv safety via `--flag=value` equals form.** `exec.Command` runs bd with no
+shell, so the only risk is flag-smuggling; the equals form binds a value even if
+it starts with `-`. `id` guarded by `ValidID`; `type`/`priority` are closed enums
+(`ValidType`/`ValidPriority`); title required. `bd create --silent` returns just
+the new id (no output parsing). No positional user input.
+
+**Write mutex on `beads.Client`.** bd's embedded Dolt is single-writer per repo;
+a `sync.Mutex` serializes Claim/Close/Create. Reads (the Monitor) stay unlocked —
+writes are user-paced, so a global write lock is enough (per-repo RWMutex deferred
+as YAGNI).
+
+**Freshness: `Monitor.RefreshNow`.** A write handler forces an immediate re-read +
+`OnChange` (SSE `beads`) so the mutation shows in ~1s instead of ≤`refresh_sec`.
+The frontend also fires a `hd:beads-refresh` DOM event as belt-and-suspenders.
+
+**Status re-check (409).** Claim/Close re-`Show` the issue and 409 if already
+closed — mirrors herdr's re-check-before-send; narrows acting on a stale UI (a
+TOCTOU window remains but bd is authoritative). Reuses the existing
+`beadsDetailer.Show` rather than duplicating it on the mutator interface.
+
+Browser-verified end-to-end (create→claim→close a throwaway repo) + 403/no-affordances
+when read-only. Scope guard: no edit/reopen/delete/dep-editing (future beads).
+
 **Open follow-up (roadmap Later):** a real cloud-Zen usage source. Unknown
 whether the opencode-go api key can read account balance/usage headlessly, or
 whether that endpoint requires the web session (CodexBar's path). One

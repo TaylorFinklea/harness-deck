@@ -2,16 +2,18 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- **Branch: `feat/beads-backlog-viewer` (off main). Beads Backlog viewer Phase 1
-  COMPLETE + browser-verified 2026-06-30** — bead `harness-deck-5ph.1`. `internal/beads`
-  adapter+Monitor (mirrors `usage`), `/api/beads` + `/api/beads/{project}/{id}`,
-  4th dashboard view (`g b`) with inline-SVG dep graph + drill-in, live SSE
-  (`beads` event), opt-in `beads.enabled`. Discovers `.beads/` repos (found ~23
-  under ~/git). 9 commits, TDD; `go build`/`go test ./...` green, gofmt clean,
-  `go.mod` unchanged. 2 bugs caught in browser-verify + fixed (List dropped
-  in_progress; fingerprint missed priority → no live refresh). decisions.md
-  "Beads Backlog viewer"; spec/plan in `phases/beads-backlog-viewer-{spec,plan}.md`.
-  **Not merged, not released.** Phase 2 (actions) = bead `5ph.2`.
+- **Branch: `feat/beads-backlog-viewer` (off main). Beads Backlog viewer
+  Phase 1 + Phase 2 COMPLETE + browser-verified.** Beads `harness-deck-5ph.1`
+  (Phase 1, read-only) + `5ph.2` (Phase 2, actions). `internal/beads`
+  adapter+Monitor (mirrors `usage`), `/api/beads` (+ `{id}` drill-in +
+  claim/close/create POSTs), 4th dashboard view (`g b`) with inline-SVG dep graph
+  + drill-in + actions, live SSE. Two flags: `beads.enabled` (view) +
+  `beads.writable` (mutations, default off; 403 + no affordances when off).
+  Discovers `.beads/` repos (~23 under ~/git). TDD; `go build`/`go test ./...`
+  green, gofmt clean, `go.mod` unchanged. P1: 2 bugs caught+fixed in verify. P2:
+  create→claim→close browser-verified in a throwaway repo. decisions.md "Beads
+  Backlog viewer" + "Beads actions"; specs/plans `phases/beads-{backlog-viewer,actions}-*`.
+  **Not merged, not released.**
 - _(below reflects main's baseline; the herdr branch carries newer state)_ Branch:
   main. **opencode usage tile DROPPED behind a feature flag** (uncommitted
   → needs v0.2.12). Live verify of v0.2.11 showed the tile reads $0.00 because
@@ -49,8 +51,9 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Plan
 
-- Beads Backlog viewer Phase 1 — DONE (7 TDD tasks + adversarial review). Bead
-  `harness-deck-5ph.1` closed. Next backlog work → `bd ready`.
+- Beads Backlog viewer Phase 1 + Phase 2 — DONE (TDD + adversarial review).
+  Beads `5ph.1` + `5ph.2` closed. **Next:** usage-footer weekly-limit bars
+  (separate feature, own branch off main). Then `bd ready`.
 
 ## Blockers
 
@@ -62,9 +65,10 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- **Review + merge `feat/beads-backlog-viewer`** (9 commits off main; build/test
-  green, browser-verified across ~23 pilot repos). To use after merge: set
-  `beads.enabled: true` in config, ensure `bd` is on PATH, restart → `g b`.
+- **Review + merge `feat/beads-backlog-viewer`** (Phase 1 + 2, ~15 commits off
+  main; build/test green, browser-verified). To use after merge: set
+  `beads.enabled: true` (+ `beads.writable: true` for actions), ensure `bd` on
+  PATH, restart → `g b`.
 - Cut **v0.2.12** to ship the opencode-tile feature-flag drop (commit pending).
   After release: upgrade + restart, confirm `/api/usage` shows only codex +
   claude-code (no opencode).

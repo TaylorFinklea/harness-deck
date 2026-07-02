@@ -144,6 +144,14 @@ One line each; detail in decisions.md + git log.
   `harness-deck-5ph.1`. Browser-verified across ~23 pilot repos (2 bugs caught +
   fixed live). decisions.md "Beads Backlog viewer"; spec/plan in
   `phases/beads-backlog-viewer-{spec,plan}.md`. Phase 2 (actions) = `5ph.2`.
+- **Beads Backlog viewer — Phase 2 (actions)** _(2026-07-02, same branch, unreleased)_
+  — claim/close/create from the UI behind a separate `beads.writable` flag
+  (default false; read-only stays the default). Three `POST /api/beads/...`
+  endpoints (argv equals-form, write mutex for Dolt, status re-check→409,
+  immediate RefreshNow+SSE); detail-panel Claim/Close + `+ new` create form +
+  keys `c`/`x`/`n`, all gated by `HD_BEADS_WRITABLE`. Bead `harness-deck-5ph.2`.
+  Browser-verified create→claim→close + 403-when-read-only. decisions.md "Beads
+  actions"; spec/plan `phases/beads-actions-{spec,plan}.md`.
 
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 

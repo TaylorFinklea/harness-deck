@@ -279,6 +279,7 @@ blockers, and a per-repo dependency graph, with drill-in to one issue. It is
 ```jsonc
 "beads": {
   "enabled": true,       // off by default; shows the Backlog view (g b / :backlog)
+  "writable": false,     // off by default; required to claim/close/create from the UI
   "refresh_sec": 15      // how often bd is re-read across repos (default 15)
 }
 ```
@@ -293,7 +294,11 @@ blockers, and a per-repo dependency graph, with drill-in to one issue. It is
   `/api/beads` reports `available:false`; a repo whose `bd` calls fail is shown
   with its error and does not sink the others.
 - Live-refreshes over SSE (a `beads` event) like the rest of the dashboard.
-- **Read-only** in this phase — no claim/close/create from the UI yet.
+- **Actions are opt-in** via `beads.writable` (default false). With it off the
+  view is strictly read-only — no action buttons render and the write endpoints
+  return 403, so it's safe to browse from a phone. With it on, the drill-in panel
+  gains Claim + Close (with a reason) and each repo card a `+ new` create form;
+  keyboard `c`/`x`/`n` on the focused row. Restart to apply a `writable` change.
 
 Restart the service after changing `beads`. Verify with `GET /api/beads` and the
 `g b` view in the dashboard.
