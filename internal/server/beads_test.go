@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -148,5 +149,158 @@ func TestHandleBeadsIssueOK(t *testing.T) {
 		if _, ok := got[k]; !ok {
 			t.Errorf("missing key %q in %s", k, rr.Body)
 		}
+	}
+}
+
+// fakeBeadsRW satisfies both beadsDetailer (Show for the re-check) and beadsMutator.
+type fakeBeadsRW struct {
+	issue     beads.Issue
+	showErr   error
+	claimErr  error
+	closeErr  error
+	createID  string
+	createErr error
+	closedIDs []string
+	claimed   int
+}
+
+func (f *fakeBeadsRW) Show(context.Context, string, string) (beads.Issue, error) {
+	return f.issue, f.showErr
+}
+func (f *fakeBeadsRW) DepList(context.Context, string, string) (string, error) { return "", nil }
+func (f *fakeBeadsRW) DepTree(context.Context, string, string, string) (string, error) {
+	return "", nil
+}
+func (f *fakeBeadsRW) Comments(context.Context, string, string) (string, error) { return "", nil }
+func (f *fakeBeadsRW) Claim(context.Context, string, string) error {
+	f.claimed++
+	return f.claimErr
+}
+func (f *fakeBeadsRW) Close(_ context.Context, _, id, _ string) error {
+	f.closedIDs = append(f.closedIDs, id)
+	return f.closeErr
+}
+func (f *fakeBeadsRW) Create(context.Context, string, string, string, string, string) (string, error) {
+	return f.createID, f.createErr
+}
+
+func newRWServer(t *testing.T, f *fakeBeadsRW, writable bool) *Server {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "myrepo", ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return &Server{
+		cfg:         config.Config{ScanRoots: []string{root}, Beads: config.BeadsConfig{Enabled: true, Writable: writable}},
+		beadsClient: f, beadsMutator: f, hub: newHub(),
+	}
+}
+
+func TestClaimHappyPath(t *testing.T) {
+	f := &fakeBeadsRW{issue: beads.Issue{ID: "myrepo-a", Status: "open"}}
+	s := newRWServer(t, f, true)
+	rr := httptest.NewRecorder()
+	s.handleBeadsClaim(rr, beadsIssueReq("myrepo", "myrepo-a"))
+	if rr.Code != 200 {
+		t.Fatalf("want 200, got %d (%s)", rr.Code, rr.Body)
+	}
+	if f.claimed != 1 {
+		t.Errorf("Claim not called")
+	}
+}
+
+func TestClaimForbiddenWhenNotWritable(t *testing.T) {
+	f := &fakeBeadsRW{issue: beads.Issue{ID: "myrepo-a", Status: "open"}}
+	s := newRWServer(t, f, false)
+	rr := httptest.NewRecorder()
+	s.handleBeadsClaim(rr, beadsIssueReq("myrepo", "myrepo-a"))
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("want 403, got %d", rr.Code)
+	}
+	if f.claimed != 0 {
+		t.Errorf("must not mutate when not writable")
+	}
+}
+
+func TestClaimDisabled503(t *testing.T) {
+	s := &Server{cfg: config.Config{Beads: config.BeadsConfig{Enabled: false}}, hub: newHub()}
+	rr := httptest.NewRecorder()
+	s.handleBeadsClaim(rr, beadsIssueReq("myrepo", "myrepo-a"))
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("want 503, got %d", rr.Code)
+	}
+}
+
+func TestCloseAlreadyClosed409(t *testing.T) {
+	f := &fakeBeadsRW{issue: beads.Issue{ID: "myrepo-a", Status: "closed"}}
+	s := newRWServer(t, f, true)
+	rr := httptest.NewRecorder()
+	req := beadsIssueReq("myrepo", "myrepo-a")
+	req.Body = io.NopCloser(strings.NewReader(`{"reason":"done"}`))
+	s.handleBeadsClose(rr, req)
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("want 409, got %d", rr.Code)
+	}
+	if len(f.closedIDs) != 0 {
+		t.Errorf("must not Close an already-closed issue")
+	}
+}
+
+func TestCloseHappyPath(t *testing.T) {
+	f := &fakeBeadsRW{issue: beads.Issue{ID: "myrepo-a", Status: "open"}}
+	s := newRWServer(t, f, true)
+	rr := httptest.NewRecorder()
+	req := beadsIssueReq("myrepo", "myrepo-a")
+	req.Body = io.NopCloser(strings.NewReader(`{"reason":"shipped"}`))
+	s.handleBeadsClose(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("want 200, got %d (%s)", rr.Code, rr.Body)
+	}
+	if len(f.closedIDs) != 1 {
+		t.Errorf("Close not called")
+	}
+}
+
+func createReq(project, body string) *http.Request {
+	r := httptest.NewRequest("POST", "/api/beads/"+project+"/create", strings.NewReader(body))
+	r.SetPathValue("project", project)
+	return r
+}
+
+func TestCreateValidatesInput(t *testing.T) {
+	f := &fakeBeadsRW{createID: "myrepo-new"}
+	s := newRWServer(t, f, true)
+	// bad type
+	rr := httptest.NewRecorder()
+	s.handleBeadsCreate(rr, createReq("myrepo", `{"title":"x","type":"nope","priority":"2"}`))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("bad type want 400, got %d", rr.Code)
+	}
+	// bad priority
+	rr = httptest.NewRecorder()
+	s.handleBeadsCreate(rr, createReq("myrepo", `{"title":"x","type":"task","priority":"9"}`))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("bad priority want 400, got %d", rr.Code)
+	}
+	// empty title
+	rr = httptest.NewRecorder()
+	s.handleBeadsCreate(rr, createReq("myrepo", `{"title":"  ","type":"task","priority":"2"}`))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("empty title want 400, got %d", rr.Code)
+	}
+	// happy path returns id
+	rr = httptest.NewRecorder()
+	s.handleBeadsCreate(rr, createReq("myrepo", `{"title":"hi","type":"task","priority":"2"}`))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "myrepo-new") {
+		t.Fatalf("want 200 + id, got %d %s", rr.Code, rr.Body)
+	}
+}
+
+func TestCreateForbiddenWhenNotWritable(t *testing.T) {
+	s := newRWServer(t, &fakeBeadsRW{}, false)
+	rr := httptest.NewRecorder()
+	s.handleBeadsCreate(rr, createReq("myrepo", `{"title":"hi","type":"task","priority":"2"}`))
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("want 403, got %d", rr.Code)
 	}
 }

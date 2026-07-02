@@ -61,6 +61,7 @@ type Server struct {
 	beads        beadsSource
 	beadsMonitor *beads.Monitor
 	beadsClient  beadsDetailer
+	beadsMutator beadsMutator // write surface (claim/close/create); nil unless enabled+found
 
 	// docCache memoizes rendered project markdown (roadmap.md / current-state.md)
 	// keyed by file path, invalidated by mtime, so /api/projects doesn't
@@ -129,6 +130,7 @@ func New(cfg config.Config) (*Server, error) {
 	if cfg.Beads.Enabled {
 		if bc, ok := beads.New(); ok {
 			s.beadsClient = bc
+			s.beadsMutator = bc
 			repos := func() []beads.Repo { return beads.Discover(s.cfg.ScanRoots, s.cfg.Projects) }
 			s.beadsMonitor = beads.NewMonitor(bc, repos,
 				time.Duration(cfg.Beads.RefreshSec)*time.Second,
@@ -159,6 +161,9 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /api/usage", s.handleUsage)
 	mux.HandleFunc("GET /api/beads", s.handleBeads)
 	mux.HandleFunc("GET /api/beads/{project}/{id}", s.handleBeadsIssue)
+	mux.HandleFunc("POST /api/beads/{project}/{id}/claim", s.handleBeadsClaim)
+	mux.HandleFunc("POST /api/beads/{project}/{id}/close", s.handleBeadsClose)
+	mux.HandleFunc("POST /api/beads/{project}/create", s.handleBeadsCreate)
 	mux.HandleFunc("GET /api/push/vapid-key", s.handleVAPIDKey)
 	mux.HandleFunc("GET /api/push/status", s.handlePushStatus)
 	mux.HandleFunc("POST /api/push/subscribe", s.handlePushSubscribe)
@@ -278,19 +283,21 @@ func (s *Server) handleShell(w http.ResponseWriter, _ *http.Request) {
 		Favicon                                                             template.URL
 		Addr                                                                string
 		BeadsEnabled                                                        bool
+		BeadsWritable                                                       bool
 	}{
-		CSS:          template.CSS(assets.DeckUICSS),
-		HDDomJS:      template.JS(assets.HDDomJSInline),
-		VimJS:        template.JS(assets.VimNavJSInline),
-		AppJS:        template.JS(assets.AggregatorJS),
-		MobileJS:     template.JS(assets.MobileJSInline),
-		TabsJS:       template.JS(assets.TabsJSInline),
-		SavedJS:      template.JS(assets.SavedJSInline),
-		SearchJS:     template.JS(assets.SearchJSInline),
-		UsageJS:      template.JS(assets.UsageJSInline),
-		Favicon:      template.URL(assets.FaviconDataURI),
-		Addr:         statusAddr(s.cfg),
-		BeadsEnabled: s.beads != nil,
+		CSS:           template.CSS(assets.DeckUICSS),
+		HDDomJS:       template.JS(assets.HDDomJSInline),
+		VimJS:         template.JS(assets.VimNavJSInline),
+		AppJS:         template.JS(assets.AggregatorJS),
+		MobileJS:      template.JS(assets.MobileJSInline),
+		TabsJS:        template.JS(assets.TabsJSInline),
+		SavedJS:       template.JS(assets.SavedJSInline),
+		SearchJS:      template.JS(assets.SearchJSInline),
+		UsageJS:       template.JS(assets.UsageJSInline),
+		Favicon:       template.URL(assets.FaviconDataURI),
+		Addr:          statusAddr(s.cfg),
+		BeadsEnabled:  s.beads != nil,
+		BeadsWritable: s.beads != nil && s.cfg.Beads.Writable,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

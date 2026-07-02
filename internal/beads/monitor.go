@@ -117,6 +117,15 @@ func (m *Monitor) fetchRepo(ctx context.Context, r Repo) RepoSnapshot {
 	return rs
 }
 
+// RefreshNow forces an immediate refresh so a mutation shows without waiting for
+// the next tick. Safe on a nil Monitor.
+func (m *Monitor) RefreshNow(ctx context.Context) {
+	if m == nil {
+		return
+	}
+	m.refreshOnce(ctx)
+}
+
 // Snapshot returns the cached snapshot. Safe on a nil Monitor (empty snapshot).
 func (m *Monitor) Snapshot() Snapshot {
 	if m == nil {
