@@ -75,6 +75,9 @@ window.HDBacklog = (function () {
       el('span', { class: 'bk-c', text: 'blocked ' + (c.blocked || 0) }),
       el('span', { class: 'bk-c', text: 'open ' + (c.open || 0) })
     ]);
+    if (window.HD_BEADS_WRITABLE) {
+      header.appendChild(el('button', { class: 'bk-newbtn', title: 'new issue (n)', 'data-bknew': repo.name }, ['+ new']));
+    }
     if (repo.err) {
       return el('section', { class: 'panel bk-card' }, [
         header, el('div', { class: 'bk-carderr', text: 'bd error: ' + repo.err })
@@ -299,6 +302,22 @@ window.HDBacklog = (function () {
     ]);
   }
 
+  // detailActions builds the writable Claim/Close controls for an open issue.
+  function detailActions(issue) {
+    if (!writable() || !state.detail || issue.status === 'closed') return null;
+    var reason = el('input', { class: 'bk-reason', type: 'text', placeholder: 'close reason (optional)' });
+    reason.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); closeIssue(state.detail.project, state.detail.id, reason.value); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); reason.blur(); closeDetail(); }
+    });
+    return el('div', { class: 'bk-actions' }, [
+      el('button', { class: 'bk-btn', 'data-bkact': 'claim' }, ['claim']),
+      reason,
+      el('button', { class: 'bk-btn bk-btn-danger', 'data-bkact': 'close' }, ['close']),
+      el('span', { class: 'bk-err', id: 'bk-detail-err' })
+    ]);
+  }
+
   function paintDetail() {
     var host = document.getElementById('view-backlog');
     if (!host || !state.detail) return;
@@ -311,6 +330,7 @@ window.HDBacklog = (function () {
         el('button', { class: 'bk-x', title: 'close (Esc)', 'data-bkclose': '1' }, ['✕'])
       ]),
       el('div', { class: 'bk-detail-meta', text: [issue.status, issue.issue_type, issue.owner].filter(Boolean).join(' · ') }),
+      detailActions(issue),
       issue.description ? el('div', { class: 'bk-detail-desc', text: issue.description }) : null,
       detailBlock('blocked by', d.blockers),
       detailBlock('dependents', d.dependents),
@@ -339,8 +359,103 @@ window.HDBacklog = (function () {
     if (state.detail) paintDetail();
   }
 
-  // mouse: click a row → open its detail; click ✕ → close.
+  // --- actions (Phase 2, writable only). The server broadcasts 'beads' after a
+  // write so the lists refresh via the core SSE listener; we also fire a
+  // hd:beads-refresh event as a belt-and-suspenders immediate refresh. ---
+  function writable() { return !!window.HD_BEADS_WRITABLE; }
+  function enc(s) { return encodeURIComponent(s); }
+  function triggerRefresh() { document.dispatchEvent(new CustomEvent('hd:beads-refresh')); }
+
+  function postAction(url, body, onOk, onErr) {
+    fetch(url, {
+      method: 'POST',
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store'
+    }).then(function (r) {
+      if (r.ok) { r.json().then(function (j) { if (onOk) onOk(j || {}); }).catch(function () { if (onOk) onOk({}); }); return; }
+      r.text().then(function (t) { if (onErr) onErr((t || '').trim() || ('HTTP ' + r.status)); });
+    }).catch(function (e) { if (onErr) onErr(String(e)); });
+  }
+
+  function detailErr(msg) { var e = document.getElementById('bk-detail-err'); if (e) e.textContent = msg; }
+
+  function claim(project, id) {
+    postAction('/api/beads/' + enc(project) + '/' + enc(id) + '/claim', null,
+      function () { triggerRefresh(); detail(project, id); }, detailErr);
+  }
+  function closeIssue(project, id, reason) {
+    postAction('/api/beads/' + enc(project) + '/' + enc(id) + '/close', { reason: reason || '' },
+      function () { closeDetail(); triggerRefresh(); }, detailErr);
+  }
+  function createIssue(project, fields, onOk, onErr) {
+    postAction('/api/beads/' + enc(project) + '/create', fields, onOk, onErr);
+  }
+
+  // --- create form ---
+  function fieldRow(label, control) {
+    return el('label', { class: 'bk-frow' }, [el('span', { class: 'bk-flabel', text: label }), control]);
+  }
+  function openCreate(project) {
+    if (!writable()) return;
+    var old = document.getElementById('bk-form'); if (old) old.remove();
+    var title = el('input', { class: 'bk-fi', id: 'bk-form-title', type: 'text', placeholder: 'title' });
+    var type = el('select', { class: 'bk-fs', id: 'bk-form-type' },
+      ['task', 'feature', 'bug', 'chore', 'epic'].map(function (t) { return el('option', { value: t }, [t]); }));
+    var prio = el('select', { class: 'bk-fs', id: 'bk-form-prio' },
+      ['0', '1', '2', '3', '4'].map(function (p) { return el('option', { value: p }, ['P' + p]); }));
+    var desc = el('textarea', { class: 'bk-ft', id: 'bk-form-desc', placeholder: 'description (optional)', rows: '3' });
+    var panel = el('section', { class: 'panel bk-form', id: 'bk-form' }, [
+      el('div', { class: 'bk-detail-head' }, [
+        el('span', { class: 'bk-detail-title', text: 'new issue · ' + project }),
+        el('button', { class: 'bk-x', title: 'cancel (Esc)', 'data-bkact': 'create-cancel' }, ['✕'])
+      ]),
+      fieldRow('title', title), fieldRow('type', type), fieldRow('priority', prio), fieldRow('description', desc),
+      el('div', { class: 'bk-actions' }, [
+        el('button', { class: 'bk-btn', 'data-bkact': 'create-submit', 'data-project': project }, ['create']),
+        el('span', { class: 'bk-err', id: 'bk-form-err' })
+      ])
+    ]);
+    var host = document.getElementById('view-backlog');
+    if (!host) return;
+    host.insertBefore(panel, host.firstChild);
+    prio.value = '2';
+    title.focus();
+  }
+  function submitCreate(project) {
+    var val = function (id) { var n = document.getElementById(id); return n ? n.value : ''; };
+    createIssue(project, {
+      title: val('bk-form-title'), type: val('bk-form-type') || 'task',
+      priority: val('bk-form-prio') || '2', description: val('bk-form-desc')
+    }, function () { var f = document.getElementById('bk-form'); if (f) f.remove(); triggerRefresh(); },
+      function (msg) { var e = document.getElementById('bk-form-err'); if (e) e.textContent = msg; });
+  }
+
+  // keyboard-exposed actions (act on the focused row)
+  function claimFocused() { var r = focusedRow(); if (r && writable()) claim(r.project, r.id); }
+  function closeFocused() {
+    var r = focusedRow();
+    if (!r || !writable()) return;
+    detail(r.project, r.id); // open detail so a reason can be typed; Enter submits
+    setTimeout(function () { var ri = document.querySelector('#bk-detail .bk-reason'); if (ri) ri.focus(); }, 350);
+  }
+  function newFocusedRepo() { var r = focusedRow(); if (r && writable()) openCreate(r.project); }
+
+  // mouse: row → detail; ✕ → close; action buttons → claim/close/create.
   document.addEventListener('click', function (e) {
+    var actBtn = e.target.closest('[data-bkact]');
+    if (actBtn) {
+      var act = actBtn.dataset.bkact;
+      if (act === 'claim' && state.detail) { claim(state.detail.project, state.detail.id); return; }
+      if (act === 'close' && state.detail) {
+        var ri = document.querySelector('#bk-detail .bk-reason');
+        closeIssue(state.detail.project, state.detail.id, ri ? ri.value : '');
+        return;
+      }
+      if (act === 'create-submit') { submitCreate(actBtn.dataset.project); return; }
+      if (act === 'create-cancel') { var f = document.getElementById('bk-form'); if (f) f.remove(); return; }
+    }
+    if (e.target.closest('[data-bknew]')) { openCreate(e.target.closest('[data-bknew]').dataset.bknew); return; }
     if (e.target.closest('[data-bkclose]')) { closeDetail(); return; }
     var row = e.target.closest('.bk-row');
     if (row && row.dataset.project) {
@@ -353,6 +468,7 @@ window.HDBacklog = (function () {
   return {
     render: render, setData: setData, paint: paint,
     moveCursor: moveCursor, moveCursorTo: moveCursorTo,
-    openFocused: openFocused, closeDetail: closeDetail
+    openFocused: openFocused, closeDetail: closeDetail,
+    claimFocused: claimFocused, closeFocused: closeFocused, newFocusedRepo: newFocusedRepo
   };
 })();

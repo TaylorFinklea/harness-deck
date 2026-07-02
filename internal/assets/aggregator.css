@@ -680,3 +680,26 @@
 .bk-detail-block { margin-bottom: 8px; }
 .bk-detail-label { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--tn-comment); font-weight: 700; margin-bottom: 3px; }
 .bk-pre { font-size: 11px; color: var(--tn-fg-dark); background: var(--tn-bg-dark); border-radius: 4px; padding: 8px; white-space: pre-wrap; overflow-x: auto; margin: 0; }
+
+/* --- backlog actions (Phase 2, writable) --- */
+.bk-newbtn { margin-left: auto; background: var(--tn-bg-highlight); color: var(--tn-green);
+  border: 1px solid var(--tn-rule); border-radius: 4px; padding: 1px 8px; cursor: pointer; font-size: 11px; }
+.bk-newbtn:hover { border-color: var(--tn-green); }
+.bk-actions { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+.bk-btn { background: var(--tn-bg-highlight); color: var(--tn-fg); border: 1px solid var(--tn-rule);
+  border-radius: 4px; padding: 3px 12px; cursor: pointer; font-size: 12px; }
+.bk-btn:hover { border-color: var(--tn-cyan); }
+.bk-btn-danger:hover { border-color: var(--tn-red); color: var(--tn-red); }
+.bk-reason { flex: 1; min-width: 120px; background: var(--tn-bg-dark); color: var(--tn-fg);
+  border: 1px solid var(--tn-rule); border-radius: 4px; padding: 3px 8px; font-size: 12px;
+  font-family: inherit; }
+.bk-err { color: var(--tn-red); font-size: 11px; }
+/* create form */
+.bk-form { margin-bottom: 14px; border-color: var(--tn-green) !important; }
+.bk-frow { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.bk-flabel { width: 78px; flex: 0 0 auto; color: var(--tn-comment); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .06em; }
+.bk-fi, .bk-fs, .bk-ft { flex: 1; background: var(--tn-bg-dark); color: var(--tn-fg);
+  border: 1px solid var(--tn-rule); border-radius: 4px; padding: 4px 8px; font-size: 12px;
+  font-family: inherit; }
+.bk-ft { resize: vertical; }

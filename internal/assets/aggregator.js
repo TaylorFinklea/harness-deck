@@ -1137,6 +1137,10 @@
         case 'Enter':
         case 'o': HDBacklog.openFocused(); consume(); return;
         case 'Escape': if (HDBacklog.closeDetail()) { consume(); return; } break;
+        // writable-only actions (c claim, x close, n new)
+        case 'c': if (window.HD_BEADS_WRITABLE) { HDBacklog.claimFocused(); consume(); return; } break;
+        case 'x': if (window.HD_BEADS_WRITABLE) { HDBacklog.closeFocused(); consume(); return; } break;
+        case 'n': if (window.HD_BEADS_WRITABLE) { HDBacklog.newFocusedRepo(); consume(); return; } break;
       }
     }
 
@@ -1257,6 +1261,10 @@
       })
       .catch(function () {});
   }
+
+  // After a backlog write, HDBacklog fires this for an immediate refresh
+  // (belt-and-suspenders alongside the server's 'beads' SSE broadcast).
+  document.addEventListener('hd:beads-refresh', function () { if (window.HD_BEADS) refreshBeads(); });
 
   /* live updates — the server pushes a 'change' event when the report index
      changes on disk; EventSource reconnects on its own if the stream drops. */
