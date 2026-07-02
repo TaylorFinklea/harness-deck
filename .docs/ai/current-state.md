@@ -2,7 +2,14 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: main. **opencode usage tile DROPPED behind a feature flag** (uncommitted
+- **Branch: `feat/usage-weekly-bars` (off main). Usage footer per-window bars
+  COMPLETE + browser-verified 2026-07-02.** Weekly (`seven_day`) limit surfaced as
+  structured `Sample.Windows` (5h + wk) for codex + claude-code; footer renders a
+  mini progress bar per window (severity-colored), like Claude Code's /usage.
+  `usage.js` + `v1.css`; TDD (window assertions in codex/claude tests). build/test
+  green, gofmt clean. decisions.md "Usage footer: per-window bars". **Not merged.**
+  (Separate from the beads work on `feat/beads-backlog-viewer`.)
+- _(below is main's baseline)_ Branch: main. **opencode usage tile DROPPED behind a feature flag** (uncommitted
   → needs v0.2.12). Live verify of v0.2.11 showed the tile reads $0.00 because
   `opencode stats` only sees local TUI sessions (4, newest Feb 6); real spend is
   the opencode-go/Zen **cloud** plan (orchestra/pi), invisible to local CLI +
