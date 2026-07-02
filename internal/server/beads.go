@@ -220,8 +220,8 @@ func (s *Server) handleBeadsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Title = strings.TrimSpace(req.Title)
-	if req.Title == "" {
-		http.Error(w, "title required", http.StatusBadRequest)
+	if !beads.ValidTitle(req.Title) {
+		http.Error(w, "title required (1-500 chars, no control characters)", http.StatusBadRequest)
 		return
 	}
 	if !beads.ValidType(req.Type) {

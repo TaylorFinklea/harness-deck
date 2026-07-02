@@ -197,6 +197,21 @@ func ValidType(t string) bool { return beadTypes[t] }
 // ValidPriority reports whether p is a single digit 0..4.
 func ValidPriority(p string) bool { return len(p) == 1 && p[0] >= '0' && p[0] <= '4' }
 
+// ValidTitle reports whether s is an acceptable single-line issue title:
+// non-empty, <= 500 bytes, and free of control characters (which would corrupt
+// every later `bd … --json` read or blow past ARG_MAX). The caller trims first.
+func ValidTitle(s string) bool {
+	if s == "" || len(s) > 500 {
+		return false
+	}
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
 // Claim sets the issue in_progress + assigned to the caller (bd --claim is
 // idempotent).
 func (c *Client) Claim(ctx context.Context, root, id string) error {

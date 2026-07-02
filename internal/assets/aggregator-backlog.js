@@ -15,7 +15,8 @@ window.HDBacklog = (function () {
   var state = {
     data: { repos: [], available: false },
     cursor: null, // bkey of the focused row
-    detail: null  // { project, id, data } when a detail panel is open
+    detail: null, // { project, id, data, reason } when a detail panel is open
+    form: null    // { project, title, type, priority, description } when the create form is open
   };
   var graphSeq = 0; // monotonic id source so each graph's arrowhead marker is unique
 
@@ -279,7 +280,9 @@ window.HDBacklog = (function () {
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (!d) return;
-        state.detail = { project: project, id: id, data: d };
+        // preserve a half-typed close reason across a re-fetch of the same issue
+        var prevReason = (state.detail && state.detail.id === id) ? state.detail.reason : '';
+        state.detail = { project: project, id: id, data: d, reason: prevReason || '' };
         paintDetail();
       })
       .catch(function () {});
@@ -306,6 +309,8 @@ window.HDBacklog = (function () {
   function detailActions(issue) {
     if (!writable() || !state.detail || issue.status === 'closed') return null;
     var reason = el('input', { class: 'bk-reason', type: 'text', placeholder: 'close reason (optional)' });
+    reason.value = state.detail.reason || ''; // restore across a wholesale re-render
+    reason.addEventListener('input', function () { state.detail.reason = reason.value; });
     reason.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter') { ev.preventDefault(); closeIssue(state.detail.project, state.detail.id, reason.value); }
       else if (ev.key === 'Escape') { ev.preventDefault(); reason.blur(); closeDetail(); }
@@ -352,11 +357,14 @@ window.HDBacklog = (function () {
     if (!rows.some(function (r) { return r.bkey === state.cursor; })) state.cursor = rows[0].bkey;
   }
 
-  // re-apply cursor + detail after a core render rebuilt the view DOM
+  // re-apply cursor + detail + open create-form after a core render rebuilt the
+  // view DOM (a cross-project 'change' SSE rebuilds #view-backlog wholesale, so
+  // without this an open detail/form would be silently discarded).
   function paint() {
     ensureCursor();
     applyHighlight();
     if (state.detail) paintDetail();
+    if (state.form) paintForm();
   }
 
   // --- actions (Phase 2, writable only). The server broadcasts 'beads' after a
@@ -378,7 +386,25 @@ window.HDBacklog = (function () {
     }).catch(function (e) { if (onErr) onErr(String(e)); });
   }
 
-  function detailErr(msg) { var e = document.getElementById('bk-detail-err'); if (e) e.textContent = msg; }
+  // toast surfaces a transient message when there's no inline error slot (e.g. a
+  // keyboard `c` claim that fails with no detail panel open) — so an action error
+  // is never silently swallowed.
+  function toast(msg) {
+    var t = document.getElementById('bk-toast');
+    if (!t) { t = el('div', { id: 'bk-toast', class: 'bk-toast' }); document.body.appendChild(t); }
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function () { t.classList.remove('show'); }, 4500);
+  }
+  // err surfaces an action error: always to the console, inline when the slot
+  // exists, else as a toast. Never silent.
+  function err(slotId, msg) {
+    console.error('harness-deck: beads action: ' + msg);
+    var e = slotId && document.getElementById(slotId);
+    if (e) e.textContent = msg; else toast(msg);
+  }
+  function detailErr(msg) { err('bk-detail-err', msg); }
 
   function claim(project, id) {
     postAction('/api/beads/' + enc(project) + '/' + enc(id) + '/claim', null,
@@ -392,43 +418,58 @@ window.HDBacklog = (function () {
     postAction('/api/beads/' + enc(project) + '/create', fields, onOk, onErr);
   }
 
-  // --- create form ---
+  // --- create form. State lives in state.form so a wholesale render() (fired by
+  // any cross-project 'change' SSE) can't discard a half-typed issue — paint()
+  // re-renders it from the tracked values. ---
   function fieldRow(label, control) {
     return el('label', { class: 'bk-frow' }, [el('span', { class: 'bk-flabel', text: label }), control]);
   }
-  function openCreate(project) {
-    if (!writable()) return;
-    var old = document.getElementById('bk-form'); if (old) old.remove();
-    var title = el('input', { class: 'bk-fi', id: 'bk-form-title', type: 'text', placeholder: 'title' });
-    var type = el('select', { class: 'bk-fs', id: 'bk-form-type' },
+  function buildForm(f) {
+    var title = el('input', { class: 'bk-fi', type: 'text', placeholder: 'title' });
+    var type = el('select', { class: 'bk-fs' },
       ['task', 'feature', 'bug', 'chore', 'epic'].map(function (t) { return el('option', { value: t }, [t]); }));
-    var prio = el('select', { class: 'bk-fs', id: 'bk-form-prio' },
+    var prio = el('select', { class: 'bk-fs' },
       ['0', '1', '2', '3', '4'].map(function (p) { return el('option', { value: p }, ['P' + p]); }));
-    var desc = el('textarea', { class: 'bk-ft', id: 'bk-form-desc', placeholder: 'description (optional)', rows: '3' });
-    var panel = el('section', { class: 'panel bk-form', id: 'bk-form' }, [
+    var desc = el('textarea', { class: 'bk-ft', placeholder: 'description (optional)', rows: '3' });
+    title.value = f.title; type.value = f.type; prio.value = f.priority; desc.value = f.description;
+    title.addEventListener('input', function () { f.title = title.value; });
+    type.addEventListener('change', function () { f.type = type.value; });
+    prio.addEventListener('change', function () { f.priority = prio.value; });
+    desc.addEventListener('input', function () { f.description = desc.value; });
+    return el('section', { class: 'panel bk-form', id: 'bk-form' }, [
       el('div', { class: 'bk-detail-head' }, [
-        el('span', { class: 'bk-detail-title', text: 'new issue · ' + project }),
+        el('span', { class: 'bk-detail-title', text: 'new issue · ' + f.project }),
         el('button', { class: 'bk-x', title: 'cancel (Esc)', 'data-bkact': 'create-cancel' }, ['✕'])
       ]),
       fieldRow('title', title), fieldRow('type', type), fieldRow('priority', prio), fieldRow('description', desc),
       el('div', { class: 'bk-actions' }, [
-        el('button', { class: 'bk-btn', 'data-bkact': 'create-submit', 'data-project': project }, ['create']),
+        el('button', { class: 'bk-btn', 'data-bkact': 'create-submit' }, ['create']),
         el('span', { class: 'bk-err', id: 'bk-form-err' })
       ])
     ]);
-    var host = document.getElementById('view-backlog');
-    if (!host) return;
-    host.insertBefore(panel, host.firstChild);
-    prio.value = '2';
-    title.focus();
   }
-  function submitCreate(project) {
-    var val = function (id) { var n = document.getElementById(id); return n ? n.value : ''; };
-    createIssue(project, {
-      title: val('bk-form-title'), type: val('bk-form-type') || 'task',
-      priority: val('bk-form-prio') || '2', description: val('bk-form-desc')
-    }, function () { var f = document.getElementById('bk-form'); if (f) f.remove(); triggerRefresh(); },
-      function (msg) { var e = document.getElementById('bk-form-err'); if (e) e.textContent = msg; });
+  function paintForm() {
+    var host = document.getElementById('view-backlog');
+    if (!host || !state.form) return;
+    var panel = buildForm(state.form);
+    var existing = document.getElementById('bk-form');
+    if (existing) existing.replaceWith(panel); else host.insertBefore(panel, host.firstChild);
+    return panel;
+  }
+  function openCreate(project) {
+    if (!writable()) return;
+    state.form = { project: project, title: '', type: 'task', priority: '2', description: '' };
+    var panel = paintForm();
+    if (panel) { var t = panel.querySelector('.bk-fi'); if (t) t.focus(); }
+  }
+  function closeForm() {
+    state.form = null;
+    var f = document.getElementById('bk-form'); if (f) f.remove();
+  }
+  function submitCreate() {
+    var f = state.form; if (!f) return;
+    createIssue(f.project, { title: f.title, type: f.type || 'task', priority: f.priority || '2', description: f.description },
+      function () { closeForm(); triggerRefresh(); }, function (msg) { err('bk-form-err', msg); });
   }
 
   // keyboard-exposed actions (act on the focused row)
@@ -452,8 +493,8 @@ window.HDBacklog = (function () {
         closeIssue(state.detail.project, state.detail.id, ri ? ri.value : '');
         return;
       }
-      if (act === 'create-submit') { submitCreate(actBtn.dataset.project); return; }
-      if (act === 'create-cancel') { var f = document.getElementById('bk-form'); if (f) f.remove(); return; }
+      if (act === 'create-submit') { submitCreate(); return; }
+      if (act === 'create-cancel') { closeForm(); return; }
     }
     if (e.target.closest('[data-bknew]')) { openCreate(e.target.closest('[data-bknew]').dataset.bknew); return; }
     if (e.target.closest('[data-bkclose]')) { closeDetail(); return; }

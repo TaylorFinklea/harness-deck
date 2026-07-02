@@ -1,8 +1,10 @@
 package beads
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -55,6 +57,80 @@ func TestValidTypeAndPriority(t *testing.T) {
 			t.Errorf("%q should be invalid priority", p)
 		}
 	}
+}
+
+func TestValidTitle(t *testing.T) {
+	for i, s := range []string{"hi", "Fix the bug (P0)", strings.Repeat("x", 500)} {
+		if !ValidTitle(s) {
+			t.Errorf("valid case %d should pass", i)
+		}
+	}
+	for i, s := range []string{"", strings.Repeat("x", 501), "line\nbreak", "tab\there", "bell\x07"} {
+		if ValidTitle(s) {
+			t.Errorf("invalid case %d should fail", i)
+		}
+	}
+}
+
+// TestWriteArgvIsInjectionSafe is the regression gate for the feature's core
+// safety claim: free-text values reach bd as single --flag=value tokens under
+// exec.Command, so a leading '-', embedded '=', spaces, or a newline can't be
+// reparsed as a bd flag. A fake bd captures argv NUL-delimited.
+func TestWriteArgvIsInjectionSafe(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "argv")
+	bd := filepath.Join(dir, "bd")
+	script := "#!/bin/sh\nprintf '%s\\0' \"$@\" > '" + out + "'\necho demo-fake\n"
+	if err := os.WriteFile(bd, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c := &Client{bin: bd}
+
+	// Hostile title: leading dash, embedded flag, spaces, '=', and a newline.
+	hostile := "-x --type=bug=y\nsecond"
+	id, err := c.Create(context.Background(), "/repo", hostile, "task", "2", "desc -d=z")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if id != "demo-fake" {
+		t.Errorf("id = %q, want demo-fake", id)
+	}
+	args := splitNUL(t, out)
+	assertToken(t, args, "--title="+hostile)
+	assertToken(t, args, "--description=desc -d=z")
+	assertToken(t, args, "create")
+	assertToken(t, args, "--silent")
+
+	// Close reason with a leading dash stays bound to --reason.
+	if err := c.Close(context.Background(), "/repo", "demo-1", "-rf and spaces"); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	args = splitNUL(t, out)
+	assertToken(t, args, "--reason=-rf and spaces")
+	assertToken(t, args, "demo-1")
+}
+
+func splitNUL(t *testing.T, path string) []string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b = []byte(strings.TrimRight(string(b), "\x00"))
+	if len(b) == 0 {
+		return nil
+	}
+	return strings.Split(string(b), "\x00")
+}
+
+func assertToken(t *testing.T, args []string, want string) {
+	t.Helper()
+	for _, a := range args {
+		if a == want {
+			return
+		}
+	}
+	t.Errorf("argv missing single token %q; got %#v", want, args)
 }
 
 func TestFlagLike(t *testing.T) {

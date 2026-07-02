@@ -703,3 +703,10 @@
   border: 1px solid var(--tn-rule); border-radius: 4px; padding: 4px 8px; font-size: 12px;
   font-family: inherit; }
 .bk-ft { resize: vertical; }
+
+/* transient action-error toast (fallback when no inline error slot is visible) */
+.bk-toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--tn-bg-dark); color: var(--tn-fg); border: 1px solid var(--tn-red);
+  border-radius: 6px; padding: 8px 14px; font-size: 12px; max-width: 80vw; z-index: 9999;
+  opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; }
+.bk-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
