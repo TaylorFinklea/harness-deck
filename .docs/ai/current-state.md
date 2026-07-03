@@ -47,8 +47,12 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Plan
 
-- Beads viewer (P1+P2) + usage per-window bars — DONE + merged to main.
-  **Cutting v0.2.13** (tag → GoReleaser → tap → `brew upgrade`). Then `bd ready`.
+- **v0.2.13 RELEASED + installed + deployed 2026-07-02** — beads viewer (P1+P2) +
+  usage per-window bars. GoReleaser green, `brew upgrade` 0.2.12→0.2.13, LaunchAgent
+  restarted. Live-verified on scadrial:7420: usage codex 5h+wk bars render; beads
+  Backlog view enabled+writable, 33 `.beads/` repos discovered (0 errored). Config
+  gained `beads:{enabled:true,writable:true}` (backup at config.json.pre-beads.bak).
+  Next: `bd ready`.
 
 ## Blockers
 
@@ -60,8 +64,8 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Out (human-gated)
 
-- **v0.2.13 release** (in progress): beads viewer + usage bars merged to main.
-  After GoReleaser + tap land: `brew upgrade` → restart the LaunchAgent →
-  hard-reload the PWA (service worker may cache the old shell). Usage bars appear
-  automatically; the beads Backlog view needs `beads.enabled: true`
-  (+ `beads.writable: true` for actions) added to `~/.config/harness-deck/config.json`.
+- **Hard-reload the dashboard PWA** (Cmd-Shift-R / reopen) — the service worker can
+  serve the old cached shell, hiding the new footer bars + Backlog tab.
+- **claude-code (CC) usage bars** need a one-time macOS Keychain "Always Allow" for
+  the new 0.2.13 binary (per-binary grant); codex is unaffected. Trigger it with an
+  interactive `hdeck` usage read if you want CC bars in the background service.
