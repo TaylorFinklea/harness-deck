@@ -395,3 +395,30 @@ func TestCopilotHTTPError(t *testing.T) {
 		t.Errorf("403 must not be OK: %+v", s)
 	}
 }
+
+func TestUnknownProviders(t *testing.T) {
+	got := UnknownProviders([]string{"codex", "ollama-cloud", " claude ", "openrouter", "gpt"})
+	want := []string{"ollama-cloud", "gpt"}
+	if len(got) != len(want) {
+		t.Fatalf("UnknownProviders = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("UnknownProviders = %v, want %v", got, want)
+		}
+	}
+}
+
+// TestKnownNamesBuild pins the known-name list to Build's switch: every name
+// UnknownProviders accepts must actually construct a provider.
+func TestKnownNamesBuild(t *testing.T) {
+	for _, name := range []string{"codex", "openrouter", "claude-code", "claude", "copilot", "opencode"} {
+		if unk := UnknownProviders([]string{name}); len(unk) != 0 {
+			t.Errorf("%q flagged unknown", name)
+		}
+		ps := Build(Options{Providers: []string{name}, OpenCodeEnabled: true})
+		if len(ps) != 1 {
+			t.Errorf("Build(%q) built %d providers, want 1", name, len(ps))
+		}
+	}
+}

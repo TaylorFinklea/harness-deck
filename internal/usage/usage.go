@@ -87,6 +87,31 @@ type Options struct {
 	OpenCodeEnabled bool
 }
 
+// knownProviders lists every name Build's switch accepts. Keep the two in
+// sync — TestKnownNamesBuild pins each entry to an actual construction.
+var knownProviders = []string{"codex", "openrouter", "claude-code", "claude", "copilot", "opencode"}
+
+// UnknownProviders returns the entries of names (whitespace-trimmed, order
+// preserved) that Build would silently ignore. `hdeck doctor` surfaces them:
+// a typo in usage.providers is otherwise an invisible no-op.
+func UnknownProviders(names []string) []string {
+	var unk []string
+	for _, n := range names {
+		n = strings.TrimSpace(n)
+		known := false
+		for _, k := range knownProviders {
+			if n == k {
+				known = true
+				break
+			}
+		}
+		if !known {
+			unk = append(unk, n)
+		}
+	}
+	return unk
+}
+
 // Build constructs the providers named in o.Providers, in order. Unknown names
 // are ignored. The OpenRouter key falls back to $OPENROUTER_API_KEY.
 func Build(o Options) []Provider {
