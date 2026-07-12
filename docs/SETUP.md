@@ -171,14 +171,46 @@ is set, `hdeck open --print` should return that URL.
 iOS push notifications require HTTPS. For a Tailscale host:
 
 ```sh
-TS_HOST="HOSTNAME.tailnet.ts.net"
-mkdir -p ~/.config/harness-deck/tls
-tailscale cert \
-  --cert-file "$HOME/.config/harness-deck/tls/${TS_HOST}.crt" \
-  --key-file "$HOME/.config/harness-deck/tls/${TS_HOST}.key" \
-  "$TS_HOST"
+TS_HOST="HOSTNAME.tailnet.ts.net"   # find yours: tailscale status --json | grep DNSName
+TLS_DIR="$HOME/.config/harness-deck/tls"
+mkdir -p "$TLS_DIR"
+tailscale cert --cert-file - --key-file - "$TS_HOST" \
+  | awk -v crt="$TLS_DIR/$TS_HOST.crt" -v key="$TLS_DIR/$TS_HOST.key" '
+      /-----BEGIN .*PRIVATE KEY-----/ { out = key }
+      { if (out == key) print > key; else print > crt }'
+chmod 600 "$TLS_DIR/$TS_HOST.key"
 hdeck vapid
 ```
+
+Do not use `tailscale cert --cert-file <path>` with a real path: the Mac App
+Store build of Tailscale is sandboxed and cannot write to any location outside
+its container — it fails with `operation not permitted` no matter which path
+you pick (including `/tmp`). Emitting to stdout and splitting, as above, works
+on both the App Store and standalone builds. If `tailscale` is not on your
+`PATH`, the App Store build's CLI lives at
+`/Applications/Tailscale.app/Contents/MacOS/Tailscale`.
+
+### macOS firewall: the dashboard loads locally but times out from the phone
+
+If `https://127.0.0.1:7420` works on the Mac but the tailnet URL times out
+from every other device, the macOS Application Firewall is dropping the
+connections. harness-deck release binaries are currently ad-hoc signed, and
+the firewall only auto-allows Apple/Developer-ID-signed software — everything
+else is silently dropped on non-loopback interfaces (no error, no log, just a
+timeout). Binaries built locally with `go install` behave the same way.
+
+Allow it through explicitly:
+
+```sh
+HD_BIN="$(readlink -f "$(command -v harness-deck)")"
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add "$HD_BIN"
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp "$HD_BIN"
+```
+
+The allowlist entry pins the resolved binary path (for Homebrew that is a
+versioned Cellar path), so a `brew upgrade` installs a new binary that is not
+allowlisted — rerun the two commands after upgrading if the phone URL stops
+responding.
 
 Then configure:
 
