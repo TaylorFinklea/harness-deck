@@ -23,6 +23,8 @@ go test ./internal/render -run TestReport   # run one package / one test
 ./harness-deck register /path/to/project    # add a project root to the config
 ./harness-deck contract                     # print the embedded report contract (--publishing for the guide)
 ./harness-deck vapid                        # generate the VAPID keypair for push (one-time)
+./harness-deck cert                         # Tailscale HTTPS cert via stdout-split, wired into config
+./harness-deck doctor                       # preflight checks; every FAIL prints its fix
 ```
 
 There is no Makefile, linter config, or CI — `go build` / `go test` are the

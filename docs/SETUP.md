@@ -13,8 +13,9 @@ command -v brew
 command -v hdeck || command -v harness-deck
 ```
 
-- `Darwin` uses Homebrew plus a user LaunchAgent for persistence.
-- Linux with `systemctl --user` uses Homebrew plus a user systemd service.
+- Both macOS and Linux use Homebrew plus `brew services` for persistence
+  (hand-rolled LaunchAgent/systemd units only for non-Homebrew installs —
+  Appendix A).
 - Do not install Homebrew itself without the user's approval. If Homebrew is
   absent, use `go install` or a release binary only after confirming that path.
 
@@ -75,88 +76,42 @@ hdeck register /path/to/project
 
 ## 4. Install persistence
 
-### macOS: LaunchAgent
+Homebrew installs (formula v0.2.14+) get a service definition for free:
 
 ```sh
-HD_BIN="$(command -v hdeck)"
-if [ -z "$HD_BIN" ]; then HD_BIN="$(command -v harness-deck)"; fi
-mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/harness-deck"
-cat > "$HOME/Library/LaunchAgents/com.tfinklea.harness-deck.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.tfinklea.harness-deck</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${HD_BIN}</string>
-    <string>serve</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>${HOME}/Library/Logs/harness-deck/stdout.log</string>
-  <key>StandardErrorPath</key>
-  <string>${HOME}/Library/Logs/harness-deck/stderr.log</string>
-</dict>
-</plist>
-EOF
-launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.tfinklea.harness-deck.plist" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.tfinklea.harness-deck.plist"
-launchctl enable "gui/$(id -u)/com.tfinklea.harness-deck"
-launchctl kickstart -k "gui/$(id -u)/com.tfinklea.harness-deck"
+brew services start harness-deck
 ```
 
-Check it:
+That is the whole step, on both macOS (launchd) and Linux (systemd). Check it
+with `brew services info harness-deck`; logs land in
+`$(brew --prefix)/var/log/harness-deck.log`.
 
-```sh
-launchctl print "gui/$(id -u)/com.tfinklea.harness-deck"
-tail -n 40 "$HOME/Library/Logs/harness-deck/stderr.log"
-```
-
-### Linux: systemd user service
-
-```sh
-HD_BIN="$(command -v hdeck)"
-if [ -z "$HD_BIN" ]; then HD_BIN="$(command -v harness-deck)"; fi
-mkdir -p ~/.config/systemd/user
-cat > ~/.config/systemd/user/harness-deck.service <<EOF
-[Unit]
-Description=harness-deck dashboard
-
-[Service]
-Type=simple
-ExecStart=${HD_BIN} serve
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
-EOF
-systemctl --user daemon-reload
-systemctl --user enable --now harness-deck.service
-```
-
-Enable linger so the user service survives logout and can start without an
-active interactive session:
+On Linux, additionally enable linger so the user service survives logout and
+starts without an interactive session:
 
 ```sh
 sudo loginctl enable-linger "$USER"
 loginctl show-user "$USER" -p Linger
 ```
 
-Check it:
-
-```sh
-systemctl --user status harness-deck.service
-journalctl --user -u harness-deck.service -n 40 --no-pager
-```
+Installed via `go install` or a raw release binary — or on a formula older
+than v0.2.14? Use the hand-rolled units in
+[Appendix A](#appendix-a-persistence-without-brew-services).
 
 ## 5. Verify
+
+```sh
+hdeck doctor
+```
+
+`doctor` (v0.2.14+) checks the config (including `usage.providers` typos,
+which are otherwise silently ignored), TLS cert validity/expiry/hostname,
+VAPID presence, whether the server answers — including on the non-loopback
+interface, the path a phone actually uses — and, on macOS, whether the
+Application Firewall is dropping inbound connections. Every failure prints
+the exact fix. `--json` for agents; exit 1 on any FAIL.
+
+Manual equivalent:
 
 ```sh
 hdeck open --print
@@ -168,7 +123,28 @@ is set, `hdeck open --print` should return that URL.
 
 ## 6. Optional: Tailscale HTTPS, PWA, and push
 
-iOS push notifications require HTTPS. For a Tailscale host:
+iOS push notifications require HTTPS. For a Tailscale host (v0.2.14+):
+
+```sh
+hdeck cert        # issue the cert, write it to the config dir, patch config.json
+hdeck vapid       # one-time push identity
+brew services restart harness-deck
+hdeck doctor      # confirm everything, including the phone path
+```
+
+`hdeck cert` resolves this machine's MagicDNS name, obtains the cert + key,
+stores them under `~/.config/harness-deck/tls/`, and fills in `tls.cert`,
+`tls.key`, and (when unset) `public_url`. Renewal: certs live 90 days and
+nothing renews them automatically — schedule `hdeck cert --renew` (a no-op
+while the cert is valid >30 days) in cron/launchd, or rerun it when `hdeck
+doctor` warns.
+
+Why not `tailscale cert --cert-file <path>` directly? The Mac App Store build
+of Tailscale is sandboxed and cannot write to any location outside its
+container — it fails with `operation not permitted` for every path, `/tmp`
+included. `hdeck cert` reads the PEM over stdout and does the writing itself,
+which works on both the App Store and standalone builds. On a pre-v0.2.14
+binary, do the same by hand:
 
 ```sh
 TS_HOST="HOSTNAME.tailnet.ts.net"   # find yours: tailscale status --json | grep DNSName
@@ -179,27 +155,24 @@ tailscale cert --cert-file - --key-file - "$TS_HOST" \
       /-----BEGIN .*PRIVATE KEY-----/ { out = key }
       { if (out == key) print > key; else print > crt }'
 chmod 600 "$TLS_DIR/$TS_HOST.key"
-hdeck vapid
 ```
 
-Do not use `tailscale cert --cert-file <path>` with a real path: the Mac App
-Store build of Tailscale is sandboxed and cannot write to any location outside
-its container — it fails with `operation not permitted` no matter which path
-you pick (including `/tmp`). Emitting to stdout and splitting, as above, works
-on both the App Store and standalone builds. If `tailscale` is not on your
-`PATH`, the App Store build's CLI lives at
+If `tailscale` is not on your `PATH`, the App Store build's CLI lives at
 `/Applications/Tailscale.app/Contents/MacOS/Tailscale`.
 
 ### macOS firewall: the dashboard loads locally but times out from the phone
 
 If `https://127.0.0.1:7420` works on the Mac but the tailnet URL times out
 from every other device, the macOS Application Firewall is dropping the
-connections. harness-deck release binaries are currently ad-hoc signed, and
-the firewall only auto-allows Apple/Developer-ID-signed software — everything
-else is silently dropped on non-loopback interfaces (no error, no log, just a
-timeout). Binaries built locally with `go install` behave the same way.
+connections. The firewall auto-allows Apple/Developer-ID-signed software;
+for other binaries its verdict is per-binary and stateful, and a service
+started by launchd cannot show the "accept incoming connections?" dialog —
+the observed result is a silent timeout: no error, no log entry. Ad-hoc
+signed binaries (releases before signing landed, and anything built locally
+with `go install`) are the ones at risk.
 
-Allow it through explicitly:
+`hdeck doctor` detects this — it dials the running server on a non-loopback
+interface, exactly what a phone does — and prints the fix:
 
 ```sh
 HD_BIN="$(readlink -f "$(command -v harness-deck)")"
@@ -209,10 +182,10 @@ sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp "$HD_BIN"
 
 The allowlist entry pins the resolved binary path (for Homebrew that is a
 versioned Cellar path), so a `brew upgrade` installs a new binary that is not
-allowlisted — rerun the two commands after upgrading if the phone URL stops
+allowlisted — rerun `hdeck doctor` after upgrading if the phone URL stops
 responding.
 
-Then configure:
+`hdeck cert` writes this configuration for you; done by hand it looks like:
 
 ```json
 {
@@ -229,9 +202,7 @@ Then configure:
 ```
 
 Restart the persistent service, open `public_url` on the phone, add the PWA to
-the home screen, then enable notifications in the settings view. `tailscale
-cert` file output is not automatically renewed by harness-deck; renew or
-automate it separately if the host needs long-lived HTTPS.
+the home screen, then enable notifications in the settings view.
 
 ## 7. Optional: harness publishing integration
 
@@ -342,9 +313,92 @@ Restart the service after changing `beads`. Verify with `GET /api/beads` and the
 
 - Install with Homebrew when available.
 - Write `~/.config/harness-deck/config.json`.
-- Choose exactly one persistence path: LaunchAgent on macOS, systemd user
-  service plus `loginctl enable-linger` on Linux.
+- Persistence: `brew services start harness-deck` (both OSes; plus `loginctl
+  enable-linger` on Linux). Hand-rolled units (Appendix A) only for
+  go-install/raw-binary hosts.
 - Restart the service after config or TLS changes.
-- Verify `/api/reports` responds.
-- For phone/PWA/push, set `public_url`, TLS cert/key, run `hdeck vapid`, then
-  verify from the phone URL.
+- Run `hdeck doctor` and clear every FAIL — it covers `/api/reports`, TLS,
+  and the phone-path/firewall check.
+- For phone/PWA/push: `hdeck cert`, `hdeck vapid`, restart, `hdeck doctor`,
+  then verify from the phone URL.
+
+## Appendix A: persistence without brew services
+
+For `go install` or raw-binary hosts (or a formula older than v0.2.14). Note
+that locally built binaries are ad-hoc signed — after starting the service,
+run `hdeck doctor` to catch the macOS firewall silently dropping the
+phone path (see the firewall section above).
+
+### macOS: LaunchAgent
+
+```sh
+HD_BIN="$(command -v hdeck)"
+if [ -z "$HD_BIN" ]; then HD_BIN="$(command -v harness-deck)"; fi
+mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs/harness-deck"
+cat > "$HOME/Library/LaunchAgents/com.harnessdeck.serve.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.harnessdeck.serve</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${HD_BIN}</string>
+    <string>serve</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>${HOME}/Library/Logs/harness-deck/stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>${HOME}/Library/Logs/harness-deck/stderr.log</string>
+</dict>
+</plist>
+EOF
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.harnessdeck.serve.plist" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.harnessdeck.serve.plist"
+launchctl enable "gui/$(id -u)/com.harnessdeck.serve"
+launchctl kickstart -k "gui/$(id -u)/com.harnessdeck.serve"
+```
+
+Check it:
+
+```sh
+launchctl print "gui/$(id -u)/com.harnessdeck.serve"
+tail -n 40 "$HOME/Library/Logs/harness-deck/stderr.log"
+```
+
+### Linux: systemd user service
+
+```sh
+HD_BIN="$(command -v hdeck)"
+if [ -z "$HD_BIN" ]; then HD_BIN="$(command -v harness-deck)"; fi
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/harness-deck.service <<EOF
+[Unit]
+Description=harness-deck dashboard
+
+[Service]
+Type=simple
+ExecStart=${HD_BIN} serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+systemctl --user daemon-reload
+systemctl --user enable --now harness-deck.service
+sudo loginctl enable-linger "$USER"
+```
+
+Check it:
+
+```sh
+systemctl --user status harness-deck.service
+journalctl --user -u harness-deck.service -n 40 --no-pager
+```

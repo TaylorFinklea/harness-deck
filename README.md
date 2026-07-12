@@ -118,9 +118,10 @@ systemd on Linux), then verifies the dashboard responds.
 
 If you are an AI agent asked to "set up harness-deck", follow
 [`docs/SETUP.md`](docs/SETUP.md). It covers OS detection, Homebrew install,
-`~/.config/harness-deck/config.json`, macOS LaunchAgent persistence, Linux
-systemd user-service persistence with `loginctl enable-linger`, verification,
-and optional Tailscale HTTPS / PWA push.
+`~/.config/harness-deck/config.json`, start-on-login via `brew services start
+harness-deck` (with hand-rolled launchd/systemd units as the non-Homebrew
+fallback), `hdeck doctor` verification, and optional Tailscale HTTPS / PWA
+push via `hdeck cert`.
 
 The short local-only setup is:
 
@@ -154,6 +155,8 @@ go build ./...               # build from source
 ./harness-deck register /path/to/project   # add a project root to the config
 ./harness-deck contract      # print the embedded report contract (--publishing for the guide)
 ./harness-deck vapid         # generate the VAPID keypair for phone push (one-time)
+./harness-deck cert          # get a Tailscale HTTPS cert + wire it into config
+./harness-deck doctor        # preflight checks — every failure prints its fix
 ./harness-deck version       # print build metadata
 ```
 
@@ -161,25 +164,24 @@ go build ./...               # build from source
 
 harness-deck is also a PWA. Open it on your phone over Tailscale, tap _Add to
 Home Screen_, and it installs as a standalone app. iOS lock-screen push
-notifications work too — the requirements are tailnet reachability and HTTPS:
+notifications work too — the requirements are tailnet reachability and HTTPS.
+Set `"bind": "0.0.0.0"` (or your Tailscale IP) in the config, then:
 
-```jsonc
-// ~/.config/harness-deck/config.json
-{
-  "bind": "0.0.0.0",                        // or your Tailscale IP
-  "tls": {
-    "cert": "/Users/me/laptop.tailnet.crt", // tailscale cert <host>
-    "key":  "/Users/me/laptop.tailnet.key"
-  }
-}
+```sh
+hdeck cert        # Tailscale HTTPS cert, written + wired into config.json
+hdeck vapid       # one-time push identity
+brew services restart harness-deck
+hdeck doctor      # verifies TLS, push, and the phone path end to end
 ```
 
-Then `harness-deck vapid` once to generate the push identity, restart the
-server, open the dashboard on your phone, visit the **settings** view, and
-tap _Enable notifications on this browser_. New asks land on the lock screen
-and deep-link straight to the report.
+Open the dashboard on your phone, visit the **settings** view, and tap
+_Enable notifications on this browser_. New asks land on the lock screen and
+deep-link straight to the report.
 
-For exact Tailscale cert, `public_url`, service restart, and renewal notes, see
+If the dashboard works on the Mac but times out from the phone, run `hdeck
+doctor` — the macOS Application Firewall silently drops inbound connections
+to unsigned binaries, and doctor prints the exact fix. Details, cert renewal
+(`hdeck cert --renew` in cron), and manual steps for older binaries:
 [`docs/SETUP.md`](docs/SETUP.md#6-optional-tailscale-https-pwa-and-push).
 
 ## Notification fan-out
