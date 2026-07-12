@@ -194,6 +194,30 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
      Built Sonnet-impl + Haiku-gate + 2×Sonnet-review; browser-verify caught a
      CSS↔inline-style bug (☆ never showed) that static review missed.
 
+**Batch 2026-07-12 — macOS onboarding fix** (spec/report:
+`phases/macos-onboarding-{spec,report}.md`; code all on main, unreleased):
+
+7. - [x] **hdeck cert + hdeck doctor + brew services + gated notarization**
+     _(done 2026-07-12)_ — fresh-machine install surfaced two confirmed
+     onboarding breaks on the README's headline phone/Tailscale path (ALF
+     silent drop of ad-hoc binaries; MAS-sandboxed `tailscale cert` can't
+     write files). Shipped: SETUP.md hotfix, `hdeck cert`, `hdeck doctor`,
+     GoReleaser `brews[].service` + env-gated `notarize`, docs rewrite.
+8. - [ ] **Apple Developer enrollment + notarization secrets** — USER action:
+     enroll ($99/yr), create Developer ID Application cert (.p12) + App Store
+     Connect API key (.p8), add the 5 `MACOS_*` repo secrets named in
+     release.yml. Until then releases stay ad-hoc signed (doctor covers the
+     gap). Verify: next tagged release logs a non-skipped "sign & notarize"
+     step and `codesign -dv` on the brew binary shows Developer ID.
+9. - [ ] **Release v0.2.14** (cert + doctor + service block). Landmine: hosts
+     using the old hand-pasted LaunchAgent (label `com.tfinklea.harness-deck`,
+     e.g. this machine + scadrial) must `launchctl bootout` that plist before
+     `brew services start harness-deck`, or two servers fight over :7420.
+     Landmine 2: the ALF allowlist pins the versioned Cellar path — after
+     upgrade, rerun `hdeck doctor` on any host that needed the firewall fix.
+     Verify: `brew upgrade` → `hdeck version` 0.2.14, `brew services start`
+     works, `hdeck doctor` exit 0, formula in tap shows `service do`.
+
 ## Next
 
 **Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop
@@ -269,6 +293,11 @@ the store-cache / projects / usage test gaps.
   session instead, fall back to CodexBar's cookie path. One authenticated probe
   answers the api-key question. Then flip the flag on. Code + investigation in
   `internal/usage/opencode.go` + decisions.md "opencode usage tile disabled".
+- **ollama-cloud usage provider** _(requested 2026-07-12)_ — the user listed
+  `ollama-cloud` in `usage.providers` on a fresh setup; no such provider
+  exists (`hdeck doctor` now names it instead of silently ignoring it). Would
+  read Ollama Cloud plan usage via `$OLLAMA_API_KEY`; check whether ollama.com
+  exposes a usage/quota endpoint before scheduling.
 
 - ~~**Search filters**~~ — **DONE 2026-06-15** as a JQL-like query language
   (`status = awaiting-review`, `project IN (a,b) AND kind = audit`,

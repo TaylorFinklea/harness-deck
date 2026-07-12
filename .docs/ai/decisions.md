@@ -1076,3 +1076,48 @@ tooltip. Budget-kind providers (openrouter, opencode) unchanged. Chose structure
 whether the opencode-go api key can read account balance/usage headlessly, or
 whether that endpoint requires the web session (CodexBar's path). One
 authenticated probe with the stored key would answer it — deferred.
+
+## 2026-07-12 — macOS onboarding: root causes confirmed by experiment, not lore
+
+Fresh-machine install (mandalore) broke the README's headline phone/Tailscale
+path twice; both causes were confirmed with controls before fixing. (1) The
+macOS Application Firewall dropped inbound non-loopback connections to the
+launchd-run release binary while an Apple-signed `nc` on the same host/IP
+answered — per-binary filtering, silent (launchd services can't show the
+allow dialog). Follow-up experiments showed the verdict is **stateful**: after
+the ruleset was touched, an unallowlisted ad-hoc binary passed under both
+terminal and launchd. Consequence: doctor's firewall check dials the *running
+server* on a non-loopback interface (the true phone path) and falls back to a
+self-listen probe only when the server is down; the fix text names the binary
+path and warns it goes stale on `brew upgrade`. (2) The Mac App Store
+Tailscale build is sandboxed (`com.apple.security.app-sandbox`) — `tailscale
+cert --cert-file <path>` fails `operation not permitted` for **every** path,
+`/tmp` included. Consequence: `hdeck cert` uses `--cert-file - --key-file -`
+and classifies PEM blocks by type (never order), writing the files itself.
+
+## 2026-07-12 — Developer ID notarization, env-gated in GoReleaser
+
+Chosen over detect-and-guide-only: signing is the only fix where the user does
+nothing (ALF and Gatekeeper auto-allow Developer-ID-signed binaries). Wired as
+`notarize.macos` (quill, built into GoReleaser, signs bare binaries on the
+Linux runner) gated on `isEnvSet "MACOS_SIGN_P12"`, so releases keep working
+until Apple enrollment completes — verified by `goreleaser check` + a
+snapshot build with secrets unset (pipe skips cleanly). `hdeck doctor` stays
+regardless: `go install` builds are ad-hoc signed and signing never fixes them.
+
+## 2026-07-12 — Stay on deprecated `brews` (casks can't do brew services)
+
+GoReleaser v2.10 deprecated `brews` for `homebrew_casks`, but casks have no
+`brew services` support and the service block is the point (one command
+replaces the hand-pasted 30-line LaunchAgent with the author's personal label
+in SETUP.md). Formula generation still works with a deprecation warning.
+Revisit only if GoReleaser removes `brews` or Homebrew gives casks services.
+
+## 2026-07-12 — `hdeck cert` patches config as a raw map
+
+config.json is rewritten via `map[string]any`, not the typed Config struct, so
+fields a newer (or older) binary doesn't know about survive the round-trip —
+graceful-degradation applied to writes. Cost: `json.MarshalIndent` reorders
+keys alphabetically. Malformed config is an error, never a silent wipe;
+`public_url` is only filled when empty. Renewal stays a documented scheduled
+`hdeck cert --renew` (no-op >30d validity), NOT auto-renew inside `serve`.
