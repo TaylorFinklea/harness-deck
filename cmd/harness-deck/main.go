@@ -42,6 +42,8 @@ func main() {
 		cmdOpen(os.Args[2:])
 	case "vapid":
 		cmdVAPID(os.Args[2:])
+	case "cert":
+		cmdCert(os.Args[2:])
 	case "new":
 		cmdNew(os.Args[2:])
 	case "register":
@@ -74,6 +76,7 @@ usage:
   harness-deck contract [--publishing]       print the embedded report contract
   harness-deck mcp                           start a stdio MCP server (optional)
   harness-deck vapid                         generate the VAPID keypair for push
+  harness-deck cert [host] [--renew]         get a Tailscale HTTPS cert + update config
   harness-deck version                       print build metadata
 `)
 }
