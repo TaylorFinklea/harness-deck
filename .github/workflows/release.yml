@@ -37,3 +37,11 @@ jobs:
           # PAT: lets the brews step commit the formula to the separate
           # TaylorFinklea/homebrew-tap repo (GITHUB_TOKEN can't reach it).
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          # Developer ID signing + notarization (see notarize in
+          # .goreleaser.yaml). Unset secrets render empty, which leaves the
+          # notarize step disabled — releases work before Apple enrollment.
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}

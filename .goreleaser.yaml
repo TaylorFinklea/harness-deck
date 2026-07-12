@@ -34,6 +34,31 @@ builds:
       - arm64
     mod_timestamp: "{{ .CommitTimestamp }}"
 
+# Developer ID signing + notarization for the darwin binaries, via quill
+# (built into GoReleaser — no Xcode, runs on the Linux CI runner). Inert until
+# the secrets exist: `enabled` gates on MACOS_SIGN_P12, so releases keep
+# working before Apple Developer enrollment completes. Once enrolled, add
+# MACOS_SIGN_P12 / MACOS_SIGN_PASSWORD / MACOS_NOTARY_ISSUER_ID /
+# MACOS_NOTARY_KEY_ID / MACOS_NOTARY_KEY as repo secrets and export them in
+# release.yml. Signing matters beyond Gatekeeper: the macOS Application
+# Firewall auto-allows Developer-ID-signed binaries, and silently drops
+# inbound connections to ad-hoc-signed ones on non-loopback interfaces —
+# the phone/Tailscale path depends on this.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - harness-deck
+      sign:
+        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
+        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+        timeout: 20m
+
 changelog:
   sort: asc
   filters:
@@ -62,6 +87,13 @@ brews:
     install: |
       bin.install "harness-deck"
       bin.install_symlink "harness-deck" => "hdeck"
+    # `brew services start harness-deck` — replaces the hand-pasted
+    # LaunchAgent/systemd unit in docs/SETUP.md. opt_bin survives upgrades.
+    service: |
+      run [opt_bin/"harness-deck", "serve"]
+      keep_alive true
+      log_path var/"log/harness-deck.log"
+      error_log_path var/"log/harness-deck.log"
     test: |
       system "#{bin}/harness-deck", "version"
       system "#{bin}/hdeck", "version"
