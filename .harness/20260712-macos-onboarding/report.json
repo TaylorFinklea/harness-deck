@@ -1,0 +1,120 @@
+{
+  "schema": "harness-deck/report@1",
+  "id": "20260712-macos-onboarding",
+  "project": "harness-deck",
+  "harness": "claude-code",
+  "agent": "Opus 4.8",
+  "title": "macOS onboarding: two confirmed breaks on the phone path, fixed",
+  "status": "done",
+  "kind": "investigation",
+  "created": "2026-07-12T22:30:00Z",
+  "blocks": [
+    {
+      "type": "prose",
+      "title": "Why this mattered",
+      "markdown": "A fresh-machine install (mandalore) broke **twice** on the README's headline *Mobile (PWA) + push* path \u2014 right after the launch article went live. Both failures were silent. Root causes were confirmed by controlled experiment before any fix was written; everything below shipped to `main` in 7 commits (unreleased, pending v0.2.14)."
+    },
+    {
+      "type": "risks",
+      "title": "Root causes (confirmed, not hypothesized)",
+      "risks": [
+        {
+          "severity": "high",
+          "label": "macOS Application Firewall silently drops the ad-hoc-signed binary on non-loopback interfaces"
+        },
+        {
+          "severity": "high",
+          "label": "Mac App Store Tailscale is sandboxed \u2014 `tailscale cert --cert-file <path>` fails for EVERY path; SETUP.md \u00a76 was broken"
+        },
+        {
+          "severity": "med",
+          "label": "usage.providers typos were silent no-ops (requested `ollama-cloud` doesn't exist as a provider)"
+        },
+        {
+          "severity": "med",
+          "label": "Persistence required hand-pasting 30 lines of plist XML carrying the author's personal label"
+        }
+      ]
+    },
+    {
+      "type": "prose",
+      "title": "The evidence",
+      "markdown": "**Firewall:** the launchd-run server answered on `127.0.0.1` but timed out on its own tailnet IP \u2014 no error, no log line (launchd services can't show the \"accept incoming connections?\" dialog). Control experiment: Apple-signed `/usr/bin/nc` listening on the same host answered on that IP while harness-deck didn't \u2192 per-binary filtering, proven. Follow-up experiments showed the verdict is **stateful**: after the ruleset was touched, an unallowlisted dev build passed under both terminal and launchd. Doctor therefore dials the *running server* on a non-loopback interface (the true phone path) rather than trusting a self-probe alone, and the docs say \"at risk\", not \"always dropped\".\n\n**Tailscale:** the MAS build carries `com.apple.security.app-sandbox` \u2014 `--cert-file` fails `operation not permitted` even for `/tmp`. Only `--cert-file - --key-file -` (stdout) works on both builds; `hdeck cert` splits the PEM itself, classifying blocks by type, never order."
+    },
+    {
+      "type": "timeline",
+      "title": "What shipped (main, unreleased)",
+      "events": [
+        {
+          "time": "fff51c8",
+          "kind": "ok",
+          "markdown": "**SETUP.md hotfix** \u2014 stdout-split cert pipeline (tested verbatim) + firewall section; unblocks today's article readers on v0.2.13"
+        },
+        {
+          "time": "8a32cf8",
+          "kind": "ok",
+          "markdown": "**`hdeck cert`** \u2014 atomic writes, key 0600, config patched as a raw map so unknown fields survive, `--renew` no-op >30d for cron"
+        },
+        {
+          "time": "70f69c1",
+          "kind": "ok",
+          "markdown": "**`hdeck doctor`** \u2014 config/providers/TLS/expiry/SAN/VAPID/port/tailscale/firewall preflight; every FAIL prints its exact fix; `--json`; exit 1 on FAIL"
+        },
+        {
+          "time": "cccaa21",
+          "kind": "ok",
+          "markdown": "**GoReleaser** \u2014 `brews[].service` (verified against the formula template) + `notarize.macos` gated on `MACOS_SIGN_P12`, inert until Apple enrollment; `goreleaser check` + snapshot build verified"
+        },
+        {
+          "time": "00549f6",
+          "kind": "ok",
+          "markdown": "**Docs rewrite** \u2014 happy path is now `brew install` \u2192 `brew services start` \u2192 `doctor` \u2192 `cert` \u2192 `doctor`; hand-rolled units moved to Appendix A under a neutral label"
+        }
+      ]
+    },
+    {
+      "type": "metrics",
+      "title": "End-to-end verification on this machine",
+      "metrics": [
+        {
+          "label": "doctor checks (incl. phone-path dial)",
+          "value": "10/10",
+          "unit": "ok"
+        },
+        {
+          "label": "phone URL, real cert validation",
+          "value": "HTTP 200"
+        },
+        {
+          "label": "cert --renew / --force e2e",
+          "value": "pass"
+        },
+        {
+          "label": "go test ./... + gofmt",
+          "value": "green"
+        }
+      ]
+    },
+    {
+      "type": "recommendations",
+      "title": "What's left (roadmap Now #8/#9)",
+      "items": [
+        {
+          "id": "apple-enrollment",
+          "owner": "user",
+          "markdown": "**Apple Developer enrollment** ($99/yr) \u2192 Developer ID Application `.p12` + App Store Connect API `.p8` \u2192 add the 5 `MACOS_*` repo secrets named in release.yml. Signing is the only fix where users do nothing \u2014 ALF and Gatekeeper auto-allow. Until then doctor covers the gap."
+        },
+        {
+          "id": "release-0214",
+          "owner": "agent",
+          "markdown": "**Release v0.2.14.** Landmines documented in roadmap Now #9: hosts on the old hand-pasted LaunchAgent must `launchctl bootout` before `brew services start` (else two servers fight over :7420); ALF allowlist entries pin the versioned Cellar path (rerun doctor after upgrade)."
+        },
+        {
+          "id": "go-install-exposure",
+          "owner": "docs",
+          "markdown": "`go install` builds stay ad-hoc signed forever \u2014 signing never fixes them; doctor is their fix and Appendix A says so."
+        }
+      ]
+    }
+  ]
+}
