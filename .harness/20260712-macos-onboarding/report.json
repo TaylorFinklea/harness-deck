@@ -12,7 +12,7 @@
     {
       "type": "prose",
       "title": "Why this mattered",
-      "markdown": "A fresh-machine install (mandalore) broke **twice** on the README's headline *Mobile (PWA) + push* path \u2014 right after the launch article went live. Both failures were silent. Root causes were confirmed by controlled experiment before any fix was written; everything below shipped to `main` in 7 commits (unreleased, pending v0.2.14)."
+      "markdown": "A fresh-machine install (mandalore) broke **twice** on the README's headline *Mobile (PWA) + push* path \u2014 right after the launch article went live. Both failures were silent. Root causes were confirmed by controlled experiment before any fix was written. **v0.2.14 shipped and is installed** \u2014 Developer ID signing, `hdeck cert`/`doctor`, and `brew services` persistence are all live, and the fix is proven end to end: a brand-new signed binary reached the phone URL with zero manual firewall commands."
     },
     {
       "type": "risks",
@@ -43,7 +43,7 @@
     },
     {
       "type": "timeline",
-      "title": "What shipped (main, unreleased)",
+      "title": "What shipped — released as v0.2.14",
       "events": [
         {
           "time": "fff51c8",
@@ -69,12 +69,17 @@
           "time": "00549f6",
           "kind": "ok",
           "markdown": "**Docs rewrite** \u2014 happy path is now `brew install` \u2192 `brew services start` \u2192 `doctor` \u2192 `cert` \u2192 `doctor`; hand-rolled units moved to Appendix A under a neutral label"
+        },
+        {
+          "time": "v0.2.14",
+          "kind": "ok",
+          "markdown": "**Released** \u2014 Developer ID cert issued (browser, Account-Holder-only step), chain assembled via `quill`, all 5 `MACOS_*` secrets uploaded, tag pushed. CI log: `signing` \u2192 `notarizing and waiting` \u2192 `notarized` for both darwin binaries, ~17s each, first try. GitHub Release + tap formula (`service do` block) live."
         }
       ]
     },
     {
       "type": "metrics",
-      "title": "End-to-end verification on this machine",
+      "title": "End-to-end verification, post-release, on this machine",
       "metrics": [
         {
           "label": "doctor checks (incl. phone-path dial)",
@@ -86,33 +91,33 @@
           "value": "HTTP 200"
         },
         {
-          "label": "cert --renew / --force e2e",
-          "value": "pass"
+          "label": "codesign -dv on the installed 0.2.14 binary",
+          "value": "Developer ID + notarized"
         },
         {
-          "label": "go test ./... + gofmt",
-          "value": "green"
+          "label": "manual firewall commands needed post-upgrade",
+          "value": "0"
         }
       ]
     },
     {
       "type": "recommendations",
-      "title": "What's left (roadmap Now #8/#9)",
+      "title": "Left for later (not blocking)",
       "items": [
-        {
-          "id": "apple-enrollment",
-          "owner": "user",
-          "markdown": "**Apple Developer enrollment** ($99/yr) \u2192 Developer ID Application `.p12` + App Store Connect API `.p8` \u2192 add the 5 `MACOS_*` repo secrets named in release.yml. Signing is the only fix where users do nothing \u2014 ALF and Gatekeeper auto-allow. Until then doctor covers the gap."
-        },
-        {
-          "id": "release-0214",
-          "owner": "agent",
-          "markdown": "**Release v0.2.14.** Landmines documented in roadmap Now #9: hosts on the old hand-pasted LaunchAgent must `launchctl bootout` before `brew services start` (else two servers fight over :7420); ALF allowlist entries pin the versioned Cellar path (rerun doctor after upgrade)."
-        },
         {
           "id": "go-install-exposure",
           "owner": "docs",
-          "markdown": "`go install` builds stay ad-hoc signed forever \u2014 signing never fixes them; doctor is their fix and Appendix A says so."
+          "markdown": "`go install` builds stay ad-hoc signed forever \u2014 signing never fixes them; doctor is their fix, and Appendix A already says so."
+        },
+        {
+          "id": "cert-renewal-cron",
+          "owner": "user",
+          "markdown": "Tailscale certs live 90 days; nothing auto-renews. Schedule `hdeck cert --renew` (no-op while >30d valid) in cron/launchd, or watch for `hdeck doctor`'s expiry warning."
+        },
+        {
+          "id": "ollama-cloud-provider",
+          "owner": "backlog",
+          "markdown": "`ollama-cloud` usage provider doesn't exist yet (requested during setup, doctor now names the typo instead of silently dropping it) \u2014 filed on roadmap Later."
         }
       ]
     }

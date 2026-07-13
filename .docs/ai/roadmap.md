@@ -227,20 +227,24 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
      ASC key `X3GUKCUJ9F` used for notary auth (confirmed live via the
      earlier read-probe; not yet proven to have notary-submit rights
      specifically — first release will confirm).
-9. - [ ] **Release v0.2.14** (cert + doctor + service block + now-live
-     notarization). Landmine: hosts using the old hand-pasted LaunchAgent
-     (label `com.tfinklea.harness-deck`, e.g. this machine + scadrial) must
-     `launchctl bootout` that plist before `brew services start
-     harness-deck`, or two servers fight over :7420. Landmine 2: the ALF
-     allowlist pins the versioned Cellar path — after upgrade, rerun `hdeck
-     doctor` on any host that needed the firewall fix. Landmine 3: this is
-     the **first real notarization submission** — if `MACOS_NOTARY_KEY_ID`
-     (X3GUKCUJ9F) lacks notary-submit rights, the release fails at that step;
-     have a fallback ASC key ready (J79935N6P6 also confirmed live) to swap
-     in via `gh secret set MACOS_NOTARY_KEY_ID`. Verify: `brew upgrade` →
-     `hdeck version` 0.2.14, `brew services start` works, `hdeck doctor` exit
-     0, formula in tap shows `service do`, `codesign -dv` on the installed
-     binary shows Developer ID + notarized (`spctl` accepts it).
+9. - [x] **Release v0.2.14 RELEASED + verified 2026-07-12** — tag pushed,
+     GoReleaser green (`gh run view` log: `signing` → `notarizing and waiting`
+     → `notarized` for both darwin binaries, ~17s each, first try, no
+     fallback key needed — X3GUKCUJ9F has notary-submit rights after all).
+     GitHub Release + tap formula (`service do` block, v0.2.14) both live.
+     Installed on mandalore: old hand-pasted LaunchAgent booted out + its
+     plist deleted (superseded by brew services — landmine cleared), `brew
+     upgrade` → 0.2.14, `codesign -dv` on the real installed binary shows
+     Developer ID Application → Developer ID Certification Authority → Apple
+     Root CA with a genuine timestamp matching the CI run. **`brew services
+     start harness-deck` reached the phone URL (10.15.109.208:7420 +
+     `mandalore.tailceb58.ts.net`) with ZERO manual `socketfilterfw`
+     commands** — the actual proof the signing fix works; removed the
+     now-stale ALF entry for the deleted 0.2.13 path. `hdeck doctor` exit 0,
+     10/10 ok. `spctl -t execute` shows "rejected (does not seem to be an
+     app)" for the bare CLI binary — expected/harmless (Gatekeeper's
+     app-launch check doesn't apply to non-bundle binaries; orthogonal to
+     notarization, which the CI log already proved succeeded).
 
 ## Next
 
