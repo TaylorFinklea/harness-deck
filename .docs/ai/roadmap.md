@@ -203,20 +203,44 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
      silent drop of ad-hoc binaries; MAS-sandboxed `tailscale cert` can't
      write files). Shipped: SETUP.md hotfix, `hdeck cert`, `hdeck doctor`,
      GoReleaser `brews[].service` + env-gated `notarize`, docs rewrite.
-8. - [ ] **Apple Developer enrollment + notarization secrets** — USER action:
-     enroll ($99/yr), create Developer ID Application cert (.p12) + App Store
-     Connect API key (.p8), add the 5 `MACOS_*` repo secrets named in
-     release.yml. Until then releases stay ad-hoc signed (doctor covers the
-     gap). Verify: next tagged release logs a non-skipped "sign & notarize"
-     step and `codesign -dv` on the brew binary shows Developer ID.
-9. - [ ] **Release v0.2.14** (cert + doctor + service block). Landmine: hosts
-     using the old hand-pasted LaunchAgent (label `com.tfinklea.harness-deck`,
-     e.g. this machine + scadrial) must `launchctl bootout` that plist before
-     `brew services start harness-deck`, or two servers fight over :7420.
-     Landmine 2: the ALF allowlist pins the versioned Cellar path — after
-     upgrade, rerun `hdeck doctor` on any host that needed the firewall fix.
-     Verify: `brew upgrade` → `hdeck version` 0.2.14, `brew services start`
-     works, `hdeck doctor` exit 0, formula in tap shows `service do`.
+8. - [x] **Apple Developer enrollment + notarization secrets** _(done
+     2026-07-12)_ — account was already enrolled. Developer ID Application
+     cert issued via developer.apple.com (browser, Account-Holder-only
+     operation — 2 ASC API keys got 403 trying it headlessly, confirming
+     Apple restricts this regardless of API role). CSR/key/cert/p12 live in
+     `~/.appstoreconnect/` (key + p12 never left this machine; user ran the
+     p12-assembly script themselves per a deny-rule prompt on `Write(**/*.p12)`
+     — see decisions.md). Chain attached + verified via `quill p12
+     attach-chain`/`describe` (anchore/quill v0.7.1, checksum-verified
+     release binary): leaf → Developer ID G2 → Apple Root CA. **Locally
+     verified the p12 actually signs**: `quill sign` on a copy of the dev
+     binary → `codesign -dv` shows a real chain + hardened runtime + genuine
+     Apple timestamp; `spctl` correctly says "rejected, Unnotarized Developer
+     ID" (expected pre-notarization state). All 5 `MACOS_*` secrets uploaded
+     via `gh secret set` (piped from Keychain/openssl, never printed);
+     confirmed present via `gh secret list`. **Not yet done: a real
+     notarization submission** — GoReleaser's notarize pipe has no
+     snapshot-skip (`Skip()` only checks an explicit `--skip=notarize` flag
+     or empty config), so even a local test build with these secrets
+     exported would hit Apple's live notary API; deliberately left for the
+     real v0.2.14 release rather than spent on a speculative local test.
+     ASC key `X3GUKCUJ9F` used for notary auth (confirmed live via the
+     earlier read-probe; not yet proven to have notary-submit rights
+     specifically — first release will confirm).
+9. - [ ] **Release v0.2.14** (cert + doctor + service block + now-live
+     notarization). Landmine: hosts using the old hand-pasted LaunchAgent
+     (label `com.tfinklea.harness-deck`, e.g. this machine + scadrial) must
+     `launchctl bootout` that plist before `brew services start
+     harness-deck`, or two servers fight over :7420. Landmine 2: the ALF
+     allowlist pins the versioned Cellar path — after upgrade, rerun `hdeck
+     doctor` on any host that needed the firewall fix. Landmine 3: this is
+     the **first real notarization submission** — if `MACOS_NOTARY_KEY_ID`
+     (X3GUKCUJ9F) lacks notary-submit rights, the release fails at that step;
+     have a fallback ASC key ready (J79935N6P6 also confirmed live) to swap
+     in via `gh secret set MACOS_NOTARY_KEY_ID`. Verify: `brew upgrade` →
+     `hdeck version` 0.2.14, `brew services start` works, `hdeck doctor` exit
+     0, formula in tap shows `service do`, `codesign -dv` on the installed
+     binary shows Developer ID + notarized (`spctl` accepts it).
 
 ## Next
 

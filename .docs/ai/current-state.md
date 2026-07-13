@@ -10,18 +10,18 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Plan
 
-- [?] awaiting human verify — Developer ID cert via browser (roadmap Now #8, in
-      progress): account IS enrolled; CSR ready at
-      `~/.appstoreconnect/developer-id-application.csr` (key local, 0600). API
-      creation exhausted: Apple limits Developer ID certs to the Account
-      Holder in-browser (2× 403; keys 7L49/LL48 dead 401). USER: upload CSR at
-      developer.apple.com → Certificates → Developer ID Application, download
-      .cer. Then agent: assemble .p12 (password → Keychain), `gh secret set`
-      the 5 MACOS_*, prove with a signed snapshot build. Existing account cert
-      QN93Y65886 (exp 2027-02) has no local private key — unusable, left alone.
-- [ ] Release v0.2.14 (roadmap Now #9 — read its two landmines first:
-      old-LaunchAgent bootout; ALF allowlist pins the Cellar path).
-      Verify: brew upgrade → doctor exit 0, formula has `service do`.
+- [x] Roadmap Now #8 done — Developer ID cert issued (browser, Account
+      Holder-only step), p12 assembled + chain-attached (quill), all 5
+      MACOS_* secrets in GitHub. Locally verified signing works (codesign
+      shows real chain; spctl correctly says unnotarized). Real notarization
+      submission deliberately untested locally (see decisions.md) — first
+      live test is at actual release time.
+- [ ] Release v0.2.14 (roadmap Now #9 — read its THREE landmines first:
+      old-LaunchAgent bootout; ALF allowlist pins the Cellar path; this is
+      also the first live notarization submission, have the fallback ASC
+      key (J79935N6P6) ready in case X3GUKCUJ9F lacks notary-submit rights).
+      Verify: brew upgrade → doctor exit 0, formula has `service do`,
+      codesign -dv shows Developer ID + notarized.
 
 ## Blockers
 

@@ -1121,3 +1121,57 @@ graceful-degradation applied to writes. Cost: `json.MarshalIndent` reorders
 keys alphabetically. Malformed config is an error, never a silent wipe;
 `public_url` is only filled when empty. Renewal stays a documented scheduled
 `hdeck cert --renew` (no-op >30d validity), NOT auto-renew inside `serve`.
+
+## 2026-07-12 — p12 assembly: user-run script, not agent-run, on a deny-rule hit
+
+Agent's `Write(**/*.p12)` deny rule blocked an `openssl pkcs12 -export` Bash
+call (same effect via a different tool — correctly caught, not routed
+around). Interpreted as a deliberate boundary: agent may read keys, build
+CSRs, probe APIs, but must not be the one to mint the actual combined
+private-key+cert bundle. Resolution: agent wrote a reviewable script to
+scratch, user ran it themselves (`! bash <path>`) in-session. Script stored
+the p12 password only in Keychain (service `MACOS_SIGN_PASSWORD`), never
+echoed it. Precedent for future signing/credential-bundling asks in this
+repo: hand over a script for the user to execute, don't ask for the rule to
+be loosened.
+
+## 2026-07-12 — quill (anchore/quill v0.7.1) for p12 chain assembly
+
+Apple's per-account Developer ID Application cert download (via ASC API or
+the developer.apple.com portal) contains only the leaf cert + key — no
+intermediate/root. Without the full chain, Apple's notary service rejects
+with "signature does not include a secure timestamp" / "signature is
+invalid" (both misleading; the real cause is the missing chain). Used
+quill's own `p12 attach-chain` (sources the intermediate/root from this
+Mac's System Roots keychain + certs quill embeds internally, and internally
+calls `certchain.VerifyForCodeSigning` before writing) rather than hand-
+picking Apple's G2/Root certs with openssl — avoids a second guess-the-format
+step on top of the p12 assembly itself. Binary fetched from GitHub Releases
+with checksum verification (repo has no Homebrew formula/cask for quill).
+
+Gotcha for any future signing work here: **quill's sign-password env var is
+`QUILL_SIGN_PASSWORD`**, not `QUILL_P12_PASSWORD` — that name is specific to
+the `p12 attach-chain` subcommand (verified against quill's own source:
+`cmd/quill/cli/options/signing.go`'s `Signing` struct embeds `Password` as an
+explicit "unbound" field — no CLI flag by design, config/env only — under
+yaml key `sign`, giving `QUILL_SIGN_PASSWORD`; `attach-chain`'s config embeds
+`options.P12` under yaml key `p12`, giving `QUILL_P12_PASSWORD`). Using the
+wrong one doesn't error — `quill sign` blocks forever on an interactive
+password prompt with no visible cause beyond a buried debug-level log line
+("p12 file requires a password but none provided"), which reads exactly like
+the general TUI-stdin-hang landmine already documented in AGENTS.md.
+
+## 2026-07-12 — Local signing test, no local notarization test
+
+Verified the p12 actually signs (real Developer ID chain via `codesign -dv`,
+correct `spctl` "Unnotarized Developer ID" rejection, genuine Apple
+timestamp) by running `quill sign` on a scratch copy of the dev binary —
+free, local, no Apple submission. Deliberately did NOT locally test
+notarization: GoReleaser's notarize pipe `Skip()`
+(`internal/pipe/notary/macos.go`) has no snapshot-build exemption — it only
+checks an explicit `--skip=notarize` flag or an empty `Notarize.MacOS` config
+— so exporting the now-real secrets for even a local `--snapshot` build would
+submit a genuine request to Apple's live notary API. Left as the first real
+verification at actual v0.2.14 release time (roadmap Now #9), a deliberate
+user-triggered action, rather than something spent on a speculative local
+check.
