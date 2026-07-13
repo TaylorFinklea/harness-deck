@@ -246,6 +246,25 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
      app-launch check doesn't apply to non-bundle binaries; orthogonal to
      notarization, which the CI log already proved succeeded).
 
+10. - [x] **v0.2.15 RELEASED + verified 2026-07-13** — a cold-read agent
+     review (fresh subagent, no context, "install harness-deck on my machine")
+     found v0.2.14's `doctor` graded a stopped server WARN while `finish()`
+     exits 1 only on FAIL — so the exit-0 gate the setup docs tell agents to
+     trust **certified installs where the service never started**. Fixed: down
+     server = FAIL; leftover hand-rolled unit = FAIL (it fights brew services
+     for :7420 at login and the survivor still answers, so every other check
+     went green — this was live on mandalore); empty `scan_roots` = WARN.
+     Added **AGENTS.md** (canonical harness-neutral entry point; only CLAUDE.md
+     existed, so Codex/OpenCode/Cursor/Copilot found nothing, and README linked
+     a file that would have 404'd) — CLAUDE.md now imports it. Install docs
+     rewritten (stale-unit cleanup, upgrade + no-Homebrew branches, config
+     documented as optional). First release attempt FAILED at GoReleaser's
+     `go test` pre-hook: the stale-unit test asserted macOS `launchctl` text
+     while the fn branched on `runtime.GOOS` — untestable across platforms;
+     OS is now a parameter, both platforms covered, nothing was published by
+     the failed run. Verified on the shipped binary: doctor 12/12 exit 0, exit
+     1 on a never-started install, Developer ID chain intact.
+
 ## Next
 
 **Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop
