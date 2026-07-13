@@ -76,7 +76,7 @@ func cmdDoctor(args []string) {
 		results = append(results, checkTLSFiles(cfg)...)
 	}
 	add(checkVAPID(cfg))
-	add(staleUnitResult(findStaleUnits()))
+	add(staleUnitResult(findStaleUnits(), runtime.GOOS))
 	add(checkPort(cfg))
 	if r, applicable := checkTailscale(cfg); applicable {
 		add(r)
@@ -202,14 +202,17 @@ func findStaleUnits() []string {
 // check: both servers bind :7420 at login, the loser crash-loops, and the
 // survivor still answers /api/reports — so the port check goes green while the
 // install is quietly broken.
-func staleUnitResult(names []string) checkResult {
+// goos is passed in rather than read from runtime so both platforms' fix text
+// is testable on either OS — the first version of this hard-coded runtime.GOOS
+// and its test only passed on macOS.
+func staleUnitResult(names []string, goos string) checkResult {
 	if len(names) == 0 {
 		return checkResult{Name: "service", Status: statusOK,
 			Detail: "no leftover hand-rolled service units"}
 	}
 	label := strings.TrimSuffix(strings.TrimSuffix(names[0], ".plist"), ".service")
 	fix := fmt.Sprintf("launchctl bootout \"gui/$(id -u)/%s\" 2>/dev/null; rm -f ~/Library/LaunchAgents/%s   (then rerun; use rm -f — a bare rm can prompt and silently no-op)", label, names[0])
-	if runtime.GOOS == "linux" {
+	if goos == "linux" {
 		fix = fmt.Sprintf("systemctl --user disable --now %s; rm -f ~/.config/systemd/user/%s   (then rerun)", label, names[0])
 	}
 	return checkResult{Name: "service", Status: statusFail,

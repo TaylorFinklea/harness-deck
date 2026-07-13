@@ -211,20 +211,37 @@ func TestCheckScanRoots(t *testing.T) {
 // and the survivor still answers /api/reports — so every other check goes
 // green. Prose in the runbook is not enough: doctor has to name it.
 func TestStaleUnitResult(t *testing.T) {
-	if r := staleUnitResult(nil); r.Status != statusOK {
-		t.Errorf("no stale units = %v, want ok", r.Status)
-	}
-	r := staleUnitResult([]string{"com.tfinklea.harness-deck.plist"})
-	if r.Status != statusFail {
-		t.Fatalf("stale unit = %v, want fail", r.Status)
-	}
-	if !strings.Contains(r.Detail, "com.tfinklea.harness-deck.plist") {
-		t.Errorf("detail must name the file: %q", r.Detail)
-	}
-	for _, want := range []string{"bootout", "rm -f"} {
-		if !strings.Contains(r.Fix, want) {
-			t.Errorf("fix missing %q: %q", want, r.Fix)
+	for _, goos := range []string{"darwin", "linux"} {
+		if r := staleUnitResult(nil, goos); r.Status != statusOK {
+			t.Errorf("%s: no stale units = %v, want ok", goos, r.Status)
 		}
+	}
+
+	// macOS: launchctl + the rm -f caveat that bit us for real.
+	mac := staleUnitResult([]string{"com.tfinklea.harness-deck.plist"}, "darwin")
+	if mac.Status != statusFail {
+		t.Fatalf("darwin stale unit = %v, want fail", mac.Status)
+	}
+	if !strings.Contains(mac.Detail, "com.tfinklea.harness-deck.plist") {
+		t.Errorf("detail must name the file: %q", mac.Detail)
+	}
+	for _, want := range []string{"launchctl bootout", "rm -f"} {
+		if !strings.Contains(mac.Fix, want) {
+			t.Errorf("darwin fix missing %q: %q", want, mac.Fix)
+		}
+	}
+
+	// Linux: systemd, not launchctl. Mixing the two service managers is the
+	// exact confusion the setup docs warn about.
+	lin := staleUnitResult([]string{"harness-deck.service"}, "linux")
+	if lin.Status != statusFail {
+		t.Fatalf("linux stale unit = %v, want fail", lin.Status)
+	}
+	if !strings.Contains(lin.Fix, "systemctl --user disable") || !strings.Contains(lin.Fix, "rm -f") {
+		t.Errorf("linux fix should use systemctl: %q", lin.Fix)
+	}
+	if strings.Contains(lin.Fix, "launchctl") {
+		t.Errorf("linux fix must not mention launchctl: %q", lin.Fix)
 	}
 }
 
