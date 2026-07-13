@@ -1175,3 +1175,30 @@ submit a genuine request to Apple's live notary API. Left as the first real
 verification at actual v0.2.14 release time (roadmap Now #9), a deliberate
 user-triggered action, rather than something spent on a speculative local
 check.
+
+## 2026-07-12 — Cold-read agent review as the acceptance test for agent docs
+
+Docs that tell an agent how to install the product cannot be reviewed by the
+person who just wrote them — they read as complete because the author supplies
+the missing context from memory. Dispatched a fresh general-purpose subagent
+with no session context, pointed at the repo with only "install harness-deck on
+my machine", read-only, and asked it to report contradictions, guesses, and
+staleness with file:line evidence.
+
+It found things a self-review missed, including two real defects:
+
+1. `hdeck doctor` graded a stopped server as WARN while `finish()` exits 1 only
+   on FAIL — so the exit-0 gate that AGENTS.md/SETUP.md instruct agents to
+   trust as "install is done" **certified installs where the service never
+   started**, the single most likely install failure. Now FAIL.
+2. The two-server landmine (a leftover hand-rolled unit fighting brew services
+   for :7420) was documented in prose only, and doctor could not see it: the
+   surviving server answers `/api/reports`, so the port check went green.
+   Now a real check (`isStaleUnit`/`staleUnitResult`).
+
+It also caught that the fix commits sat past the v0.2.14 tag, so the docs were
+asserting behavior the *shipped* binary did not have — the artifact a stranger
+actually installs, not the working tree.
+
+Worth repeating for any user-facing runbook: the reviewer must not have written
+the thing, and must be told to be adversarial rather than confirmatory.

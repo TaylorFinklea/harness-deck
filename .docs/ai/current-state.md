@@ -12,8 +12,12 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Plan
 
-- (empty — roadmap Now batch fully shipped; pull the next item from Next/
-  Backlog/Later when starting fresh)
+- [ ] Release v0.2.15 — doctor: down-server now FAIL (v0.2.14's exit-0 gate
+      certified broken installs), empty-scan_roots WARN, leftover hand-rolled
+      service unit = FAIL. Plus AGENTS.md (new cross-harness entry point) +
+      install-doc rewrite. SETUP.md already claims these as v0.2.15 behavior,
+      so the docs are ahead of the binary until this ships.
+      Verify: brew upgrade → hdeck version 0.2.15, doctor exit 0 here.
 
 ## Blockers
 
