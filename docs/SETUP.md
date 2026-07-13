@@ -134,12 +134,19 @@ than v0.2.14? Use the hand-rolled units in
 hdeck doctor
 ```
 
-`doctor` (v0.2.14+) checks the config (including `usage.providers` typos,
-which are otherwise silently ignored), TLS cert validity/expiry/hostname,
-VAPID presence, whether the server answers — including on the non-loopback
-interface, the path a phone actually uses — and, on macOS, whether the
-Application Firewall is dropping inbound connections. Every failure prints
-the exact fix. `--json` for agents; exit 1 on any FAIL.
+`doctor` (v0.2.15+) checks the config (including `usage.providers` typos and an
+empty `scan_roots`, both otherwise silent), TLS cert validity/expiry/hostname,
+VAPID presence, leftover hand-rolled service units, whether the server actually
+answers — including on the non-loopback interface, the path a phone uses — and,
+on macOS, whether the Application Firewall is dropping inbound connections.
+Every failure prints the exact fix. `--json` for agents; exit 1 on any FAIL.
+
+`brew services start` is asynchronous: if doctor reports `nothing listening`
+immediately after you started the service, wait a second and rerun once before
+treating it as a real failure.
+
+On v0.2.14, `doctor` graded a stopped server as a warning and still exited 0 —
+so on that version, don't treat exit 0 alone as proof the install works.
 
 Manual equivalent:
 
@@ -341,16 +348,28 @@ Restart the service after changing `beads`. Verify with `GET /api/beads` and the
 
 ## Agent checklist
 
-- Install with Homebrew when available.
-- Write `~/.config/harness-deck/config.json`.
-- Persistence: `brew services start harness-deck` (both OSes; plus `loginctl
-  enable-linger` on Linux). Hand-rolled units (Appendix A) only for
-  go-install/raw-binary hosts.
+- Check for an existing install (`hdeck version`) — if present, `brew upgrade`,
+  not `brew install`.
+- Install with Homebrew when available; ask before installing Homebrew itself.
+- **Remove any leftover hand-rolled service unit** (step 4) before starting the
+  service. `hdeck doctor` FAILs on one, but check first — two servers fighting
+  over the port is the most confusing failure mode there is.
+- The config file is **optional** (everything defaults). Write one only to
+  change something. The usual reason is `scan_roots` — ask the user where their
+  repos live (e.g. `~/git`); without it the projects view is empty and doctor
+  warns.
+- Persistence: `brew services start harness-deck` (both OSes; plus `sudo
+  loginctl enable-linger "$USER"` on Linux). Hand-rolled units (Appendix A)
+  only for go-install/raw-binary hosts.
 - Restart the service after config or TLS changes.
-- Run `hdeck doctor` and clear every FAIL — it covers `/api/reports`, TLS,
-  and the phone-path/firewall check.
+- Run `hdeck doctor` and clear every FAIL. It covers the server actually
+  answering (including on the phone-facing interface), TLS, push keys, leftover
+  units, and the macOS firewall. `brew services start` is async — if doctor says
+  `nothing listening` right after starting it, wait a second and rerun once.
 - For phone/PWA/push: `hdeck cert`, `hdeck vapid`, restart, `hdeck doctor`,
   then verify from the phone URL.
+- Over SSH / headless, use `hdeck open --print` (prints the URL) rather than
+  `hdeck open`, which wants a GUI session.
 
 ## Appendix A: persistence without brew services
 

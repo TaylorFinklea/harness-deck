@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -75,6 +76,7 @@ func cmdDoctor(args []string) {
 		results = append(results, checkTLSFiles(cfg)...)
 	}
 	add(checkVAPID(cfg))
+	add(staleUnitResult(findStaleUnits()))
 	add(checkPort(cfg))
 	if r, applicable := checkTailscale(cfg); applicable {
 		add(r)
@@ -144,6 +146,76 @@ func checkScanRoots(cfg config.Config) checkResult {
 	return checkResult{Name: "projects", Status: statusWarn,
 		Detail: "no scan_roots set — the projects view will be empty (reports still work)",
 		Fix:    `add "scan_roots": ["~/git"] to ` + config.Path() + `, or run: harness-deck register <path>`}
+}
+
+// isStaleUnit reports whether a service-unit filename is a hand-rolled
+// harness-deck unit from an older setup. Homebrew's own unit
+// (homebrew.mxcl.harness-deck.*) is the one legitimate service and is spared;
+// anything else naming harness-deck is a leftover that will start a second
+// server at login.
+func isStaleUnit(name string) bool {
+	if !strings.HasSuffix(name, ".plist") && !strings.HasSuffix(name, ".service") {
+		return false
+	}
+	if strings.HasPrefix(name, "homebrew.mxcl.") {
+		return false
+	}
+	lower := strings.ToLower(name)
+	return strings.Contains(lower, "harness-deck") || strings.Contains(lower, "harnessdeck")
+}
+
+// findStaleUnits lists hand-rolled harness-deck service units in the user's
+// per-user service directory.
+func findStaleUnits() []string {
+	var dir string
+	switch runtime.GOOS {
+	case "darwin":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil
+		}
+		dir = filepath.Join(home, "Library", "LaunchAgents")
+	case "linux":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil
+		}
+		dir = filepath.Join(home, ".config", "systemd", "user")
+	default:
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var stale []string
+	for _, e := range entries {
+		if !e.IsDir() && isStaleUnit(e.Name()) {
+			stale = append(stale, e.Name())
+		}
+	}
+	return stale
+}
+
+// staleUnitResult grades leftover hand-rolled units. This is a FAIL rather
+// than a warning because the failure it causes is invisible to every other
+// check: both servers bind :7420 at login, the loser crash-loops, and the
+// survivor still answers /api/reports — so the port check goes green while the
+// install is quietly broken.
+func staleUnitResult(names []string) checkResult {
+	if len(names) == 0 {
+		return checkResult{Name: "service", Status: statusOK,
+			Detail: "no leftover hand-rolled service units"}
+	}
+	label := strings.TrimSuffix(strings.TrimSuffix(names[0], ".plist"), ".service")
+	fix := fmt.Sprintf("launchctl bootout \"gui/$(id -u)/%s\" 2>/dev/null; rm -f ~/Library/LaunchAgents/%s   (then rerun; use rm -f — a bare rm can prompt and silently no-op)", label, names[0])
+	if runtime.GOOS == "linux" {
+		fix = fmt.Sprintf("systemctl --user disable --now %s; rm -f ~/.config/systemd/user/%s   (then rerun)", label, names[0])
+	}
+	return checkResult{Name: "service", Status: statusFail,
+		Detail: "hand-rolled service unit(s) left over from an older setup: " + strings.Join(names, ", ") +
+			" — these start a second server at login and fight brew services for the port",
+		Fix: fix}
 }
 
 // checkURLTLS catches a public_url whose scheme contradicts the tls block.

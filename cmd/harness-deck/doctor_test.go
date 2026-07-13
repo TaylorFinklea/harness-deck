@@ -205,3 +205,42 @@ func TestCheckScanRoots(t *testing.T) {
 		t.Errorf("explicit projects should satisfy it: %v, want ok", r.Status)
 	}
 }
+
+// A hand-rolled unit left over from an older setup starts a second server at
+// login and fights the Homebrew service for the port; the loser crash-loops,
+// and the survivor still answers /api/reports — so every other check goes
+// green. Prose in the runbook is not enough: doctor has to name it.
+func TestStaleUnitResult(t *testing.T) {
+	if r := staleUnitResult(nil); r.Status != statusOK {
+		t.Errorf("no stale units = %v, want ok", r.Status)
+	}
+	r := staleUnitResult([]string{"com.tfinklea.harness-deck.plist"})
+	if r.Status != statusFail {
+		t.Fatalf("stale unit = %v, want fail", r.Status)
+	}
+	if !strings.Contains(r.Detail, "com.tfinklea.harness-deck.plist") {
+		t.Errorf("detail must name the file: %q", r.Detail)
+	}
+	for _, want := range []string{"bootout", "rm -f"} {
+		if !strings.Contains(r.Fix, want) {
+			t.Errorf("fix missing %q: %q", want, r.Fix)
+		}
+	}
+}
+
+func TestIsStaleUnit(t *testing.T) {
+	cases := map[string]bool{
+		"homebrew.mxcl.harness-deck.plist":   false, // Homebrew's own — leave alone
+		"com.tfinklea.harness-deck.plist":    true,  // the label that actually bit us
+		"com.harnessdeck.serve.plist":        true,  // the label Appendix A used
+		"harness-deck.service":               true,  // hand-rolled systemd unit
+		"homebrew.mxcl.harness-deck.service": false,
+		"com.apple.something.plist":          false, // unrelated
+		"my-harness-notes.txt":               false, // not a unit file
+	}
+	for name, want := range cases {
+		if got := isStaleUnit(name); got != want {
+			t.Errorf("isStaleUnit(%q) = %v, want %v", name, got, want)
+		}
+	}
+}

@@ -99,10 +99,12 @@ The launch article draft lives in
 ```sh
 brew install taylorfinklea/tap/harness-deck   # installs `harness-deck` + the short `hdeck` alias
 brew services start harness-deck              # run now, and again at login (macOS + Linux)
-sudo loginctl enable-linger "$USER"           # Linux only — keep it running after logout
 hdeck doctor                                  # verify — every failure prints its fix
 hdeck open                                    # open the dashboard
 ```
+
+On Linux, add `sudo loginctl enable-linger "$USER"` so it keeps running after
+you log out.
 
 That's it. **No config file is required** — harness-deck runs on defaults
 (`127.0.0.1:7420`, reports in `~/.harness/reports`). macOS binaries are signed

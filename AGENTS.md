@@ -30,8 +30,12 @@ correct on both macOS and Linux:
 brew install taylorfinklea/tap/harness-deck   # installs `harness-deck` + `hdeck` alias
 brew services start harness-deck              # start now + on login (launchd/systemd)
 hdeck doctor                                  # verify; every failure prints its fix
-hdeck open                                    # open the dashboard
+hdeck open                                    # open the dashboard (--print over SSH: no GUI)
 ```
+
+Ask the user where their code lives (e.g. `~/git`) and set `scan_roots`
+accordingly — see the config rule below. Without it the projects view is empty,
+which is the first thing they'll notice.
 
 Then confirm `hdeck doctor` exits 0 before telling the user it's done. Do not
 report success on a doctor run you didn't actually read — a FAIL there is the
