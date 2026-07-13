@@ -68,6 +68,7 @@ func cmdDoctor(args []string) {
 	}
 	add(checkResult{Name: "config", Status: statusOK, Detail: config.Path() + " loads"})
 	add(checkProviders(cfg.Usage.Providers))
+	add(checkScanRoots(cfg))
 	add(checkURLTLS(cfg.PublicURL, cfg.TLS.Enabled()))
 
 	if cfg.TLS.Enabled() {
@@ -130,6 +131,19 @@ func checkProviders(names []string) checkResult {
 	return checkResult{Name: "usage", Status: statusFail,
 		Detail: "unknown provider(s) in usage.providers: " + strings.Join(unk, ", ") + " (they are silently ignored)",
 		Fix:    "valid names: codex, openrouter, claude-code, copilot, opencode"}
+}
+
+// checkScanRoots warns when nothing feeds the projects view. scan_roots has no
+// default, so a config that omits it yields an empty projects view — a silent,
+// confusing outcome that otherwise passes every other check.
+func checkScanRoots(cfg config.Config) checkResult {
+	if len(cfg.ScanRoots) > 0 || len(cfg.Projects) > 0 {
+		return checkResult{Name: "projects", Status: statusOK,
+			Detail: fmt.Sprintf("%d scan root(s), %d explicit project(s)", len(cfg.ScanRoots), len(cfg.Projects))}
+	}
+	return checkResult{Name: "projects", Status: statusWarn,
+		Detail: "no scan_roots set — the projects view will be empty (reports still work)",
+		Fix:    `add "scan_roots": ["~/git"] to ` + config.Path() + `, or run: harness-deck register <path>`}
 }
 
 // checkURLTLS catches a public_url whose scheme contradicts the tls block.
@@ -236,14 +250,24 @@ func checkVAPID(cfg config.Config) checkResult {
 	}
 }
 
+// serverDownResult grades "nothing is listening" as FAIL. The setup docs tell
+// agents to treat `doctor` exit 0 as the install-is-done gate, so the most
+// likely install failure of all — the service never came up — has to be able to
+// fail that gate. (`brew services start` is async: a doctor run immediately
+// after it can legitimately race the server, so an agent seeing this should
+// retry once before reporting it.)
+func serverDownResult(port int) checkResult {
+	return checkResult{Name: "server", Status: statusFail,
+		Detail: fmt.Sprintf("nothing listening on :%d", port),
+		Fix:    "brew services start harness-deck (or `harness-deck serve`); if you just started it, give it a second and rerun"}
+}
+
 // checkPort reports whether the configured port is free, ours, or contested.
 func checkPort(cfg config.Config) checkResult {
 	addr := net.JoinHostPort("127.0.0.1", fmt.Sprint(cfg.Port))
 	conn, err := net.DialTimeout("tcp", addr, time.Second)
 	if err != nil {
-		return checkResult{Name: "server", Status: statusWarn,
-			Detail: fmt.Sprintf("nothing listening on :%d", cfg.Port),
-			Fix:    "brew services start harness-deck (or `harness-deck serve`)"}
+		return serverDownResult(cfg.Port)
 	}
 	conn.Close()
 	scheme := "http"

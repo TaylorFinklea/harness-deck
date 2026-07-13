@@ -16,8 +16,14 @@ command -v hdeck || command -v harness-deck
 - Both macOS and Linux use Homebrew plus `brew services` for persistence
   (hand-rolled LaunchAgent/systemd units only for non-Homebrew installs —
   Appendix A).
-- Do not install Homebrew itself without the user's approval. If Homebrew is
-  absent, use `go install` or a release binary only after confirming that path.
+- **Already installed?** If `hdeck version` reports a version, this is an
+  upgrade, not an install: run `brew upgrade harness-deck` instead of `brew
+  install`, and still do steps 4–5 (a host set up before v0.2.14 has a
+  hand-rolled service unit that must be removed — see step 4).
+- **No Homebrew?** Do not install Homebrew without the user's approval. Ask
+  first, and offer `go install` (below) as the alternative. Binaries built by
+  `go install` are ad-hoc signed, so on macOS they can be silently blocked by
+  the Application Firewall — `hdeck doctor` catches that and prints the fix.
 
 ## 2. Install the binary
 
@@ -40,6 +46,11 @@ harness-deck version
 `go install` does not create the `hdeck` alias.
 
 ## 3. Write the config
+
+Optional — every field defaults and harness-deck runs with no config file at all
+(`127.0.0.1:7420`, reports in `~/.harness/reports`). Write one to change
+something. The usual reason is `scan_roots`, which has no default: without it the
+projects view stays empty.
 
 Local-only dashboard:
 
@@ -76,7 +87,26 @@ hdeck register /path/to/project
 
 ## 4. Install persistence
 
-Homebrew installs (formula v0.2.14+) get a service definition for free:
+**First, remove any hand-rolled unit from a previous setup.** Older revisions of
+this runbook had you write a LaunchAgent/systemd unit by hand. If one is left
+behind it will start a *second* server at login and fight the Homebrew service
+for the port; the loser crash-loops. Homebrew's own unit is
+`homebrew.mxcl.harness-deck` — leave that one alone, remove anything else:
+
+```sh
+# macOS — old labels include com.tfinklea.harness-deck and com.harnessdeck.serve
+ls ~/Library/LaunchAgents | grep -i harness      # anything not homebrew.mxcl.* is stale
+launchctl bootout "gui/$(id -u)/<stale-label>" 2>/dev/null || true
+rm -f ~/Library/LaunchAgents/<stale-label>.plist  # -f: a bare `rm` may prompt and silently no-op
+ls ~/Library/LaunchAgents | grep -i harness      # verify it is actually gone
+
+# Linux
+systemctl --user disable --now harness-deck.service 2>/dev/null || true
+rm -f ~/.config/systemd/user/harness-deck.service
+```
+
+Then start the service. Homebrew installs (formula v0.2.14+) ship a service
+definition, so this is the whole step on both macOS and Linux:
 
 ```sh
 brew services start harness-deck

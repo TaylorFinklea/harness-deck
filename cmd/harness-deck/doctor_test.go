@@ -169,3 +169,39 @@ func TestExternalReachResult(t *testing.T) {
 		t.Errorf("fix should include the allowlist command: %q", r.Fix)
 	}
 }
+
+// A server that isn't running must FAIL, not WARN: AGENTS.md/SETUP.md tell
+// agents to treat `doctor` exit 0 as the install-is-done gate, and "the
+// service never started" is the single most likely install failure. Grading it
+// WARN made that gate certify a broken install.
+func TestServerDownIsFail(t *testing.T) {
+	r := serverDownResult(7420)
+	if r.Status != statusFail {
+		t.Errorf("nothing listening = %v, want fail (exit 0 must not certify a dead server)", r.Status)
+	}
+	if !strings.Contains(r.Fix, "brew services start") {
+		t.Errorf("fix should tell the user how to start it: %q", r.Fix)
+	}
+	if worstStatus([]checkResult{{Status: statusOK}, r}) != statusFail {
+		t.Error("a down server must drive the overall exit status to fail")
+	}
+}
+
+func TestCheckScanRoots(t *testing.T) {
+	// No scan_roots and no explicit projects: the projects view will be empty,
+	// which is the symptom a user actually notices. Warn, don't fail — a
+	// central-dir-only install is legitimate.
+	r := checkScanRoots(config.Config{})
+	if r.Status != statusWarn {
+		t.Errorf("no scan_roots = %v, want warn", r.Status)
+	}
+	if !strings.Contains(r.Fix, "scan_roots") {
+		t.Errorf("fix should name scan_roots: %q", r.Fix)
+	}
+	if r := checkScanRoots(config.Config{ScanRoots: []string{"~/git"}}); r.Status != statusOK {
+		t.Errorf("with scan_roots = %v, want ok", r.Status)
+	}
+	if r := checkScanRoots(config.Config{Projects: []string{"/x/y"}}); r.Status != statusOK {
+		t.Errorf("explicit projects should satisfy it: %v, want ok", r.Status)
+	}
+}

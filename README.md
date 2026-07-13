@@ -97,51 +97,58 @@ The launch article draft lives in
 ## Install
 
 ```sh
-# Homebrew (macOS / Linux) — installs `harness-deck` and the short alias `hdeck`
-brew install taylorfinklea/tap/harness-deck
-
-# Go 1.26+
-go install github.com/TaylorFinklea/harness-deck/cmd/harness-deck@latest
+brew install taylorfinklea/tap/harness-deck   # installs `harness-deck` + the short `hdeck` alias
+brew services start harness-deck              # run now, and again at login (macOS + Linux)
+sudo loginctl enable-linger "$USER"           # Linux only — keep it running after logout
+hdeck doctor                                  # verify — every failure prints its fix
+hdeck open                                    # open the dashboard
 ```
 
-After `brew tap taylorfinklea/tap`, the bare `brew install harness-deck` also
-works. Or download a prebuilt binary from the
-[releases page](https://github.com/TaylorFinklea/harness-deck/releases).
+That's it. **No config file is required** — harness-deck runs on defaults
+(`127.0.0.1:7420`, reports in `~/.harness/reports`). macOS binaries are signed
+and notarized, so nothing prompts you and nothing gets silently firewalled.
 
-**Or let your coding agent install it.** harness-deck ships an agent-oriented
-setup runbook ([`docs/SETUP.md`](docs/SETUP.md)). Point your harness at this
-repo and say *set up harness-deck* — it detects your OS, installs the binary,
-writes the config, and registers a start-on-login service (launchd on macOS,
-systemd on Linux), then verifies the dashboard responds.
+### Show your projects in the dashboard
 
-## Host setup
-
-If you are an AI agent asked to "set up harness-deck", follow
-[`docs/SETUP.md`](docs/SETUP.md). It covers OS detection, Homebrew install,
-`~/.config/harness-deck/config.json`, start-on-login via `brew services start
-harness-deck` (with hand-rolled launchd/systemd units as the non-Homebrew
-fallback), `hdeck doctor` verification, and optional Tailscale HTTPS / PWA
-push via `hdeck cert`.
-
-The short local-only setup is:
+The one setting most people want is `scan_roots` — the parent directories to
+discover projects in (it has no default). Any depth-1 child containing a
+`.docs/ai/` directory shows up in the projects view:
 
 ```sh
-brew install taylorfinklea/tap/harness-deck
 mkdir -p ~/.config/harness-deck
 cat > ~/.config/harness-deck/config.json <<'JSON'
 {
-  "central_dir": "~/.harness/reports",
-  "scan_roots": ["~/git"],
-  "bind": "127.0.0.1",
-  "port": 7420
+  "scan_roots": ["~/git"]
 }
 JSON
-hdeck serve
+brew services restart harness-deck
 ```
 
-Use `scan_roots` for parent directories like `~/git`; harness-deck discovers
-depth-1 children that contain `.docs/ai/`. For repos outside those roots, run
-`hdeck register /path/to/project`.
+For a repo outside those roots: `hdeck register /path/to/project`.
+
+### Other ways to install
+
+```sh
+go install github.com/TaylorFinklea/harness-deck/cmd/harness-deck@latest   # Go 1.26+
+```
+
+Or grab a prebuilt binary from the
+[releases page](https://github.com/TaylorFinklea/harness-deck/releases). After
+`brew tap taylorfinklea/tap`, the bare `brew install harness-deck` also works.
+
+Binaries you build yourself aren't Apple-signed, so on macOS the Application
+Firewall may silently block connections from other devices (your phone). `hdeck
+doctor` detects exactly that and prints the one-line fix. Homebrew and
+release-page binaries are signed and unaffected.
+
+### Or let your coding agent install it
+
+Point any harness (Claude Code, Codex, OpenCode, Cursor, Copilot, …) at this
+repo and say **"install harness-deck"**. The repo ships agent instructions —
+[`AGENTS.md`](AGENTS.md) for the routing and rules, and
+[`docs/SETUP.md`](docs/SETUP.md) as the full runbook — so the agent installs the
+binary, registers the start-on-login service, optionally wires up phone access
+over Tailscale, and verifies with `hdeck doctor` instead of guessing.
 
 ## Build & run
 
