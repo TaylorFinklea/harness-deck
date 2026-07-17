@@ -1202,3 +1202,52 @@ actually installs, not the working tree.
 
 Worth repeating for any user-facing runbook: the reviewer must not have written
 the thing, and must be told to be adversarial rather than confirmatory.
+
+## 2026-07-16 — Fork-friendliness wave: configurable convention, not configurable everything
+
+A FOSS/forkability audit found the codebase already clean (MIT, zero deps, no
+telemetry, env-gated signing) with exactly one piece of *lock-in* rather than
+*default*: project discovery hardcoded the personal `.docs/ai` handoff
+convention as the scan-root marker, so a forker's `scan_roots` silently
+yielded an empty projects view. The test used to separate the two: a default
+someone can override is fine; a convention they can't opt out of is lock-in.
+
+Shipped as one wave:
+
+- **`project_markers`** (default `[".docs/ai"]`) — any listed path, dir or
+  file, qualifies a scan-root child. Threaded as a required `NewManager` /
+  `SetRoots` parameter, NOT an optional setter: the MCP path builds its own
+  Manager (`tools.go`), and a forgotten setter there would silently split
+  discovery behavior between dashboard and MCP. Blank entries are skipped
+  (stat("") matches every dir — a typo must not go match-all; deliberate
+  match-all is `"."`). Live-reloads with scan_roots. The projects-view doc
+  names (roadmap.md/current-state.md) stay hardcoded — they degrade
+  gracefully when absent, so they're default-shaped, not lock-in.
+- **`$XDG_CONFIG_HOME`** honored when absolute (basedir spec says ignore
+  relative) — deliberately NOT `os.UserConfigDir()`, which would move macOS
+  installs to ~/Library/Application Support and strand existing configs.
+  Existing-file-wins fallback: a config already at legacy ~/.config keeps
+  winning until a file exists at the XDG location, so upgrading the binary
+  can't orphan a pre-XDG install that had XDG_CONFIG_HOME set (Terra review
+  catch). `projects.StatePath()` now delegates to `config.Dir()` so state
+  always follows the config file.
+- **`push_subject`** — the VAPID JWT sub claim was the author's repo URL
+  baked into every fork's push traffic; now config with the old const as
+  fallback (Apple's TLD-validation caveat documented on the field).
+- **doctor discovery-aware**: scan_roots set but 0 projects discovered now
+  warns naming `project_markers` (pure `scanRootsResult` grading fn, same
+  testability pattern as `staleUnitResult`).
+- **CONTRIBUTING.md** + README hostname genericized (real tailnet name was
+  in the public README).
+
+Adversarially reviewed by GPT-5.6 Terra (pi dispatch, xhigh) before commit —
+verdict FIX-FIRST, 5 findings: 1 refuted (claimed a stale 3-arg NewManager
+call; grep + green `go test -race ./...` disproved it — it misread perl-edited
+context lines in the diff), 4 accepted and fixed: the XDG legacy-install
+fallback above, `push_subject` validated at Load (https:// or mailto: only,
+matching the notifications-validation pattern — a bad value otherwise
+surfaces only as silently dead push delivery), blank marker entries stripped
+at Load so doctor's warning prints the *effective* set, and the new XDG tests
+made Windows-safe (t.TempDir instead of /tmp literals). Dispatch note: Terra
+at xhigh needs ~5min for a ~950-line diff review — the first attempt died on
+the default 120s Bash timeout; pass `timeout: 600000`.

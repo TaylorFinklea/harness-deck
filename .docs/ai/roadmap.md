@@ -265,6 +265,17 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
      the failed run. Verified on the shipped binary: doctor 12/12 exit 0, exit
      1 on a never-started install, Developer ID chain intact.
 
+11. - [x] **Fork-friendliness wave** _(2026-07-16, on main, unreleased)_ —
+     FOSS audit follow-through: `project_markers` config (discovery marker was
+     hardcoded `.docs/ai` — the one real fork lock-in; default unchanged, any
+     path dir-or-file, blank entries skipped, live-reloads), `$XDG_CONFIG_HOME`
+     honored (absolute only; StatePath follows config.Dir()), `push_subject`
+     config (VAPID sub was the author's repo URL), doctor warns when scan_roots
+     match zero projects (names project_markers), CONTRIBUTING.md + README
+     hostname scrub. TDD throughout; e2e-verified against a live server
+     (XDG + markers + live-reload + doctor warn); Terra adversarial review.
+     decisions.md "Fork-friendliness wave". **Release as v0.2.16 when ready.**
+
 ## Next
 
 **Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop
