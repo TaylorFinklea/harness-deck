@@ -33,9 +33,20 @@ hdeck doctor                                  # verify; every failure prints its
 hdeck open                                    # open the dashboard (--print over SSH: no GUI)
 ```
 
-Ask the user where their code lives (e.g. `~/git`) and set `scan_roots`
-accordingly — see the config rule below. Without it the projects view is empty,
-which is the first thing they'll notice.
+Ask the user two things: where their code lives (e.g. `~/git`) → `scan_roots`,
+and what marks a repo as a project for them. Discovery only surfaces scan-root
+children containing a **project marker** — default `.docs/ai/`, an AI-handoff
+convention most people don't use. If their repos won't have that, set
+`project_markers` too (any listed path, directory or file, qualifies — e.g.
+`[".git"]` for "every repo", or `[".docs/ai", ".beads"]`):
+
+```json
+{ "scan_roots": ["~/git"], "project_markers": [".git"] }
+```
+
+Without `scan_roots` the projects view is empty — the first thing they'll
+notice. With `scan_roots` set but no marker match, it's just as empty;
+`hdeck doctor` warns about both and names the fix.
 
 Then confirm `hdeck doctor` exits 0 before telling the user it's done. Do not
 report success on a doctor run you didn't actually read — a FAIL there is the
@@ -58,7 +69,8 @@ Rules for doing this well:
   / raw-binary hosts only ([SETUP.md Appendix A](docs/SETUP.md)). On Linux also
   run `sudo loginctl enable-linger "$USER"` so the service survives logout.
 - **`hdeck doctor` is the verification step**, not `curl`. It checks the config
-  (including `usage.providers` typos and an empty `scan_roots`), TLS cert
+  (including `usage.providers` typos, an empty `scan_roots`, and scan roots
+  that discover zero projects — the fix names `project_markers`), TLS cert
   validity/expiry/hostname, push keys, whether the server actually answers —
   including on the non-loopback interface a phone uses — Tailscale, and the macOS
   firewall. Every failure prints a concrete fix. `--json` for machine-readable
@@ -69,7 +81,9 @@ Rules for doing this well:
   reports in `~/.harness/reports`). Only write
   `~/.config/harness-deck/config.json` to change something — most commonly
   `scan_roots` (e.g. `["~/git"]`) so the projects view discovers repos, since that
-  has no default. Doctor warns when it's missing.
+  has no default, plus `project_markers` when the user's repos don't follow the
+  default `.docs/ai` convention. Doctor warns when either leaves the projects
+  view empty.
 - **Never `go get` a dependency** to make an install work. See the zero-dependency
   constraint below.
 
@@ -176,8 +190,9 @@ starting point:
   given project's `.harness/`; in-memory index; `Signature()` fingerprint
   drives change detection.
 - **`projects`** — discovers project roots (depth-1 children of `scan_roots`
-  holding a `.docs/ai` dir, plus explicit `projects`); persists which ones the
-  user hid in an app-owned `projects.json`; new projects default to enabled.
+  holding one of the `project_markers` paths — default `.docs/ai` — plus
+  explicit `projects`); persists which ones the user hid in an app-owned
+  `projects.json`; new projects default to enabled.
 - **`usage`** — opt-in footer usage monitors. `Build`'s switch is the list of
   valid provider ids; `UnknownProviders` (pinned to it by test) is what lets
   `doctor` name a typo instead of silently ignoring it.
@@ -192,12 +207,17 @@ starting point:
   watcher polls store + projects and broadcasts SSE.
 - **`respond`** / **`notify`** — `responses.json` read/write; the configured
   notify command fired when an answer is recorded.
-- **`config`** — JSON config at `~/.config/harness-deck/config.json`; every
-  field defaults, so it runs with no config file. `scan_roots` lists
-  directories searched for project roots. `bind` (default `127.0.0.1`)
-  controls the listen interface — set it to a Tailscale IP or `0.0.0.0`
-  to reach the dashboard from a phone. `tls.cert` + `tls.key` enable HTTPS
-  (required for iOS push); issue them with `hdeck cert`.
+- **`config`** — JSON config at `~/.config/harness-deck/config.json` (or
+  `$XDG_CONFIG_HOME/harness-deck/` when set and absolute — an existing legacy
+  `~/.config` install keeps winning; `HARNESS_DECK_CONFIG` overrides both);
+  every field defaults, so it runs with no config file. `scan_roots` lists
+  directories searched for project roots; `project_markers` (default
+  `[".docs/ai"]`) is what marks a child as a project. `bind` (default
+  `127.0.0.1`) controls the listen interface — set it to a Tailscale IP or
+  `0.0.0.0` to reach the dashboard from a phone. `tls.cert` + `tls.key`
+  enable HTTPS (required for iOS push); issue them with `hdeck cert`.
+  `push_subject` sets the VAPID contact for forks/self-hosters (validated at
+  load: `https://` or `mailto:`).
 - **`assets`** — vendored frontend files embedded for self-contained output.
 
 ## Key conventions

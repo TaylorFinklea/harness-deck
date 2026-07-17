@@ -27,8 +27,9 @@ when the renderer changes:
 ![A rendered harness-deck report](docs/screenshots/report.png)
 
 The projects view auto-discovers every project under your `scan_roots` (e.g.
-`~/git`) and shows each one's `.docs/ai/current-state.md` and `roadmap.md`
-together, alongside any reports published with `kind: "roadmap"`. A "tracked
+`~/git`, matched by configurable `project_markers`) and shows each one's
+`.docs/ai/current-state.md` and `roadmap.md` when present, alongside any
+reports published with `kind: "roadmap"`. A "tracked
 projects" panel lets you uncheck the ones you don't care to follow:
 
 ![The harness-deck projects view](docs/screenshots/projects.png)

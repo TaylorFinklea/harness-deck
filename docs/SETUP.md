@@ -152,8 +152,9 @@ than v0.2.14? Use the hand-rolled units in
 hdeck doctor
 ```
 
-`doctor` (v0.2.15+) checks the config (including `usage.providers` typos and an
-empty `scan_roots`, both otherwise silent), TLS cert validity/expiry/hostname,
+`doctor` (v0.2.15+) checks the config (including `usage.providers` typos, an
+empty `scan_roots`, and scan roots that discover zero projects — the fix names
+`project_markers` — all otherwise silent), TLS cert validity/expiry/hostname,
 VAPID presence, leftover hand-rolled service units, whether the server actually
 answers — including on the non-loopback interface, the path a phone uses — and,
 on macOS, whether the Application Firewall is dropping inbound connections.
