@@ -69,7 +69,7 @@ func TestDiscoverDedupsByPathNotBasename(t *testing.T) {
 	mkProject(t, gitRoot, "foo", true)
 	mkProject(t, workRoot, "foo", true)
 
-	m := NewManager([]string{gitRoot, workRoot}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{gitRoot, workRoot}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	got := m.Discovered()
 	if len(got) != 2 {
@@ -96,7 +96,7 @@ func TestDiscoverDuplicatePathDeduped(t *testing.T) {
 	root := t.TempDir()
 	proj := mkProject(t, root, "alpha", true)
 
-	m := NewManager([]string{root}, []string{proj}, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, []string{proj}, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	got := m.Discovered()
 	if len(got) != 1 || got[0].Name != "alpha" {
@@ -114,11 +114,11 @@ func TestToggleDisambiguatedName(t *testing.T) {
 	mkProject(t, workRoot, "foo", true)
 	state := filepath.Join(t.TempDir(), "projects.json")
 
-	if err := NewManager([]string{gitRoot, workRoot}, nil, state).Toggle("foo (work)"); err != nil {
+	if err := NewManager([]string{gitRoot, workRoot}, nil, nil, state).Toggle("foo (work)"); err != nil {
 		t.Fatalf("Toggle: %v", err)
 	}
 
-	for _, p := range NewManager([]string{gitRoot, workRoot}, nil, state).Discovered() {
+	for _, p := range NewManager([]string{gitRoot, workRoot}, nil, nil, state).Discovered() {
 		wantEnabled := p.Path == gitFoo
 		if p.Enabled != wantEnabled {
 			t.Errorf("%s (%s): Enabled=%t, want %t", p.Name, p.Path, p.Enabled, wantEnabled)
@@ -139,7 +139,7 @@ func TestDiscoveredFindsOnlyDirsWithDocsAI(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	var names []string
 	for _, p := range m.Discovered() {
@@ -161,11 +161,11 @@ func TestToggleDisablesAndPersists(t *testing.T) {
 	mkProject(t, root, "beta", true)
 	state := filepath.Join(t.TempDir(), "projects.json")
 
-	if err := NewManager([]string{root}, nil, state).Toggle("beta"); err != nil {
+	if err := NewManager([]string{root}, nil, nil, state).Toggle("beta"); err != nil {
 		t.Fatalf("Toggle: %v", err)
 	}
 
-	for _, p := range NewManager([]string{root}, nil, state).Discovered() {
+	for _, p := range NewManager([]string{root}, nil, nil, state).Discovered() {
 		want := p.Name != "beta"
 		if p.Enabled != want {
 			t.Errorf("%s: Enabled=%t, want %t", p.Name, p.Enabled, want)
@@ -178,7 +178,7 @@ func TestToggleTwiceReEnables(t *testing.T) {
 	root := t.TempDir()
 	mkProject(t, root, "alpha", true)
 	state := filepath.Join(t.TempDir(), "projects.json")
-	m := NewManager([]string{root}, nil, state)
+	m := NewManager([]string{root}, nil, nil, state)
 
 	if err := m.Toggle("alpha"); err != nil {
 		t.Fatalf("Toggle 1: %v", err)
@@ -198,7 +198,7 @@ func TestToggleTwiceReEnables(t *testing.T) {
 func TestToggleUnknownProjectErrors(t *testing.T) {
 	root := t.TempDir()
 	mkProject(t, root, "alpha", true)
-	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	if err := m.Toggle("nonexistent"); err == nil {
 		t.Error("Toggle(nonexistent) = nil, want error")
@@ -210,7 +210,7 @@ func TestEnabledExcludesDisabled(t *testing.T) {
 	root := t.TempDir()
 	mkProject(t, root, "alpha", true)
 	mkProject(t, root, "beta", true)
-	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	if err := m.Toggle("alpha"); err != nil {
 		t.Fatalf("Toggle: %v", err)
@@ -232,7 +232,7 @@ func TestCorruptStateFileDegradesToAllVisible(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, p := range NewManager([]string{root}, nil, state).Discovered() {
+	for _, p := range NewManager([]string{root}, nil, nil, state).Discovered() {
 		if !p.Enabled {
 			t.Errorf("%s hidden; a corrupt state file should degrade to visible", p.Name)
 		}
@@ -246,7 +246,7 @@ func TestExplicitProjectsIncluded(t *testing.T) {
 	mkProject(t, scanRoot, "alpha", true)
 	explicit := mkProject(t, t.TempDir(), "manual", false)
 
-	m := NewManager([]string{scanRoot}, []string{explicit}, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{scanRoot}, []string{explicit}, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	var names []string
 	for _, p := range m.Discovered() {
@@ -262,7 +262,7 @@ func TestExplicitProjectsIncluded(t *testing.T) {
 func TestFingerprintChangesOnToggle(t *testing.T) {
 	root := t.TempDir()
 	mkProject(t, root, "alpha", true)
-	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	before := m.Fingerprint()
 	if err := m.Toggle("alpha"); err != nil {
@@ -283,7 +283,7 @@ func TestDiscoveredAppliesSavedOrder(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "projects.json")
 	writeState(t, state, map[string]any{"order": []string{"gamma", "alpha", "beta"}})
 
-	m := NewManager([]string{root}, nil, state)
+	m := NewManager([]string{root}, nil, nil, state)
 	var names []string
 	for _, p := range m.Discovered() {
 		names = append(names, p.Name)
@@ -304,7 +304,7 @@ func TestDiscoveredAppendsNewProjectsAlpha(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "projects.json")
 	writeState(t, state, map[string]any{"order": []string{"gamma", "alpha"}})
 
-	m := NewManager([]string{root}, nil, state)
+	m := NewManager([]string{root}, nil, nil, state)
 	var names []string
 	for _, p := range m.Discovered() {
 		names = append(names, p.Name)
@@ -322,7 +322,7 @@ func TestDiscoveredDropsMissingFromOrder(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "projects.json")
 	writeState(t, state, map[string]any{"order": []string{"ghost", "alpha"}})
 
-	m := NewManager([]string{root}, nil, state)
+	m := NewManager([]string{root}, nil, nil, state)
 	var names []string
 	for _, p := range m.Discovered() {
 		names = append(names, p.Name)
@@ -341,12 +341,12 @@ func TestReorderPersists(t *testing.T) {
 	mkProject(t, root, "gamma", true)
 	state := filepath.Join(t.TempDir(), "projects.json")
 
-	if err := NewManager([]string{root}, nil, state).Reorder([]string{"gamma", "alpha", "beta"}); err != nil {
+	if err := NewManager([]string{root}, nil, nil, state).Reorder([]string{"gamma", "alpha", "beta"}); err != nil {
 		t.Fatalf("Reorder: %v", err)
 	}
 
 	var names []string
-	for _, p := range NewManager([]string{root}, nil, state).Discovered() {
+	for _, p := range NewManager([]string{root}, nil, nil, state).Discovered() {
 		names = append(names, p.Name)
 	}
 	if want := []string{"gamma", "alpha", "beta"}; !reflect.DeepEqual(names, want) {
@@ -359,7 +359,7 @@ func TestReorderPersists(t *testing.T) {
 func TestReorderUnknownNameErrors(t *testing.T) {
 	root := t.TempDir()
 	mkProject(t, root, "alpha", true)
-	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	if err := m.Reorder([]string{"alpha", "ghost"}); err == nil {
 		t.Error("Reorder(...ghost) = nil, want error")
@@ -373,7 +373,7 @@ func TestReorderPreservesDisabled(t *testing.T) {
 	mkProject(t, root, "alpha", true)
 	mkProject(t, root, "beta", true)
 	state := filepath.Join(t.TempDir(), "projects.json")
-	m := NewManager([]string{root}, nil, state)
+	m := NewManager([]string{root}, nil, nil, state)
 
 	if err := m.Toggle("beta"); err != nil {
 		t.Fatalf("Toggle: %v", err)
@@ -395,7 +395,7 @@ func TestFingerprintChangesOnReorder(t *testing.T) {
 	root := t.TempDir()
 	mkProject(t, root, "alpha", true)
 	mkProject(t, root, "beta", true)
-	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	before := m.Fingerprint()
 	if err := m.Reorder([]string{"beta", "alpha"}); err != nil {
@@ -415,7 +415,7 @@ func TestFingerprintChangesOnDocEdit(t *testing.T) {
 	if err := os.WriteFile(doc, []byte("short"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m := NewManager([]string{root}, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 
 	before := m.Fingerprint()
 	if err := os.WriteFile(doc, []byte("a considerably longer body"), 0o644); err != nil {
@@ -423,5 +423,135 @@ func TestFingerprintChangesOnDocEdit(t *testing.T) {
 	}
 	if m.Fingerprint() == before {
 		t.Error("Fingerprint unchanged after editing current-state.md")
+	}
+}
+
+// TestDiscoverCustomMarkers checks that a configured marker set replaces the
+// default: only children holding one of the marker paths are projects.
+func TestDiscoverCustomMarkers(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "beads-repo", ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mkProject(t, root, "handoff-repo", true) // .docs/ai only
+	mkProject(t, root, "plain-repo", false)
+
+	m := NewManager([]string{root}, nil, []string{".beads"}, filepath.Join(t.TempDir(), "projects.json"))
+
+	got := m.Discovered()
+	if len(got) != 1 || got[0].Name != "beads-repo" {
+		t.Fatalf("Discovered() = %v, want single [beads-repo]", got)
+	}
+}
+
+// TestDiscoverMultipleMarkersAnyMatch checks that a child qualifies when it
+// holds any one of the configured markers.
+func TestDiscoverMultipleMarkersAnyMatch(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "beads-repo", ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mkProject(t, root, "handoff-repo", true)
+	mkProject(t, root, "plain-repo", false)
+
+	m := NewManager([]string{root}, nil, []string{".docs/ai", ".beads"}, filepath.Join(t.TempDir(), "projects.json"))
+
+	var names []string
+	for _, p := range m.Discovered() {
+		names = append(names, p.Name)
+	}
+	if want := []string{"beads-repo", "handoff-repo"}; !reflect.DeepEqual(names, want) {
+		t.Fatalf("Discovered names = %v, want %v", names, want)
+	}
+}
+
+// TestDiscoverFileMarker checks that a marker naming a file (not a directory)
+// still matches, so conventions like "go.mod" — or a worktree's ".git" file —
+// work as discovery markers.
+func TestDiscoverFileMarker(t *testing.T) {
+	root := t.TempDir()
+	dir := mkProject(t, root, "gomod-repo", false)
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkProject(t, root, "plain-repo", false)
+
+	m := NewManager([]string{root}, nil, []string{"go.mod"}, filepath.Join(t.TempDir(), "projects.json"))
+
+	got := m.Discovered()
+	if len(got) != 1 || got[0].Name != "gomod-repo" {
+		t.Fatalf("Discovered() = %v, want single [gomod-repo]", got)
+	}
+}
+
+// TestDiscoverNilMarkersDefaultsToDocsAI checks that nil markers keep the
+// historical .docs/ai default, so existing call sites behave unchanged.
+func TestDiscoverNilMarkersDefaultsToDocsAI(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "handoff-repo", true)
+	if err := os.MkdirAll(filepath.Join(root, "beads-repo", ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
+
+	got := m.Discovered()
+	if len(got) != 1 || got[0].Name != "handoff-repo" {
+		t.Fatalf("Discovered() = %v, want single [handoff-repo]", got)
+	}
+}
+
+// TestSetRootsReplacesMarkers checks the live-reload path: SetRoots with a new
+// marker set changes what the next Discovered() finds.
+func TestSetRootsReplacesMarkers(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "handoff-repo", true)
+	if err := os.MkdirAll(filepath.Join(root, "beads-repo", ".beads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager([]string{root}, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
+
+	m.SetRoots([]string{root}, nil, []string{".beads"})
+
+	got := m.Discovered()
+	if len(got) != 1 || got[0].Name != "beads-repo" {
+		t.Fatalf("Discovered() after SetRoots = %v, want single [beads-repo]", got)
+	}
+}
+
+// TestStatePathHonorsXDGConfigHome checks that projects.json follows the
+// config file when $XDG_CONFIG_HOME relocates it, keeping state and config
+// together.
+func TestStatePathHonorsXDGConfigHome(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("HARNESS_DECK_CONFIG", "")
+	t.Setenv("HOME", t.TempDir()) // fresh machine: no legacy ~/.config install
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	want := filepath.Join(xdg, "harness-deck", "projects.json")
+	if got := StatePath(); got != want {
+		t.Errorf("StatePath() = %q, want %q", got, want)
+	}
+}
+
+// TestDiscoverIgnoresEmptyMarkerEntries checks that a blank marker entry is
+// skipped rather than treated as "match every directory" (stat of "" resolves
+// to the child itself) — a typo'd config must not silently go match-all. The
+// deliberate match-all spelling is ".".
+func TestDiscoverIgnoresEmptyMarkerEntries(t *testing.T) {
+	root := t.TempDir()
+	mkProject(t, root, "handoff-repo", true)
+	mkProject(t, root, "plain-repo", false)
+
+	m := NewManager([]string{root}, nil, []string{"", ".docs/ai"}, filepath.Join(t.TempDir(), "projects.json"))
+	got := m.Discovered()
+	if len(got) != 1 || got[0].Name != "handoff-repo" {
+		t.Fatalf("Discovered() with blank entry = %v, want single [handoff-repo]", got)
+	}
+
+	// All entries blank degrades to the default marker, not to match-all.
+	m = NewManager([]string{root}, nil, []string{""}, filepath.Join(t.TempDir(), "projects.json"))
+	got = m.Discovered()
+	if len(got) != 1 || got[0].Name != "handoff-repo" {
+		t.Fatalf("Discovered() with only blank entries = %v, want default-marker [handoff-repo]", got)
 	}
 }

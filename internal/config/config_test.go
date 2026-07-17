@@ -80,6 +80,63 @@ func TestLoadBeadsDefaultDisabled(t *testing.T) {
 	}
 }
 
+// TestLoadDefaultsProjectMarkers checks that project discovery falls back to
+// the historical .docs/ai marker when the config file doesn't set one.
+func TestLoadDefaultsProjectMarkers(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if want := []string{".docs/ai"}; !reflect.DeepEqual(c.ProjectMarkers, want) {
+		t.Errorf("ProjectMarkers = %v, want %v", c.ProjectMarkers, want)
+	}
+}
+
+// TestLoadReadsProjectMarkers checks that project_markers replaces the
+// default discovery marker set.
+func TestLoadReadsProjectMarkers(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"project_markers":[".beads","go.mod"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if want := []string{".beads", "go.mod"}; !reflect.DeepEqual(c.ProjectMarkers, want) {
+		t.Errorf("ProjectMarkers = %v, want %v", c.ProjectMarkers, want)
+	}
+}
+
+// TestLoadEmptyProjectMarkersFallsBack checks that an explicit empty list
+// degrades to the default rather than making discovery match nothing.
+func TestLoadEmptyProjectMarkersFallsBack(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"project_markers":[]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if want := []string{".docs/ai"}; !reflect.DeepEqual(c.ProjectMarkers, want) {
+		t.Errorf("ProjectMarkers = %v, want %v", c.ProjectMarkers, want)
+	}
+}
+
 // TestPathExpandsTildeInOverride checks that a HARNESS_DECK_CONFIG override
 // with a leading ~ is expanded to a home-relative path so the file is found.
 func TestPathExpandsTildeInOverride(t *testing.T) {
@@ -99,6 +156,166 @@ func TestPathExpandsTildeInOverride(t *testing.T) {
 func TestPathPlainOverrideUnchanged(t *testing.T) {
 	t.Setenv("HARNESS_DECK_CONFIG", "/tmp/hd-test/config.json")
 	if got, want := Path(), "/tmp/hd-test/config.json"; got != want {
+		t.Errorf("Path() = %q, want %q", got, want)
+	}
+}
+
+// TestLoadDropsBlankProjectMarkers checks that blank/whitespace marker
+// entries are stripped at load time, so downstream consumers (discovery,
+// doctor's warning text) all see the effective set — and an all-blank list
+// degrades to the default rather than match-all.
+func TestLoadDropsBlankProjectMarkers(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"project_markers":["", " ", ".beads"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if want := []string{".beads"}; !reflect.DeepEqual(c.ProjectMarkers, want) {
+		t.Errorf("ProjectMarkers = %v, want %v", c.ProjectMarkers, want)
+	}
+
+	if err := os.WriteFile(cfgPath, []byte(`{"project_markers":[" "]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err = Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if want := []string{".docs/ai"}; !reflect.DeepEqual(c.ProjectMarkers, want) {
+		t.Errorf("all-blank ProjectMarkers = %v, want default %v", c.ProjectMarkers, want)
+	}
+}
+
+// TestLoadReadsPushSubject checks that push_subject parses; empty means the
+// server falls back to its built-in contact URL.
+func TestLoadReadsPushSubject(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(cfgPath, []byte(`{"push_subject":"https://example.com/my-fork"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.PushSubject != "https://example.com/my-fork" {
+		t.Errorf("PushSubject = %q, want %q", c.PushSubject, "https://example.com/my-fork")
+	}
+}
+
+// TestLoadRejectsInvalidPushSubject checks that a malformed push_subject is a
+// load-time error (matching notifications validation): the field feeds VAPID
+// JWTs where a bad value means silently failed push delivery much later.
+func TestLoadRejectsInvalidPushSubject(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.json")
+	t.Setenv("HARNESS_DECK_CONFIG", cfgPath)
+
+	for _, bad := range []string{"not-a-uri", "http://example.com", "mailto:", "   "} {
+		if err := os.WriteFile(cfgPath, []byte(`{"push_subject":"`+bad+`"}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Load(); err == nil {
+			t.Errorf("push_subject %q: Load succeeded, want error", bad)
+		}
+	}
+
+	for _, good := range []string{"https://example.com/my-fork", "mailto:ops@example.com"} {
+		if err := os.WriteFile(cfgPath, []byte(`{"push_subject":"`+good+`"}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		c, err := Load()
+		if err != nil {
+			t.Errorf("push_subject %q: Load: %v", good, err)
+		}
+		if c.PushSubject != good {
+			t.Errorf("PushSubject = %q, want %q", c.PushSubject, good)
+		}
+	}
+}
+
+// TestPathHonorsXDGConfigHome checks that an absolute $XDG_CONFIG_HOME
+// relocates the config file (Linux convention). HARNESS_DECK_CONFIG still
+// wins when both are set.
+func TestPathHonorsXDGConfigHome(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("HARNESS_DECK_CONFIG", "")
+	t.Setenv("HOME", t.TempDir()) // fresh machine: no legacy ~/.config install
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	want := filepath.Join(xdg, "harness-deck", "config.json")
+	if got := Path(); got != want {
+		t.Errorf("Path() = %q, want %q", got, want)
+	}
+
+	t.Setenv("HARNESS_DECK_CONFIG", "/tmp/hd-test/config.json")
+	if got, want := Path(), "/tmp/hd-test/config.json"; got != want {
+		t.Errorf("Path() with override = %q, want %q", got, want)
+	}
+}
+
+// TestPathXDGKeepsLegacyInstall checks the upgrade path for users who had
+// XDG_CONFIG_HOME set before harness-deck honored it: an existing
+// ~/.config/harness-deck/config.json keeps winning until a config exists at
+// the XDG location, so upgrading the binary can't silently orphan their
+// config and projects.json. Fresh installs (no file anywhere) use XDG.
+func TestPathXDGKeepsLegacyInstall(t *testing.T) {
+	home := t.TempDir()
+	xdg := t.TempDir()
+	t.Setenv("HARNESS_DECK_CONFIG", "")
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	legacy := filepath.Join(home, ".config", "harness-deck", "config.json")
+	xdgPath := filepath.Join(xdg, "harness-deck", "config.json")
+
+	// Fresh install: nothing on disk → XDG location.
+	if got := Path(); got != xdgPath {
+		t.Errorf("fresh install Path() = %q, want %q", got, xdgPath)
+	}
+
+	// Legacy install: only ~/.config has a config → keep using it.
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Path(); got != legacy {
+		t.Errorf("legacy install Path() = %q, want %q", got, legacy)
+	}
+
+	// Migrated: a config at the XDG location wins over the legacy one.
+	if err := os.MkdirAll(filepath.Dir(xdgPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(xdgPath, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Path(); got != xdgPath {
+		t.Errorf("migrated install Path() = %q, want %q", got, xdgPath)
+	}
+}
+
+// TestPathIgnoresRelativeXDGConfigHome checks that a non-absolute
+// $XDG_CONFIG_HOME is ignored per the basedir spec, falling back to
+// ~/.config so the config file can't land relative to a random cwd.
+func TestPathIgnoresRelativeXDGConfigHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home dir: %v", err)
+	}
+	t.Setenv("HARNESS_DECK_CONFIG", "")
+	t.Setenv("XDG_CONFIG_HOME", "relative/path")
+	want := filepath.Join(home, ".config", "harness-deck", "config.json")
+	if got := Path(); got != want {
 		t.Errorf("Path() = %q, want %q", got, want)
 	}
 }

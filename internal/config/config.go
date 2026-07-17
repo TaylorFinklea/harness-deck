@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,8 +25,13 @@ type Config struct {
 	// Projects are project roots; each is scanned for .harness/<run>/report.json.
 	Projects []string `json:"projects"`
 	// ScanRoots are directories searched (depth-1) for project roots: a
-	// direct child holding a .docs/ai directory is a discovered project.
+	// direct child holding one of ProjectMarkers is a discovered project.
 	ScanRoots []string `json:"scan_roots"`
+	// ProjectMarkers are the paths (relative to a candidate directory, with
+	// / separators) whose presence marks a scan-root child as a project. A
+	// marker may name a directory or a file. Default [".docs/ai"]; set e.g.
+	// [".docs/ai", ".beads"] or ["go.mod"] to match your own conventions.
+	ProjectMarkers []string `json:"project_markers,omitempty"`
 	// NotifyCommand runs when a response is recorded (Phase 4). The report
 	// directory is appended as a final argument. Empty disables notification.
 	NotifyCommand string `json:"notify_command"`
@@ -40,12 +46,18 @@ type Config struct {
 	// Generate certs once with `tailscale cert <hostname>`.
 	TLS TLSConfig `json:"tls"`
 	// PublicURL is the externally-reachable base URL of the dashboard,
-	// e.g. "https://scadrial.tailceb58.ts.net:7420". Used by notification
+	// e.g. "https://your-mac.your-tailnet.ts.net:7420". Used by notification
 	// fan-out (Slack/Discord/webhook) to build clickable links to reports.
 	// Empty falls back to best-effort construction from Bind + Port + TLS;
 	// that fallback works for localhost but produces "0.0.0.0:7420" for
 	// 0.0.0.0 binds — links won't resolve externally, set this explicitly.
 	PublicURL string `json:"public_url,omitempty"`
+	// PushSubject is the contact URL or mailto: embedded in Web Push VAPID
+	// JWTs (RFC 8292 "sub"). Push services may use it to reach the operator.
+	// Apple's push service rejects malformed values — use an https:// URL or
+	// a mailto: with a real public TLD. Empty falls back to the harness-deck
+	// repo URL; forks should set their own.
+	PushSubject string `json:"push_subject,omitempty"`
 	// Notifications are fan-out destinations (Slack / Discord / generic
 	// webhook) fired alongside Web Push whenever a new ask appears.
 	// Validation happens at Load time; a malformed entry is fatal so
@@ -118,23 +130,41 @@ func (t TLSConfig) Enabled() bool { return t.Cert != "" && t.Key != "" }
 // Default returns the configuration used when no config file is present.
 func Default() Config {
 	return Config{
-		CentralDir: "~/.harness/reports",
-		Port:       7420,
-		Bind:       "127.0.0.1",
+		CentralDir:     "~/.harness/reports",
+		Port:           7420,
+		Bind:           "127.0.0.1",
+		ProjectMarkers: []string{".docs/ai"},
 	}
 }
 
 // Path is the config file location. The HARNESS_DECK_CONFIG env var overrides
 // it; a leading ~ in the override is expanded to the user's home directory.
+// An absolute $XDG_CONFIG_HOME relocates the default (per the XDG basedir
+// spec, which says to ignore relative values) — but an existing config at the
+// legacy ~/.config location keeps winning until a file exists at the XDG
+// location, so upgrading the binary can't orphan a pre-XDG install (and its
+// companion state, which Dir() co-locates). ~/.config is the non-XDG default
+// on every OS — deliberately not os.UserConfigDir(), which would move
+// existing macOS installs to ~/Library/Application Support.
 func Path() string {
 	if p := os.Getenv("HARNESS_DECK_CONFIG"); p != "" {
 		return Expand(p)
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "config.json"
+	legacy := "config.json"
+	if home, err := os.UserHomeDir(); err == nil {
+		legacy = filepath.Join(home, ".config", "harness-deck", "config.json")
 	}
-	return filepath.Join(home, ".config", "harness-deck", "config.json")
+	if x := os.Getenv("XDG_CONFIG_HOME"); filepath.IsAbs(x) {
+		p := filepath.Join(x, "harness-deck", "config.json")
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+		if _, err := os.Stat(legacy); err == nil {
+			return legacy
+		}
+		return p
+	}
+	return legacy
 }
 
 // Load reads the config file, falling back to defaults for a missing file or
@@ -160,12 +190,53 @@ func Load() (Config, error) {
 	if c.Bind == "" {
 		c.Bind = Default().Bind
 	}
+	// Strip blank marker entries here so every consumer — discovery, and
+	// doctor's "what was actually tested" warning — sees the effective set.
+	kept := c.ProjectMarkers[:0:0]
+	for _, m := range c.ProjectMarkers {
+		if strings.TrimSpace(m) != "" {
+			kept = append(kept, m)
+		}
+	}
+	c.ProjectMarkers = kept
+	if len(c.ProjectMarkers) == 0 {
+		c.ProjectMarkers = Default().ProjectMarkers
+	}
 	for i, d := range c.Notifications {
 		if err := d.Validate(); err != nil {
 			return c, fmt.Errorf("notifications[%d] (%q): %w", i, d.Name, err)
 		}
 	}
+	if c.PushSubject != "" {
+		if err := validatePushSubject(c.PushSubject); err != nil {
+			return c, fmt.Errorf("push_subject %q: %w", c.PushSubject, err)
+		}
+	}
 	return c, nil
+}
+
+// validatePushSubject enforces the VAPID "sub" shapes push services accept
+// (RFC 8292): an https:// URL or a mailto: address. Validated at load time —
+// like notifications — because a bad value otherwise surfaces only as
+// silently failed push delivery long after the config edit.
+func validatePushSubject(s string) error {
+	u, err := url.Parse(strings.TrimSpace(s))
+	if err != nil {
+		return err
+	}
+	switch u.Scheme {
+	case "https":
+		if u.Host == "" {
+			return errors.New("https form needs a host")
+		}
+	case "mailto":
+		if u.Opaque == "" {
+			return errors.New("mailto: form needs an address")
+		}
+	default:
+		return errors.New("must be an https:// URL or a mailto: address")
+	}
+	return nil
 }
 
 // Dir returns the directory the config file lives in, e.g.

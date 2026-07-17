@@ -97,11 +97,11 @@ func selfSigned(t *testing.T, dns ...string) *x509.Certificate {
 }
 
 func TestCheckCertHost(t *testing.T) {
-	cert := selfSigned(t, "mandalore.tailceb58.ts.net")
-	if r := checkCertHost(cert, "https://mandalore.tailceb58.ts.net:7420"); r.Status != statusOK {
+	cert := selfSigned(t, "my-mac.my-tailnet.ts.net")
+	if r := checkCertHost(cert, "https://my-mac.my-tailnet.ts.net:7420"); r.Status != statusOK {
 		t.Errorf("matching host: %v, want ok (%s)", r.Status, r.Detail)
 	}
-	if r := checkCertHost(cert, "https://other.tailceb58.ts.net:7420"); r.Status != statusFail {
+	if r := checkCertHost(cert, "https://other.my-tailnet.ts.net:7420"); r.Status != statusFail {
 		t.Errorf("mismatched host: %v, want fail", r.Status)
 	}
 	if r := checkCertHost(cert, "://not a url"); r.Status != statusFail {
@@ -198,11 +198,28 @@ func TestCheckScanRoots(t *testing.T) {
 	if !strings.Contains(r.Fix, "scan_roots") {
 		t.Errorf("fix should name scan_roots: %q", r.Fix)
 	}
-	if r := checkScanRoots(config.Config{ScanRoots: []string{"~/git"}}); r.Status != statusOK {
-		t.Errorf("with scan_roots = %v, want ok", r.Status)
+}
+
+// scanRootsResult grades the discovery outcome given the live project count,
+// so the marker-mismatch warning is testable without real scan roots (same
+// pattern as staleUnitResult).
+func TestScanRootsResult(t *testing.T) {
+	if r := scanRootsResult(config.Config{ScanRoots: []string{"~/git"}}, 3); r.Status != statusOK {
+		t.Errorf("roots with projects = %v, want ok", r.Status)
 	}
-	if r := checkScanRoots(config.Config{Projects: []string{"/x/y"}}); r.Status != statusOK {
+	if r := scanRootsResult(config.Config{Projects: []string{"/x/y"}}, 1); r.Status != statusOK {
 		t.Errorf("explicit projects should satisfy it: %v, want ok", r.Status)
+	}
+
+	// scan_roots set but nothing matched a marker: the projects view is empty
+	// while every other check passes — warn and name project_markers, the
+	// knob that fixes it for repos not using the .docs/ai convention.
+	r := scanRootsResult(config.Config{ScanRoots: []string{"~/git"}, ProjectMarkers: []string{".docs/ai"}}, 0)
+	if r.Status != statusWarn {
+		t.Errorf("roots with no matches = %v, want warn", r.Status)
+	}
+	if !strings.Contains(r.Detail+r.Fix, "project_markers") {
+		t.Errorf("warning should name project_markers: detail=%q fix=%q", r.Detail, r.Fix)
 	}
 }
 

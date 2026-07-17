@@ -223,7 +223,7 @@ func (s *Server) tick(ws watchState) watchState {
 	nextConfigMod := ws.configMod
 	if mod := configModTime(); !mod.Equal(ws.configMod) {
 		if cfg, err := config.Load(); err == nil {
-			s.projects.SetRoots(cfg.ScanRoots, cfg.Projects)
+			s.projects.SetRoots(cfg.ScanRoots, cfg.Projects, cfg.ProjectMarkers)
 		}
 		nextConfigMod = mod
 	}

@@ -303,7 +303,7 @@ func (s *Server) toolListReports(_ context.Context, raw json.RawMessage) (ToolCa
 	// (scan_roots discovery + explicit projects, minus user-hidden ones)
 	// so list_reports and the dashboard agree on what exists.
 	st := store.New(s.cfg)
-	enabled := projects.NewManager(s.cfg.ScanRoots, s.cfg.Projects, projects.StatePath()).Enabled()
+	enabled := projects.NewManager(s.cfg.ScanRoots, s.cfg.Projects, s.cfg.ProjectMarkers, projects.StatePath()).Enabled()
 	roots := make([]string, 0, len(enabled))
 	for _, p := range enabled {
 		roots = append(roots, p.Path)

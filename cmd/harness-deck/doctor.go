@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/projects"
 	usagemon "github.com/TaylorFinklea/harness-deck/internal/usage"
 )
 
@@ -137,15 +138,34 @@ func checkProviders(names []string) checkResult {
 
 // checkScanRoots warns when nothing feeds the projects view. scan_roots has no
 // default, so a config that omits it yields an empty projects view — a silent,
-// confusing outcome that otherwise passes every other check.
+// confusing outcome that otherwise passes every other check. Roots that are
+// set but match no projects (marker mismatch) are the same symptom and get
+// the same treatment, via scanRootsResult.
 func checkScanRoots(cfg config.Config) checkResult {
-	if len(cfg.ScanRoots) > 0 || len(cfg.Projects) > 0 {
+	if len(cfg.ScanRoots) == 0 && len(cfg.Projects) == 0 {
+		return checkResult{Name: "projects", Status: statusWarn,
+			Detail: "no scan_roots set — the projects view will be empty (reports still work)",
+			Fix:    `add "scan_roots": ["~/git"] to ` + config.Path() + `, or run: harness-deck register <path>`}
+	}
+	n := len(projects.NewManager(cfg.ScanRoots, cfg.Projects, cfg.ProjectMarkers, projects.StatePath()).Discovered())
+	return scanRootsResult(cfg, n)
+}
+
+// scanRootsResult grades the discovery outcome given the live project count.
+// Separated from checkScanRoots so the zero-match warning is testable without
+// real scan roots on disk (same pattern as staleUnitResult).
+func scanRootsResult(cfg config.Config, discovered int) checkResult {
+	if discovered > 0 {
 		return checkResult{Name: "projects", Status: statusOK,
-			Detail: fmt.Sprintf("%d scan root(s), %d explicit project(s)", len(cfg.ScanRoots), len(cfg.Projects))}
+			Detail: fmt.Sprintf("%d project(s) from %d scan root(s), %d explicit", discovered, len(cfg.ScanRoots), len(cfg.Projects))}
+	}
+	markers := cfg.ProjectMarkers
+	if len(markers) == 0 {
+		markers = config.Default().ProjectMarkers
 	}
 	return checkResult{Name: "projects", Status: statusWarn,
-		Detail: "no scan_roots set — the projects view will be empty (reports still work)",
-		Fix:    `add "scan_roots": ["~/git"] to ` + config.Path() + `, or run: harness-deck register <path>`}
+		Detail: fmt.Sprintf("scan_roots matched no projects — no direct child holds a project marker (project_markers = %q)", markers),
+		Fix:    `set "project_markers" in ` + config.Path() + ` to paths your repos actually contain, e.g. [".docs/ai", ".beads", ".git"]`}
 }
 
 // isStaleUnit reports whether a service-unit filename is a hand-rolled

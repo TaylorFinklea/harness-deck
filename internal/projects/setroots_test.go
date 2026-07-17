@@ -10,12 +10,12 @@ import (
 // Discovered() — the runtime config-reload path.
 func TestSetRootsReloadsExplicitProject(t *testing.T) {
 	proj := t.TempDir()
-	m := NewManager(nil, nil, filepath.Join(t.TempDir(), "projects.json"))
+	m := NewManager(nil, nil, nil, filepath.Join(t.TempDir(), "projects.json"))
 	if got := m.Discovered(); len(got) != 0 {
 		t.Fatalf("expected no projects initially, got %d", len(got))
 	}
 
-	m.SetRoots(nil, []string{proj})
+	m.SetRoots(nil, []string{proj}, nil)
 
 	got := m.Discovered()
 	if len(got) != 1 || got[0].Name != filepath.Base(proj) {

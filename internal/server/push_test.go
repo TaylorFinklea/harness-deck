@@ -84,3 +84,17 @@ func TestTickReappearingAskNoRefire(t *testing.T) {
 	}
 	_ = ws
 }
+
+// TestPushSubject checks the VAPID "sub" claim source: push_subject from the
+// config wins, and the built-in repo-URL contact is only the fallback — a
+// fork's pushes shouldn't identify the upstream project as the operator.
+func TestPushSubject(t *testing.T) {
+	s := &Server{cfg: config.Config{PushSubject: "https://example.com/my-fork"}}
+	if got := s.pushSubject(); got != "https://example.com/my-fork" {
+		t.Errorf("pushSubject() = %q, want configured value", got)
+	}
+	s = &Server{}
+	if got := s.pushSubject(); got != defaultPushSubject {
+		t.Errorf("pushSubject() = %q, want defaultPushSubject fallback", got)
+	}
+}

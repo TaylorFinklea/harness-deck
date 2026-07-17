@@ -246,7 +246,7 @@ func (s *Server) deliverPush(payload push.Payload) {
 	if len(subs) == 0 || s.pushKeys == nil {
 		return
 	}
-	sender := push.NewSender(s.pushKeys, defaultPushSubject)
+	sender := push.NewSender(s.pushKeys, s.pushSubject())
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	for _, sub := range subs {
@@ -273,3 +273,12 @@ func (s *Server) deliverPush(payload push.Payload) {
 // only checks URL syntax, not reachability, so no live endpoint is
 // needed and we still leak no operator PII.
 const defaultPushSubject = "https://github.com/TaylorFinklea/harness-deck"
+
+// pushSubject resolves the VAPID contact: the config's push_subject when set
+// (forks and self-hosters supply their own), else defaultPushSubject.
+func (s *Server) pushSubject() string {
+	if s.cfg.PushSubject != "" {
+		return s.cfg.PushSubject
+	}
+	return defaultPushSubject
+}

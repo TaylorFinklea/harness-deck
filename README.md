@@ -114,13 +114,16 @@ and notarized, so nothing prompts you and nothing gets silently firewalled.
 
 The one setting most people want is `scan_roots` — the parent directories to
 discover projects in (it has no default). Any depth-1 child containing a
-`.docs/ai/` directory shows up in the projects view:
+project marker shows up in the projects view; the default marker is a
+`.docs/ai/` directory, and `project_markers` overrides it (any listed path,
+directory or file, qualifies — e.g. `[".git"]` to discover every repo):
 
 ```sh
 mkdir -p ~/.config/harness-deck
 cat > ~/.config/harness-deck/config.json <<'JSON'
 {
-  "scan_roots": ["~/git"]
+  "scan_roots": ["~/git"],
+  "project_markers": [".docs/ai", ".beads"]
 }
 JSON
 brew services restart harness-deck
@@ -202,7 +205,7 @@ or any HTTP webhook (n8n, Zapier, custom). Add destinations from the
 ```jsonc
 // ~/.config/harness-deck/config.json
 {
-  "public_url": "https://scadrial.tailceb58.ts.net:7420",
+  "public_url": "https://your-mac.your-tailnet.ts.net:7420",
   "notifications": [
     {"name": "team-alerts", "type": "slack",   "url": "https://hooks.slack.com/services/…"},
     {"name": "my-server",   "type": "discord", "url": "https://discord.com/api/webhooks/…"},
@@ -218,6 +221,12 @@ Per-destination `projects` is an optional allowlist; omit it to fire for
 every project. Sends are fire-and-forget with a per-attempt log line — no
 retry queue, on the principle that the next still-open ask re-fires
 automatically.
+
+## Contributing
+
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the build
+commands, the zero-dependency constraint, and notes on forking/self-hosting
+(discovery markers, push subject, releasing your own builds).
 
 ## License
 

@@ -103,7 +103,7 @@ func New(cfg config.Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse shell template: %w", err)
 	}
-	pm := projects.NewManager(cfg.ScanRoots, cfg.Projects, projects.StatePath())
+	pm := projects.NewManager(cfg.ScanRoots, cfg.Projects, cfg.ProjectMarkers, projects.StatePath())
 	st := store.New(cfg)
 
 	// Push is optional. A missing vapid.json means the user hasn't run

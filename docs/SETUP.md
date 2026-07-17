@@ -79,11 +79,29 @@ Dashboard reachable over Tailscale, without push notifications:
 ```
 
 Use `scan_roots` for parent directories like `~/git`. harness-deck discovers
-depth-1 children that contain `.docs/ai/`. For a repo outside those roots, run:
+depth-1 children that contain `.docs/ai/` — override the marker with
+`project_markers` if your repos follow a different convention (any listed
+path, directory or file, qualifies a child):
+
+```json
+{ "scan_roots": ["~/git"], "project_markers": [".docs/ai", ".beads", ".git"] }
+```
+
+For a repo outside those roots, run:
 
 ```sh
 hdeck register /path/to/project
 ```
+
+Other fork/self-host knobs: `push_subject` sets the contact embedded in Web
+Push VAPID JWTs (defaults to the harness-deck repo URL — set your own if you
+fork or self-host). It must be an `https://` URL or a `mailto:` address —
+validated at load time, since push services (Apple especially) reject other
+forms only at delivery time. The config file itself lives at
+`~/.config/harness-deck/config.json`, or under `$XDG_CONFIG_HOME/harness-deck/`
+when that variable is set (absolute paths only; an existing legacy
+`~/.config` install keeps winning until a config exists at the XDG location);
+`HARNESS_DECK_CONFIG` overrides both.
 
 ## 4. Install persistence
 
