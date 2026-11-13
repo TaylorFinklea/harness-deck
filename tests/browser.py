@@ -399,6 +399,11 @@ class BrowserTests(unittest.TestCase):
                                 self.page.locator('.term-chrome').bounding_box()['height'])
         self.keys('[')
         expect(self.page.locator('#sec-1')).to_have_class('panel vim-flash')
+        toc = self.page.locator('.toc a').first
+        self.assertGreater(toc.locator('.dots').bounding_box()['width'], 80)
+        toc.focus()
+        self.keys('Enter')
+        expect(self.page).to_have_url(self.url + '/r/alpha/middle#sec-1')
 
     def test_project_disclosures_support_native_keyboard(self):
         self.keys('g', 'p')
