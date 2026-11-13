@@ -29,11 +29,12 @@
 <style>{{.CSS}}</style>
 </head>
 <body>
+<a class="skip-link" href="#content">Skip to content</a>
 
 <header class="term-chrome">
   <div class="titlebar">
-    <button class="menu-button" type="button" aria-label="Toggle navigation">☰</button>
-    <div class="dots"><span></span><span></span><span></span></div>
+    <button class="menu-button" type="button" aria-label="Toggle navigation" aria-controls="tree" aria-expanded="false">☰</button>
+    <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
     <div class="title"><b>harness-deck</b> · {{.Report.Project}} · agent {{with .Report.Agent}}{{.}}{{else}}{{$.Report.Harness}}{{end}}</div>
     <div class="clock" id="clock">--:--:--</div>
   </div>
@@ -68,11 +69,12 @@
 
 <div class="drawer-scrim"></div>
 <div class="layout">
-  <aside class="sidebar vim-no-search">
+  <aside class="sidebar vim-no-search" id="tree" aria-label="Report contents">
+    <button class="drawer-close hd-btn" type="button" aria-label="Close navigation">✕ close</button>
     <div class="sidebar-section">
       <div class="sidebar-title">contents</div>
       <ol class="toc">
-        {{range .TOC}}<li onclick="location.hash='{{.Anchor}}'"><span class="n">{{.Num}}</span><span class="dots">{{.Title}} ·······································</span><span class="pg">§</span></li>
+        {{range .TOC}}<li><a href="#{{.Anchor}}"><span class="n">{{.Num}}</span><span class="dots">{{.Title}} ·······································</span><span class="pg">§</span></a></li>
         {{end}}
       </ol>
     </div>
@@ -85,7 +87,7 @@
     </div>
   </aside>
 
-  <main class="content">
+  <main class="content" id="content" tabindex="-1">
     <div class="report-banner" data-vim-section data-vim-heading id="sec-banner">
       <div>
         {{with .Banner.Kicker}}<div class="kicker">{{.}}</div>{{end}}
@@ -175,7 +177,8 @@
     var ddArmed = 0;
     document.addEventListener('keydown', function (e) {
       var t = e.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.isComposing || HDDom.shortcutTarget(t, e.key)) return;
+      if (window.HDKeys && HDKeys.pendingPrefix) return;
       if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       // Defer to triage when the user is mid-ask: y/n/digits/h/l own

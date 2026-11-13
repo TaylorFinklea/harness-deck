@@ -57,15 +57,15 @@
   function destinationForm() {
     return el('form', { id: 'dest-form', class: 'dest-form' }, [
       el('div', { class: 'dest-form-row' }, [
-        el('select', { name: 'type', class: 'hd-input' }, [
+        el('select', { name: 'type', class: 'hd-input', 'aria-label': 'Destination type' }, [
           el('option', { value: 'slack', text: 'slack' }),
           el('option', { value: 'discord', text: 'discord' }),
           el('option', { value: 'webhook', text: 'webhook' })
         ]),
-        el('input', { name: 'name', class: 'hd-input', placeholder: 'name (e.g. team-alerts)', required: 'required' })
+        el('input', { name: 'name', class: 'hd-input', 'aria-label': 'Destination name', placeholder: 'name (e.g. team-alerts)', required: 'required' })
       ]),
-      el('input', { name: 'url', class: 'hd-input', placeholder: 'https://hooks.slack.com/services/...', required: 'required' }),
-      el('input', { name: 'projects', class: 'hd-input', placeholder: 'projects allowlist (comma-separated, empty = all)' }),
+      el('input', { type: 'url', name: 'url', class: 'hd-input', 'aria-label': 'Destination URL', placeholder: 'https://hooks.slack.com/services/...', required: 'required' }),
+      el('input', { name: 'projects', class: 'hd-input', 'aria-label': 'Projects allowlist (comma-separated, empty = all)', placeholder: 'projects allowlist (comma-separated, empty = all)' }),
       el('div', { class: 'dest-form-actions' }, [
         el('button', { type: 'submit', class: 'hd-btn' }, ['add destination'])
       ])
@@ -184,6 +184,7 @@
       return el('button', {
         type: 'button',
         class: 'theme-btn' + (current === key ? ' active' : ''),
+        'aria-pressed': String(current === key),
         data: { theme: key },
         text: label,
       });
@@ -213,6 +214,7 @@
     // Update active states without re-rendering the whole view.
     document.querySelectorAll('.theme-btn').forEach(function (b) {
       b.classList.toggle('active', b.dataset.theme === choice);
+      b.setAttribute('aria-pressed', String(b.dataset.theme === choice));
     });
   }
 

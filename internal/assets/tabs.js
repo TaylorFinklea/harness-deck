@@ -129,7 +129,7 @@
 
   document.addEventListener('keydown', function (e) {
     var t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.isComposing || HDDom.shortcutTarget(t, e.key)) return;
     if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     var pins = load();

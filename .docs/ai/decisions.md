@@ -1251,3 +1251,35 @@ at Load so doctor's warning prints the *effective* set, and the new XDG tests
 made Windows-safe (t.TempDir instead of /tmp literals). Dispatch note: Terra
 at xhigh needs ~5min for a ~950-line diff review — the first attempt died on
 the default 120s Bash timeout; pass `timeout: 600000`.
+
+## 2026-11-13 — UI modernization keeps the keyboard-first architecture
+
+The overhaul keeps Go stdlib-only, the embedded vanilla frontend, Tokyo Night,
+JetBrains Mono, the report tree, status line, existing views, and storage keys.
+No framework migration or manifest/API changes. A shared `ui.css` layer defines
+readable chrome, consistent controls, spacing and focus treatment; mobile.css
+still comes last. Both themes now use readable secondary text. Reduced-motion
+and forced-colors preferences are respected.
+
+Native links/buttons supplement the Vim workflow. Native Enter/Space/Tab take
+precedence on focused controls; the existing letter shortcuts still work in
+NORMAL mode. A shared modal lifecycle in hd-dom.js owns focus, inert background,
+Escape dismissal and focus restoration for settings/help/search/the drawer.
+The helper loads before consumers without changing the bundle order. IME and
+form controls are exempt from global shortcuts. SSE rerenders preserve focus
+by stable identity, and tree mode now focuses the active link.
+
+Correctness fixes uncovered during the overhaul: rendering and cursor movement
+share inbox sorting; report action shortcuts defer to pending g chords; section
+jumps use the measured sticky-header height and ignore hidden sections; project
+history supplies its parent project when building report URLs; search cancels
+superseded/closed queries and never retries failures in an unbounded loop.
+Mobile uses overflow-x:clip so the body does not break the sticky header.
+
+Chromium browser regressions run in a separate CI job using Python Playwright
+(test-only, pinned in tests/requirements.txt). The shipping application has no
+new dependencies and no build step. Tests build isolated servers with validated
+manifests, temporary config/data, and fresh browser state. Browser testing covers
+real keyboard events, response writes, search failures/races, modal isolation,
+live updates and responsive behavior. Local macOS/Safari testing remains a
+useful follow-up to Linux Chromium verification.

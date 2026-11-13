@@ -21,6 +21,9 @@ var DeckCSS string
 //go:embed aggregator.css
 var AggregatorCSS string
 
+//go:embed ui.css
+var UICSS string
+
 //go:embed mobile.css
 var MobileCSS string
 
@@ -136,10 +139,10 @@ var FaviconDataURI = "data:image/svg+xml;base64," +
 var baseCSS = TokyoNightCSS + "\n" + V1CSS + "\n" + DeckCSS
 
 // ReportCSS is the stylesheet bundle for a rendered report page.
-var ReportCSS = baseCSS + "\n" + MobileCSS
+var ReportCSS = baseCSS + "\n" + UICSS + "\n" + MobileCSS
 
 // DeckUICSS is the stylesheet bundle for the aggregator shell.
-var DeckUICSS = baseCSS + "\n" + AggregatorCSS + "\n" + MobileCSS
+var DeckUICSS = baseCSS + "\n" + AggregatorCSS + "\n" + UICSS + "\n" + MobileCSS
 
 // VimNavJSInline is vim-nav.js made safe to embed in an inline <script>
 // element. The HTML parser ends a script at the literal "</script" regardless

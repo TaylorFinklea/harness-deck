@@ -141,23 +141,26 @@
 
   /* ---------- section/heading nav ---------- */
   const scopeRoot = () => cfg.scope || document;
-  const sections = () => Array.from(scopeRoot().querySelectorAll('[data-vim-section]'));
-  const headings = () => Array.from(scopeRoot().querySelectorAll('[data-vim-heading], h1, h2, h3, h4'));
+  const visible = (el) => el.getClientRects().length && !el.classList.contains('sr-only');
+  const sections = () => Array.from(scopeRoot().querySelectorAll('[data-vim-section]')).filter(visible);
+  const headings = () => Array.from(scopeRoot().querySelectorAll('[data-vim-heading], h1, h2, h3, h4')).filter(visible);
 
   const jumpTo = (el) => {
     if (!el) return;
     const r = el.getBoundingClientRect();
-    scroller().scrollTo({ top: scroller().scrollTop + r.top - 40, behavior: 'auto' });
+    scroller().scrollTo({ top: scroller().scrollTop + r.top - HDDom.chromeHeight() - 16, behavior: 'auto' });
     // ephemeral flash so the user sees what they jumped to
     el.classList.add('vim-flash');
     setTimeout(() => el.classList.remove('vim-flash'), 400);
   };
 
   const nextOf = (list, dir) => {
+    if (!list.length) return null;
     const sy = scroller().scrollTop;
+    const boundary = sy + HDDom.chromeHeight() + 16;
     const els = list.map((el) => ({ el, top: el.getBoundingClientRect().top + sy }));
-    if (dir > 0) return (els.find((e) => e.top > sy + 5) || els[0]).el;
-    const before = els.filter((e) => e.top < sy - 5);
+    if (dir > 0) return (els.find((e) => e.top > boundary + 5) || els[0]).el;
+    const before = els.filter((e) => e.top < boundary - 5);
     return (before.length ? before[before.length - 1] : els[els.length - 1]).el;
   };
 
@@ -468,11 +471,15 @@
   const toggleHelp = (force) => {
     if (!helpEl) buildHelp();
     const want = force === undefined ? helpEl.style.display === 'none' : force;
-    helpEl.style.display = want ? 'flex' : 'none';
+    if (want) HDDialog.open(helpEl, { label: 'Keyboard shortcuts', close: () => toggleHelp(false) });
+    else HDDialog.close(helpEl);
   };
 
   /* ---------- key handler ---------- */
   const onKey = (e) => {
+    if (e.isComposing || HDDialog.isOpen()) return;
+    // Preserve native control activation without stealing Enter/Space.
+    if (e.key !== 'Escape' && HDDom.shortcutTarget(e.target, e.key)) return;
     // Ignore most keys when the user is typing in any input/textarea/
     // contenteditable — except Esc, which universally drops out of
     // INSERT. Without this, focusing an ask's text input traps the

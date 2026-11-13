@@ -28,7 +28,8 @@
   var activeIdx = 0;
   var debounceTimer = null;
   var lastQuery = "";
-  var inflight = false;
+  var queryVersion = 0;
+  var queryController = null;
   var queryValid = false; // true when the last runQuery succeeded without a parse error
   var el = window.HDDom.el; // shared no-innerHTML DOM helper (hd-dom.js)
 
@@ -78,10 +79,11 @@
     input = el("input", {
       type: "text",
       placeholder: "search reports… (title, project, status, body content)",
+      "aria-label": "Search reports",
       autocomplete: "off",
       spellcheck: "false",
     });
-    status = el("span", { class: "search-status" });
+    status = el("span", { class: "search-status", role: "status" });
     saveBtn = el("button", { class: "search-save", type: "button", title: "save this search" }, ["☆"]);
     list = el("div", { class: "search-results" });
     suggestBox = el("div", { class: "search-suggest" });
@@ -126,7 +128,10 @@
 
   function open(initialQuery) {
     ensureOverlay();
-    overlay.style.display = "flex";
+    HDDialog.open(overlay, { label: "Search reports", focus: input, close: function () {
+      if (suggestOpen()) closeSuggest();
+      else close();
+    } });
     if (initialQuery) {
       input.value = initialQuery;
       lastQuery = ""; // force a fresh fetch even if the same query was last run
@@ -155,14 +160,14 @@
       closeSuggest();
       updateSaveBtn();
     }
-    setTimeout(function () { input.focus(); }, 0);
+    input.focus();
   }
 
   function close() {
     if (!overlay) return;
     closeSuggest();
-    overlay.style.display = "none";
-    input.blur();
+    cancelQuery();
+    HDDialog.close(overlay);
   }
 
   // fetchSchema loads the autocomplete vocabulary once per session. A failure
@@ -181,9 +186,14 @@
 
   function onInput() {
     var q = input.value.trim();
+    if (q !== lastQuery) {
+      queryValid = false;
+      updateSaveBtn();
+    }
     if (debounceTimer) clearTimeout(debounceTimer);
     updateSuggestions();
     if (q === "") {
+      cancelQuery();
       hits = [];
       lastQuery = "";
       queryValid = false;
@@ -206,18 +216,30 @@
     updateSuggestions();
   }
 
+  // A new query invalidates the old response, even when the network ignores
+  // cancellation. Closing/clearing also cancels the debounce. Failures never
+  // auto-retry in a tight loop or paint stale results into a reopened palette.
+  function cancelQuery() {
+    queryVersion++;
+    if (queryController) queryController.abort();
+    if (debounceTimer) clearTimeout(debounceTimer);
+    queryController = null;
+  }
+
   function runQuery(q) {
-    if (inflight) return;
     if (q === lastQuery) return;
-    inflight = true;
+    cancelQuery();
+    var version = queryVersion;
+    queryController = new AbortController();
+    lastQuery = q;
     status.textContent = "…";
-    fetch("/api/search?q=" + encodeURIComponent(q), { cache: "no-store" })
-      .then(function (r) { return r.json(); })
+    fetch("/api/search?q=" + encodeURIComponent(q), { cache: "no-store", signal: queryController.signal })
+      .then(function (r) {
+        if (!r.ok) throw new Error('search HTTP ' + r.status);
+        return r.json();
+      })
       .then(function (j) {
-        lastQuery = q;
-        // Parse-error UX: a partially-typed / invalid query comes back with an
-        // `error` field. Keep the last-good results on screen (no clear, no
-        // flash) and surface the message as a low-key hint instead.
+        if (version !== queryVersion || input.value.trim() !== q) return;
         if (j && typeof j.error === "string" && j.error !== "") {
           queryValid = false;
           updateSaveBtn();
@@ -233,15 +255,13 @@
         renderList();
         status.textContent = hits.length === 0 ? "no matches" : hits.length + " match" + (hits.length === 1 ? "" : "es");
       })
-      .catch(function () {
+      .catch(function (error) {
+        if (version !== queryVersion || error.name === 'AbortError') return;
+        queryValid = false;
+        updateSaveBtn();
         status.classList.remove("search-status-hint");
         status.textContent = "search failed";
-      })
-      .then(function () {
-        inflight = false;
-        // If the user kept typing while we were fetching, run the latest.
-        var cur = input.value.trim();
-        if (cur !== "" && cur !== lastQuery) runQuery(cur);
+        lastQuery = ""; // allow a deliberate retry of the same query
       });
   }
 
@@ -706,7 +726,7 @@
     var trigger = (e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K");
     if (!trigger) return;
     var t = e.target;
-    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    if (e.isComposing || HDDom.shortcutTarget(t, e.key)) return;
     e.preventDefault();
     open();
   });

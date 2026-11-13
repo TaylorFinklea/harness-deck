@@ -77,21 +77,22 @@
 
   function openHelpOverlay() {
     var existing = document.getElementById('help-overlay');
-    if (existing) { existing.style.display = 'flex'; return; }
+    if (existing) { HDDialog.open(existing, { label: 'Keyboard shortcuts', close: closeHelpOverlay }); return; }
     var modal = el('div', { class: 'help-modal' }, [
       el('div', { class: 'settings-modal-head' }, [
         el('div', { class: 'settings-modal-title', text: 'harness-deck cheat sheet' }),
-        el('button', { type: 'button', class: 'settings-modal-close', title: 'close (Esc)' }, ['✕'])
+        el('button', { type: 'button', class: 'settings-modal-close', title: 'close (Esc)', 'aria-label': 'Close keyboard shortcuts' }, ['✕'])
       ]),
       el('div', { class: 'help-body' }, helpContent())
     ]);
     var overlay = el('div', { id: 'help-overlay', class: 'settings-overlay help-overlay' }, [modal]);
     document.body.appendChild(overlay);
+    HDDialog.open(overlay, { label: 'Keyboard shortcuts', close: closeHelpOverlay });
   }
 
   function closeHelpOverlay() {
     var o = document.getElementById('help-overlay');
-    if (o) o.style.display = 'none';
+    if (o) HDDialog.close(o);
   }
 
   window.HDHelp = { open: openHelpOverlay, close: closeHelpOverlay };
