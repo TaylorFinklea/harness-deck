@@ -2,11 +2,11 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: `codex/modernize-ui` (PR #1). UI fixes `8b08af1` and doctor fix
-  `6980074` are pushed; CI passes. The local checkout tracks the PR branch.
-  No merge or public release.
-- Installed baseline before this update: v0.2.16 (`e77023c`). The PR build is
-  an unreleased local development build.
+- Branch: `main`. PR #1 merged as `ac3915a`, preserving the reviewed UI fix
+  `8b08af1` and doctor fix `6980074`. Merged-main Go and browser CI pass.
+  The local checkout tracks `origin/main`; no public release was created.
+- Installed baseline before the merge update: `0.2.16-local.6980074`.
+  The merged build remains an unreleased local development build.
 - UI modernization preserves Tokyo Night, monospace, embedded vanilla assets,
   existing views, shortcuts, storage keys and report contracts. Adds shared UI
   styling, accessible native controls, modal focus management, readable themes,
@@ -36,19 +36,20 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   incomplete-chord cancellation, and saved-search focus through a real SSE
   sidebar refresh. Sample data/config stay isolated on port 7421.
 - Independent GPT-6.1 Terra review completed with no remaining findings.
-- Local Homebrew service now runs `0.2.16-local.6980074` on port 7420.
+- Local Homebrew service now runs `0.2.16-local.ac3915a` on port 7420.
   Installed doctor exits 0; config state and all report/response hashes are
-  unchanged. The verified original signed binary is retained for rollback.
+  unchanged. Both the original release and previous local signed binary are
+  retained for rollback.
 - Original UI audit: widths 360–1536px, eight sample panels, zero fallbacks or
   horizontal overflow; dark/light desktop/mobile review and Axe checks passed.
 
 ## Next
 
-- Completed activation evidence, signed build/version, preservation checks and
-  the rollback path are recorded in Beads `harness-deck-pr1-qa-12r`. The build uses
+- Merged-build activation evidence, signed build/version, preservation checks
+  and rollback path are recorded in Beads `harness-deck-pr1-qa-22p` (prior PR
+  build: `harness-deck-pr1-qa-12r`). The build uses
   the existing Developer ID identity without Apple notarization; a later brew
   upgrade/reinstall replaces the local override. No public release is included.
-- PR review/merge remains separate from the authorized push and local update.
 - Existing broader case left out of scope: if an arbitrary keyboard-focused
   dynamic control is replaced while a dialog is open, closing falls back to
   visible content rather than resolving an equivalent replacement.
