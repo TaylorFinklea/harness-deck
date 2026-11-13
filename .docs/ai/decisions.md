@@ -1302,3 +1302,13 @@ hidden, closing restores focus to the current dialog or visible content instead
 of a hidden modal.
 Behavioral regressions cover both cases, including a non-focusing click in
 Chromium and the same suite on WebKit. Browser selection remains test-only.
+
+## 2026-11-13 — Doctor preserves current and legacy Homebrew namespaces
+
+The installed Homebrew service uses `sh.brew.harness-deck`; the old stale-unit
+check recognized only `homebrew.mxcl.*` and suggested removing the active
+service. Preserve both Homebrew namespaces, including other legitimate formula
+names, rather than narrowing the existing exemption to one exact recipe.
+Historical hand-rolled units and non-Homebrew lookalikes remain detectable.
+Setup instructions now require confirming ownership before removal. Regression
+tests cover both namespace generations and both service-file formats.

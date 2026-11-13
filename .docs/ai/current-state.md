@@ -2,10 +2,10 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: `codex/fix-pr1-keyboard-qa`, based on PR #1 head `856ad46`.
-  Local follow-up fixes; no push or release.
-- Last released: v0.2.15 (2026-07-13). The fork-friendliness wave on main
-  (2026-07-16) remains unreleased; this work does not tag or publish a release.
+- Branch: `codex/modernize-ui` (PR #1). UI fixes pushed as `8b08af1`;
+  the local checkout tracks the PR branch. No merge or public release.
+- Installed baseline before this update: v0.2.16 (`e77023c`). The PR build is
+  an unreleased local development build.
 - UI modernization preserves Tokyo Night, monospace, embedded vanilla assets,
   existing views, shortcuts, storage keys and report contracts. Adds shared UI
   styling, accessible native controls, modal focus management, readable themes,
@@ -20,6 +20,9 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   launchers rebuilt by a live update; missing/hidden launchers use visible
   content as a fallback. Rationale: decisions.md, "Dashboard Space chords and
   Safari dialog launchers". Beads: `harness-deck-pr1-qa-2du.1` / `.2`.
+- Doctor recognizes current `sh.brew.*` and legacy `homebrew.mxcl.*` service
+  namespaces; real Homebrew services are no longer mislabeled for deletion.
+  Setup guidance requires confirming ownership before removing obsolete units.
 
 ## Validation
 
@@ -37,8 +40,11 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
 
 ## Next
 
-- The local fix branch can be integrated into PR #1 when the owner authorizes
-  a push. The Homebrew service was not replaced; no release/deployment occurred.
+- Local service activation, signed build/version, preservation checks and the
+  rollback path are recorded in Beads `harness-deck-pr1-qa-12r`. The build uses
+  the existing Developer ID identity without Apple notarization; a later brew
+  upgrade/reinstall replaces the local override. No public release is included.
+- PR review/merge remains separate from the authorized push and local update.
 - Existing broader case left out of scope: if an arbitrary keyboard-focused
   dynamic control is replaced while a dialog is open, closing falls back to
   visible content rather than resolving an equivalent replacement.
