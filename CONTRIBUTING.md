@@ -35,6 +35,10 @@ covers cursor ordering, navigation chords, pins, native Tab/Enter behavior,
 modal focus and shortcut isolation, search cancellation/failures, report triage,
 SSE updates, theme persistence, and responsive layout/drawer behavior.
 
+To also check WebKit locally, install its test browser with
+`python -m playwright install webkit`, then run
+`HDECK_TEST_BROWSER=webkit python tests/browser.py` in the same test environment.
+
 ## The one hard constraint: zero dependencies
 
 `go.mod` has **no `require` block**, on purpose (see

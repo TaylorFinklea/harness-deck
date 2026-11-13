@@ -54,6 +54,7 @@
       [['g', 'x'], 'close the current in-app tab'],
     ]));
     sections.push(helpSection('leader (Space)', [
+      ['Space', 'starts a shortcut in normal mode · Enter activates focused controls'],
       [['Space', 'e'], 'focus the sidebar tree (toggle)'],
       [['Space', 's'], 'open settings'],
       [['Space', 't'], 'cycle theme (system → dark → light)'],

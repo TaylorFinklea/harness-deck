@@ -126,9 +126,9 @@
     return overlay;
   }
 
-  function open(initialQuery) {
+  function open(initialQuery, restore) {
     ensureOverlay();
-    HDDialog.open(overlay, { label: "Search reports", focus: input, close: function () {
+    HDDialog.open(overlay, { label: "Search reports", focus: input, restore: restore, close: function () {
       if (suggestOpen()) closeSuggest();
       else close();
     } });

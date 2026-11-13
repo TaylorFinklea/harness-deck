@@ -283,7 +283,8 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
   native controls and modal focus. Fix cursor sorting, report chord precedence,
   history links, search request handling, mobile sticky chrome and live-update
   focus. Add isolated Chromium keyboard/responsive regressions to CI.
-  Local macOS/Safari review is next; decisions.md has the implementation rationale.
+  Local macOS/Safari QA and keyboard fixes completed; current-state.md records
+  validation and decisions.md has the implementation rationale.
 
 
 **Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop

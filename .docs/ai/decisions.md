@@ -1283,3 +1283,22 @@ manifests, temporary config/data, and fresh browser state. Browser testing cover
 real keyboard events, response writes, search failures/races, modal isolation,
 live updates and responsive behavior. Local macOS/Safari testing remains a
 useful follow-up to Linux Chromium verification.
+
+## 2026-11-13 — Dashboard Space chords and Safari dialog launchers
+
+Local PR QA found that native link focus prevented `Space e` from leaving the
+tree, and native button activation consumed `Space s/t`. The owner chose Space
+as the dashboard's NORMAL-mode shortcut prefix, including on focused links and
+buttons; Enter activates those controls. Native Tab/arrows, form controls,
+contenteditable, IME composition, and modal Space behavior retain their existing
+handling. Report-page triage is unchanged. This replaces the earlier dashboard
+Space precedence above without delaying button activation to distinguish chords.
+
+Safari pointer clicks do not reliably focus native buttons. Dialog callers now
+pass their actual pointer launcher explicitly; keyboard calls retain the prior
+focused control. Saved searches resolve the current launcher by its exact query
+when a live update rebuilds the sidebar. If the launcher has been removed or
+hidden, closing restores focus to the current dialog or visible content instead
+of a hidden modal.
+Behavioral regressions cover both cases, including a non-focusing click in
+Chromium and the same suite on WebKit. Browser selection remains test-only.

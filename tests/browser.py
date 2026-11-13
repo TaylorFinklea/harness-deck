@@ -3,7 +3,8 @@
 Run: python -m pip install -r tests/requirements.txt
      python -m playwright install chromium
      python tests/browser.py
-Optional: HDECK_TEST_BINARY=/path/to/hdeck HDECK_BROWSER_PATH=/path/to/chromium
+Optional: HDECK_TEST_BINARY=/path/to/hdeck HDECK_BROWSER_PATH=/path/to/browser
+          HDECK_TEST_BROWSER=webkit (default: chromium)
 Fixtures, config, responses, browser state and the server all live in temp dirs.
 """
 import datetime
@@ -58,7 +59,10 @@ class BrowserTests(unittest.TestCase):
         options = {}
         if os.environ.get('HDECK_BROWSER_PATH'):
             options['executable_path'] = os.environ['HDECK_BROWSER_PATH']
-        cls.browser = cls.playwright.chromium.launch(**options)
+        engine = os.environ.get('HDECK_TEST_BROWSER', 'chromium')
+        if engine not in ('chromium', 'webkit'):
+            raise ValueError(f'Unsupported HDECK_TEST_BROWSER: {engine}')
+        cls.browser = getattr(cls.playwright, engine).launch(**options)
 
     @classmethod
     def tearDownClass(cls):
@@ -104,7 +108,9 @@ class BrowserTests(unittest.TestCase):
         self.page = self.context.new_page()
         self.errors = []
         self.page.on('pageerror', lambda error: self.errors.append(str(error)))
-        self.page.goto(self.url)
+        # Wait for DOM readiness, then assert dashboard content below rather
+        # than waiting on unrelated resource completion.
+        self.page.goto(self.url, wait_until='domcontentloaded')
         expect(self.page.locator('#view-inbox .inbox-item')).to_have_count(4)
 
     def tearDown(self):
@@ -235,6 +241,155 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(json.loads((self.root / 'reports/zeta/newest/report.json').read_text())['status'], 'awaiting-review')
         self.keys('q')
         expect(self.page).to_have_url(self.url + '/')
+
+    def test_tree_focus_can_be_toggled_off_with_space_e(self):
+        self.keys('Space', 'e')
+        expect(self.page.locator('.tree-active')).to_be_focused()
+        self.keys('Space', 'e')
+        expect(self.page.locator('.tree-active')).to_have_count(0)
+        self.assertFalse(self.page.evaluate('HDTree.isFocused()'))
+
+    def test_space_leader_from_focused_control_does_not_activate_it(self):
+        sort = self.page.locator('.sort-toggle')
+        sort.focus()
+        # Tab keeps its native behavior and cancels the incomplete chord.
+        self.keys('Space', 'Tab', 's')
+        expect(self.page.get_by_role('dialog', name='Settings')).to_have_count(0)
+        expect(sort).to_have_text('sort: recent')
+        sort.focus()
+        self.keys('Space', 's')
+        expect(self.page.get_by_role('dialog', name='Settings')).to_be_visible()
+        expect(sort).to_have_text('sort: recent')
+        self.keys('Escape')
+        expect(sort).to_be_focused()
+        self.keys('Space', 't')
+        expect(self.page.locator('html')).to_have_attribute('data-theme', 'dark')
+        expect(sort).to_have_text('sort: recent')
+        self.keys('Space', 'e')
+        expect(self.page.locator('.tree-active')).to_be_focused()
+        self.keys('Space', 'e')
+        expect(self.page.locator('.tree-active')).to_have_count(0)
+        expect(sort).to_be_focused()
+        self.keys('Enter')
+        expect(sort).to_have_text('sort: asks')
+
+        link = self.page.locator('#view-inbox .inbox-item .title').first
+        link.focus()
+        self.keys('Space', 't')
+        expect(self.page.locator('html')).to_have_attribute('data-theme', 'light')
+        expect(self.page).to_have_url(self.url + '/')
+
+        self.page.evaluate('''() => document.querySelector('#content').insertAdjacentHTML(
+            'beforeend', '<details id="qa-details"><summary>Example</summary>Content</details>')''')
+        details = self.page.locator('#qa-details')
+        summary = details.locator('summary')
+        summary.focus()
+        self.keys('Space', 's')
+        expect(self.page.get_by_role('dialog', name='Settings')).to_be_visible()
+        self.assertIsNone(details.get_attribute('open'))
+        self.keys('Escape')
+        expect(summary).to_be_focused()
+        self.keys('Enter')
+        expect(details).to_have_attribute('open', '')
+
+    def test_space_remains_native_in_editable_controls_and_dialogs(self):
+        # Exercise controls outside overlays as well as the real settings UI.
+        self.page.evaluate('''() => {
+            const host = document.querySelector('#content');
+            host.insertAdjacentHTML('beforeend',
+                '<input id="qa-input"><textarea id="qa-textarea"></textarea>' +
+                '<select id="qa-select"><option>one</option><option>two</option></select>' +
+                '<div id="qa-editable" contenteditable="true"></div>');
+        }''')
+        for selector in ['#qa-input', '#qa-textarea', '#qa-editable']:
+            with self.subTest(selector=selector):
+                field = self.page.locator(selector)
+                field.focus()
+                self.page.keyboard.type(' s')
+                if selector == '#qa-editable':
+                    expect(field).to_have_text(' s')
+                else:
+                    expect(field).to_have_value(' s')
+                expect(self.page.get_by_role('dialog', name='Settings')).to_have_count(0)
+        select = self.page.locator('#qa-select')
+        select.focus()
+        self.keys('Space', 's', 'Escape')
+        expect(self.page.get_by_role('dialog', name='Settings')).to_have_count(0)
+        self.normal()
+        self.keys('Space', 's')
+        light = self.page.get_by_role('dialog', name='Settings').get_by_role('button', name='light')
+        light.focus()
+        self.keys('Space')
+        expect(self.page.locator('html')).to_have_attribute('data-theme', 'light')
+        self.keys('Escape')
+
+    def test_pointer_opened_dialogs_restore_their_launcher(self):
+        # HTMLElement.click() does not focus the button, matching Safari's
+        # pointer behavior even when this suite runs on Chromium.
+        for label in ['Settings', 'Search reports']:
+            with self.subTest(label=label):
+                self.normal()
+                trigger = self.page.get_by_role('button', name=label, exact=True)
+                trigger.evaluate('(node) => node.click()')
+                expect(self.page.get_by_role('dialog', name=label, exact=True)).to_be_visible()
+                self.keys('Escape')
+                expect(trigger).to_be_focused()
+        self.page.set_viewport_size({'width': 393, 'height': 852})
+        self.normal()
+        menu = self.page.get_by_role('button', name='Toggle navigation')
+        menu.evaluate('(node) => node.click()')
+        expect(self.page.locator('.sidebar')).to_have_attribute('role', 'dialog')
+        self.keys('Escape')
+        expect(menu).to_be_focused()
+
+    def test_dialog_restore_handles_keyboard_and_removed_invokers(self):
+        trigger = self.page.get_by_role('button', name='Settings', exact=True)
+        trigger.focus()
+        expect(trigger).to_be_focused()
+        self.keys('Control+k')
+        dialog = self.page.get_by_role('dialog', name='Search reports')
+        expect(dialog).to_be_visible()
+        self.keys('Escape')
+        # Search intentionally dismisses autocomplete before its dialog.
+        if dialog.is_visible():
+            expect(self.page.locator('.search-suggest')).not_to_be_visible()
+            self.keys('Escape')
+        expect(dialog).not_to_be_visible()
+        expect(trigger).to_be_focused()
+
+        # The same search may be renamed and its button replaced while the
+        # palette is open; restore the replacement by its stable query.
+        self.page.evaluate("HDSaved.add('Migration', 'Migration')")
+        saved = self.page.get_by_role('button', name='Migration', exact=True)
+        saved.evaluate('(node) => node.click()')
+        expect(self.page.get_by_role('dialog', name='Search reports')).to_be_visible()
+        self.page.evaluate('''() => {
+            const searches = HDSaved.list();
+            searches[0].name = 'Renamed';
+            localStorage.setItem('harness-deck:saved-searches', JSON.stringify(searches));
+            window.dispatchEvent(new CustomEvent('hd:saved-changed'));
+        }''')
+        self.keys('Escape')
+        replacement = self.page.get_by_role('button', name='Renamed', exact=True)
+        expect(replacement).to_be_focused()
+
+        # If the saved search was actually deleted, focus a visible fallback.
+        replacement.evaluate('(node) => node.click()')
+        expect(self.page.get_by_role('dialog', name='Search reports')).to_be_visible()
+        self.page.evaluate("HDSaved.remove('Migration')")
+        self.keys('Escape')
+        expect(self.page.locator('#content')).to_be_focused()
+
+    def test_mobile_saved_search_close_uses_visible_fallback(self):
+        self.page.evaluate("HDSaved.add('Migration', 'Migration')")
+        self.page.set_viewport_size({'width': 393, 'height': 852})
+        menu = self.page.get_by_role('button', name='Toggle navigation')
+        menu.click()
+        self.page.get_by_role('button', name='Migration', exact=True).click()
+        expect(self.page.get_by_role('dialog', name='Search reports')).to_be_visible()
+        expect(menu).to_have_attribute('aria-expanded', 'false')
+        self.keys('Escape')
+        expect(self.page.locator('#content')).to_be_focused()
 
     def test_overlays_trap_focus_restore_and_block_actions(self):
         trigger = self.page.get_by_role('button', name='Settings', exact=True)
@@ -414,7 +569,7 @@ class BrowserTests(unittest.TestCase):
         expect(tracked).to_be_focused()
         disclosure = self.page.locator('button.proj-sec').first
         disclosure.focus()
-        self.keys('Space')
+        self.keys('Enter')
         expect(disclosure).to_have_attribute('aria-expanded', 'false')
         expect(disclosure).to_be_focused()
 
@@ -434,6 +589,10 @@ class BrowserTests(unittest.TestCase):
     def test_ime_composition_does_not_trigger_actions(self):
         self.page.evaluate("document.body.dispatchEvent(new KeyboardEvent('keydown', {key:'x', isComposing:true, bubbles:true}))")
         expect(self.page.locator('#view-inbox .inbox-item')).to_have_count(4)
+        self.page.locator('.sort-toggle').focus()
+        self.page.evaluate("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:' ', isComposing:true, bubbles:true}))")
+        self.keys('s')
+        expect(self.page.get_by_role('dialog', name='Settings')).to_have_count(0)
 
     def test_responsive_layout_drawer_and_focus(self):
         for width in [360, 393, 768, 1024, 1440]:
@@ -441,7 +600,8 @@ class BrowserTests(unittest.TestCase):
             self.assertLessEqual(self.page.evaluate('document.documentElement.scrollWidth'), width)
         self.page.set_viewport_size({'width': 393, 'height': 852})
         sidebar = self.page.locator('.sidebar')
-        self.assertTrue(sidebar.evaluate('(node) => node.inert'))
+        # matchMedia's viewport-change event is asynchronous in Chromium.
+        expect(sidebar).to_have_attribute('inert', '')
         menu = self.page.get_by_role('button', name='Toggle navigation')
         menu.click()
         expect(menu).to_have_attribute('aria-expanded', 'true')
@@ -451,7 +611,7 @@ class BrowserTests(unittest.TestCase):
         self.keys('Escape')
         expect(menu).to_be_focused()
         expect(menu).to_have_attribute('aria-expanded', 'false')
-        self.assertTrue(sidebar.evaluate('(node) => node.inert'))
+        expect(sidebar).to_have_attribute('inert', '')
         menu.click()
         self.page.locator('.drawer-scrim').click(position={'x': 380, 'y': 400})
         expect(menu).to_have_attribute('aria-expanded', 'false')

@@ -21,7 +21,7 @@
     sidebar.inert = false;
     document.body.classList.add('drawer-open');
     if (menu) menu.setAttribute('aria-expanded', 'true');
-    HDDialog.open(sidebar, { surface: sidebar, label: 'Report navigation', close: closeDrawer });
+    HDDialog.open(sidebar, { surface: sidebar, label: 'Report navigation', restore: menu, close: closeDrawer });
     // The scrim dismisses the drawer but has no focusable controls.
     var scrim = document.querySelector('.drawer-scrim');
     if (scrim) scrim.inert = false;

@@ -659,10 +659,10 @@
 
      openSettingsOverlay creates the DOM lazily on first open so it
      never costs paint time for users who never trigger it. */
-  function openSettingsOverlay() {
+  function openSettingsOverlay(restore) {
     var existing = document.getElementById('settings-overlay');
     if (existing) {
-      HDDialog.open(existing, { label: 'Settings', close: closeSettingsOverlay });
+      HDDialog.open(existing, { label: 'Settings', restore: restore, close: closeSettingsOverlay });
       return;
     }
     var body = el('div', { class: 'settings-modal-body' }, viewSettings());
@@ -675,7 +675,7 @@
     ]);
     var overlay = el('div', { id: 'settings-overlay', class: 'settings-overlay' }, [modal]);
     document.body.appendChild(overlay);
-    HDDialog.open(overlay, { label: 'Settings', close: closeSettingsOverlay });
+    HDDialog.open(overlay, { label: 'Settings', restore: restore, close: closeSettingsOverlay });
   }
   function closeSettingsOverlay() {
     var o = document.getElementById('settings-overlay');
@@ -929,7 +929,7 @@
     }
     if (e.target.closest('#titlebar-settings')) {
       e.stopPropagation();
-      openSettingsOverlay();
+      openSettingsOverlay(e.target.closest('#titlebar-settings'));
       return;
     }
     if (e.target.closest('.help-overlay .settings-modal-close') || e.target.classList.contains('help-overlay')) {
@@ -951,7 +951,19 @@
       return;
     }
     var sv = e.target.closest('[data-saved]');
-    if (sv) { if (window.HDSearch) HDSearch.open(sv.dataset.saved); return; }
+    if (sv) {
+      if (window.HDSearch) {
+        var query = sv.dataset.saved;
+        var opener = e.target.closest('button') || sv.querySelector('.saved-open');
+        HDSearch.open(query, function () {
+          if (opener && opener.isConnected) return opener;
+          return Array.prototype.find.call(document.querySelectorAll('#tree .saved-open'), function (button) {
+            return button.dataset.saved === query;
+          }) || null;
+        });
+      }
+      return;
+    }
     var row = e.target.closest('[data-url]');
     if (row && !e.target.closest('a, button') && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
       window.location.href = row.dataset.url;
@@ -1108,7 +1120,22 @@
      leader and digit-to-tab routing; the g chord belongs to tabs.js. */
   document.addEventListener('keydown', function (e) {
     var t = e.target;
-    if (e.isComposing || HDDom.shortcutTarget(t, e.key)) return;
+    // A native focus/navigation key or IME composition cancels a pending
+    // leader without preventing the browser from handling that key.
+    if (pendingChord && (e.isComposing || e.key === 'Tab' || e.key.indexOf('Arrow') === 0)) {
+      setPendingChord('');
+      return;
+    }
+    // In dashboard NORMAL mode Space starts a leader chord, even on a
+    // focused link or button. Enter still activates native controls. Dialogs
+    // and editable controls keep their own Space behavior.
+    var controlLeader = e.key === ' ' && !HDDialog.isOpen() && t && t.closest &&
+      !t.isContentEditable && !t.closest('input, textarea, select, [role="dialog"]') &&
+      t.closest('button, a[href], summary');
+    if (e.isComposing || (HDDom.shortcutTarget(t, e.key) && !controlLeader)) {
+      if (pendingChord) setPendingChord('');
+      return;
+    }
     if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
     // Modifier keys belong to the browser / OS — don't intercept.
     if (e.metaKey || e.ctrlKey || e.altKey) return;

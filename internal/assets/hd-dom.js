@@ -96,7 +96,7 @@ window.HDDialog = (function () {
       document.body.style.overflow = 'hidden';
     }
     var surface = options.surface || overlay.firstElementChild;
-    var entry = { overlay: overlay, surface: surface, restore: document.activeElement, close: options.close };
+    var entry = { overlay: overlay, surface: surface, restore: options.restore || document.activeElement, close: options.close };
     stack.push(entry);
     overlay.style.display = 'flex';
     surface.setAttribute('role', 'dialog');
@@ -113,9 +113,20 @@ window.HDDialog = (function () {
     overlay.style.display = 'none';
     entry.surface.removeAttribute('aria-modal');
     sync();
-    var restore = entry.restore;
-    if (restore && restore.isConnected && !restore.closest('[inert]')) restore.focus({ preventScroll: true });
-    else if (top()) (controls(top().surface)[0] || top().surface).focus({ preventScroll: true });
+    // A dynamically-rendered launcher may have been replaced while the
+    // dialog was open; its owner can resolve the current equivalent here.
+    var restore = typeof entry.restore === 'function' ? entry.restore() : entry.restore;
+    var restored = false;
+    if (restore && restore.isConnected && !restore.disabled && !restore.closest('[inert]') && restore.getClientRects().length) {
+      restore.focus({ preventScroll: true });
+      restored = document.activeElement === restore;
+    }
+    // BODY is not focusable in Safari, and a removed or hidden invoker cannot
+    // take focus. Do not leave focus inside a dialog that was just hidden.
+    if (!restored) {
+      var fallback = top() ? (controls(top().surface)[0] || top().surface) : document.getElementById('content');
+      if (fallback) fallback.focus({ preventScroll: true });
+    }
   }
   document.addEventListener('keydown', function (event) {
     var current = top();
