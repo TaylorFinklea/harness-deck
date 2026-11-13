@@ -2,8 +2,9 @@
 
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
-- Branch: `codex/modernize-ui` (PR #1). UI fixes pushed as `8b08af1`;
-  the local checkout tracks the PR branch. No merge or public release.
+- Branch: `codex/modernize-ui` (PR #1). UI fixes `8b08af1` and doctor fix
+  `6980074` are pushed; CI passes. The local checkout tracks the PR branch.
+  No merge or public release.
 - Installed baseline before this update: v0.2.16 (`e77023c`). The PR build is
   an unreleased local development build.
 - UI modernization preserves Tokyo Night, monospace, embedded vanilla assets,
@@ -35,13 +36,16 @@ _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.m
   incomplete-chord cancellation, and saved-search focus through a real SSE
   sidebar refresh. Sample data/config stay isolated on port 7421.
 - Independent GPT-6.1 Terra review completed with no remaining findings.
+- Local Homebrew service now runs `0.2.16-local.6980074` on port 7420.
+  Installed doctor exits 0; config state and all report/response hashes are
+  unchanged. The verified original signed binary is retained for rollback.
 - Original UI audit: widths 360–1536px, eight sample panels, zero fallbacks or
   horizontal overflow; dark/light desktop/mobile review and Axe checks passed.
 
 ## Next
 
-- Local service activation, signed build/version, preservation checks and the
-  rollback path are recorded in Beads `harness-deck-pr1-qa-12r`. The build uses
+- Completed activation evidence, signed build/version, preservation checks and
+  the rollback path are recorded in Beads `harness-deck-pr1-qa-12r`. The build uses
   the existing Developer ID identity without Apple notarization; a later brew
   upgrade/reinstall replaces the local override. No public release is included.
 - PR review/merge remains separate from the authorized push and local update.
