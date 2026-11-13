@@ -21,6 +21,7 @@
      and Enter opens the active one. Esc or Space-e exits. */
   var treeFocused = false;
   var treeActiveKey = null;
+  var restoreTarget = null;
 
   function treeRows() {
     return Array.prototype.slice.call(document.querySelectorAll('#tree .row.run'));
@@ -55,8 +56,9 @@
       treeActiveKey = treeKeyOf(match);
     }
     match.classList.add('tree-active');
+    match.focus({ preventScroll: true });
     var rect = match.getBoundingClientRect();
-    if (rect.top < 80 || rect.bottom > window.innerHeight - 40) {
+    if (rect.top < HDDom.chromeHeight() || rect.bottom > window.innerHeight - 40) {
       match.scrollIntoView({ block: 'nearest', behavior: 'instant' });
     }
   }
@@ -101,12 +103,18 @@
   }
 
   function enter() {
+    restoreTarget = document.activeElement;
     treeFocused = true;
     var rows = treeRows();
     if (rows.length && !treeActiveKey) treeActiveKey = treeKeyOf(rows[0]);
     paint();
   }
-  function exit() { treeFocused = false; paint(); }
+  function exit() {
+    treeFocused = false;
+    paint();
+    var target = restoreTarget && restoreTarget.isConnected && restoreTarget.tabIndex >= 0 ? restoreTarget : document.getElementById('content');
+    if (target) target.focus({ preventScroll: true });
+  }
   function toggle() { if (treeFocused) exit(); else enter(); }
   function isFocused() { return treeFocused; }
 

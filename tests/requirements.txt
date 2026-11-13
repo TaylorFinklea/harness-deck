@@ -1,0 +1,2 @@
+# Browser QA only. The application remains stdlib-only and build-step-free.
+playwright==1.62.0

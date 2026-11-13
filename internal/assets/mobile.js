@@ -3,20 +3,59 @@
 // hidden via CSS and the drawer-open class is harmless when no sidebar
 // transform applies).
 (function () {
+  var sidebar = document.querySelector('.sidebar');
+  var menu = document.querySelector('.menu-button');
+  var mobile = window.matchMedia('(max-width: 720px)');
+  function closeDrawer() {
+    if (sidebar) {
+      HDDialog.close(sidebar);
+      sidebar.style.display = '';
+      sidebar.removeAttribute('role');
+      sidebar.inert = mobile.matches;
+    }
+    document.body.classList.remove('drawer-open');
+    if (menu) menu.setAttribute('aria-expanded', 'false');
+  }
+  function openDrawer() {
+    if (!sidebar || !mobile.matches) return;
+    sidebar.inert = false;
+    document.body.classList.add('drawer-open');
+    if (menu) menu.setAttribute('aria-expanded', 'true');
+    HDDialog.open(sidebar, { surface: sidebar, label: 'Report navigation', restore: menu, close: closeDrawer });
+    // The scrim dismisses the drawer but has no focusable controls.
+    var scrim = document.querySelector('.drawer-scrim');
+    if (scrim) scrim.inert = false;
+  }
+  function syncViewport() {
+    if (!mobile.matches && document.body.classList.contains('drawer-open')) closeDrawer();
+    if (sidebar) sidebar.inert = mobile.matches && !document.body.classList.contains('drawer-open');
+  }
+  syncViewport();
+  mobile.addEventListener('change', syncViewport);
+
+  // Sidebar, scroll targets and anchor jumps follow actual chrome height,
+  // including wrapped report actions and device safe areas.
+  var chrome = document.querySelector('.term-chrome');
+  if (chrome && window.ResizeObserver) {
+    new ResizeObserver(function () {
+      document.documentElement.style.setProperty('--hd-chrome-height', chrome.getBoundingClientRect().height + 'px');
+    }).observe(chrome);
+  }
   // 1) Drawer: tap the menu button, scrim, or any tree row to close it.
   document.addEventListener('click', function (e) {
     var btn = e.target.closest && e.target.closest('.menu-button');
     if (btn) {
-      document.body.classList.toggle('drawer-open');
+      if (document.body.classList.contains('drawer-open')) closeDrawer();
+      else openDrawer();
       e.preventDefault();
       return;
     }
-    if (e.target.closest && e.target.closest('.drawer-scrim')) {
-      document.body.classList.remove('drawer-open');
+    if (e.target.closest && e.target.closest('.drawer-scrim, .drawer-close')) {
+      closeDrawer();
       return;
     }
     if (e.target.closest && e.target.closest('#tree .row')) {
-      document.body.classList.remove('drawer-open');
+      if (document.body.classList.contains('drawer-open')) closeDrawer();
     }
   });
 

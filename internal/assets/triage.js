@@ -90,11 +90,12 @@
     activeItemIdx = 0;
     setActiveItem(panel, 0);
     // Scroll the focused panel into view without yanking the page if
-    // it's already on-screen. The 40px top inset matches vim-nav's
-    // jumpTo offset so headings/sections feel consistent.
+    // it's already on-screen. Match the actual sticky chrome height,
+    // including wrapped actions on phones.
     var r = panel.getBoundingClientRect();
-    if (r.top < 60 || r.bottom > window.innerHeight - 40) {
-      window.scrollTo({ top: window.scrollY + r.top - 60, behavior: 'auto' });
+    var inset = HDDom.chromeHeight() + 16;
+    if (r.top < inset || r.bottom > window.innerHeight - 40) {
+      window.scrollTo({ top: window.scrollY + r.top - inset, behavior: 'auto' });
     }
   }
 
@@ -228,7 +229,8 @@
   }
 
   document.addEventListener('keydown', function (e) {
-    if (inIgnoredTarget(e)) return;
+    if (e.isComposing || HDDialog.isOpen() || inIgnoredTarget(e)) return;
+    if (e.key !== 'Escape' && HDDom.shortcutTarget(e.target, e.key)) return;
     // Esc always passes through the mode-check so it can clear the
     // ask-focused highlight (and blur a focused input as a fallback).
     // Without this, INSERT mode would lock triage out of its own Esc

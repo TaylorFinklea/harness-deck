@@ -12,7 +12,32 @@ go test ./...     # run all tests (CI runs go test -race)
 gofmt -l .        # must print nothing before you commit
 ```
 
-There is no Makefile and no linter config — this is the whole toolchain.
+There is no Makefile or frontend build step.
+
+### Browser regressions
+
+UI changes also run against Chromium in CI. The browser suite builds the app,
+starts isolated servers with temporary reports/config, and exercises actual
+keyboard events and response writes. It never reads or changes your installed
+dashboard's data. Playwright is a **test-only** dependency; the shipped binary
+and frontend still have no external dependencies.
+
+```sh
+python3 -m venv /tmp/hdeck-browser-venv
+/tmp/hdeck-browser-venv/bin/pip install -r tests/requirements.txt
+/tmp/hdeck-browser-venv/bin/python -m playwright install chromium
+/tmp/hdeck-browser-venv/bin/python tests/browser.py
+```
+
+Use `HDECK_BROWSER_PATH=/path/to/chromium` for an existing Chromium installation,
+or `HDECK_TEST_BINARY=/path/to/hdeck` to test an already-built binary. The suite
+covers cursor ordering, navigation chords, pins, native Tab/Enter behavior,
+modal focus and shortcut isolation, search cancellation/failures, report triage,
+SSE updates, theme persistence, and responsive layout/drawer behavior.
+
+To also check WebKit locally, install its test browser with
+`python -m playwright install webkit`, then run
+`HDECK_TEST_BROWSER=webkit python tests/browser.py` in the same test environment.
 
 ## The one hard constraint: zero dependencies
 

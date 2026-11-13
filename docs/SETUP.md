@@ -108,12 +108,15 @@ when that variable is set (absolute paths only; an existing legacy
 **First, remove any hand-rolled unit from a previous setup.** Older revisions of
 this runbook had you write a LaunchAgent/systemd unit by hand. If one is left
 behind it will start a *second* server at login and fight the Homebrew service
-for the port; the loser crash-loops. Homebrew's own unit is
-`homebrew.mxcl.harness-deck` — leave that one alone, remove anything else:
+for the port; the loser crash-loops. Homebrew uses the `sh.brew.*` namespace
+(or `homebrew.mxcl.*` on older Homebrew). Preserve those units and confirm the
+active unit with `brew services info harness-deck`. Remove only confirmed
+obsolete hand-rolled units:
 
 ```sh
 # macOS — old labels include com.tfinklea.harness-deck and com.harnessdeck.serve
-ls ~/Library/LaunchAgents | grep -i harness      # anything not homebrew.mxcl.* is stale
+brew services info harness-deck               # identify the active Homebrew unit
+ls ~/Library/LaunchAgents | grep -i harness    # preserve sh.brew.* and homebrew.mxcl.* units
 launchctl bootout "gui/$(id -u)/<stale-label>" 2>/dev/null || true
 rm -f ~/Library/LaunchAgents/<stale-label>.plist  # -f: a bare `rm` may prompt and silently no-op
 ls ~/Library/LaunchAgents | grep -i harness      # verify it is actually gone

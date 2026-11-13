@@ -84,7 +84,7 @@
   function panel(title, rightNode, bodyKids) {
     var head = [
       el('span', { class: 'sigil', text: '§' }), ' ',
-      el('span', { class: 'title-text', text: title })
+      el('h2', { class: 'title-text', text: title })
     ];
     if (rightNode) head.push(el('div', { class: 'right' }, [rightNode]));
     return el('section', { class: 'panel', 'data-vim-section': '' }, [
@@ -125,12 +125,14 @@
     return el('div', { class: rowCls, data: { url: reportURL(r), key: rowKey(r) } }, [
       el('span', { class: 'dot ' + r.status + (live ? ' live' : '') }),
       el('div', { class: 'main' }, [
-        el('div', { class: 'title', text: r.title || r.run }),
+        el('a', { class: 'title', href: reportURL(r), text: r.title || r.run }),
         el('div', { class: 'sub' }, sub)
       ]),
       el('div', { class: 'aside' }, aside),
       el('button', {
         class: 'inbox-close',
+        type: 'button',
+        'aria-label': 'Close ' + (r.title || r.run),
         title: 'close (mark done)',
         data: { project: r.project, run: r.run }
       }, ['✕'])
@@ -157,8 +159,23 @@
   function visibleRows() {
     if (currentView !== 'inbox') return [];
     if (archiveFilter) return archivedReports();
-    return activeReports().filter(function (r) {
+    return sortInbox(activeReports().filter(function (r) {
       return r.status === 'awaiting-review' || r.open_asks > 0;
+    }));
+  }
+
+  // One ordering for both rendering and the cursor. Sorting only the DOM
+  // made j/k and row actions jump to reports elsewhere in the visible list.
+  function sortInbox(items) {
+    return items.slice().sort(function (a, b) {
+      if (inboxSort === 'asks') {
+        var diff = (b.open_asks || 0) - (a.open_asks || 0);
+        if (diff) return diff;
+      } else if (inboxSort === 'project') {
+        var diffProject = (a.project || '').localeCompare(b.project || '');
+        if (diffProject) return diffProject;
+      }
+      return (b.created || '').localeCompare(a.created || '');
     });
   }
 
@@ -203,7 +220,7 @@
   function scrollFocusedIntoView(el) {
     var rect = el.getBoundingClientRect();
     var winH = window.innerHeight;
-    if (rect.top < 80 || rect.bottom > winH - 40) {
+    if (rect.top < HDDom.chromeHeight() || rect.bottom > winH - 40) {
       el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
     }
   }
@@ -319,7 +336,7 @@
         if (isPinned(r)) {
           rowKids.unshift(el('span', { class: 'pin-glyph', text: '★', title: 'pinned' }));
         }
-        tree.appendChild(el('div', { class: 'row run' + (isPinned(r) ? ' is-pinned' : ''), data: { url: reportURL(r) } }, rowKids));
+        tree.appendChild(el('a', { class: 'row run' + (isPinned(r) ? ' is-pinned' : ''), href: reportURL(r), data: { url: reportURL(r) } }, rowKids));
       });
     });
 
@@ -332,8 +349,8 @@
     if (pins.length) {
       pinnedTree = el('div', { class: 'tree pinned-tree' });
       pins.forEach(function (p, i) {
-        pinnedTree.appendChild(el('div', {
-          class: 'row run pinned', data: { url: reportURL(p) }
+        pinnedTree.appendChild(el('a', {
+          class: 'row run pinned', href: reportURL(p), data: { url: reportURL(p) }
         }, [
           el('span', { class: 'pin-num', text: String(i + 2) }),
           el('span', { class: 'label', text: p.title || p.run }),
@@ -355,13 +372,13 @@
           class: 'row saved', data: { saved: item.query }
         }, [
           el('span', { class: 'saved-glyph', text: '⌕' }),
-          el('span', { class: 'label', text: item.name }),
-          el('button', { class: 'saved-del', title: 'remove' }, ['✕'])
+          el('button', { type: 'button', class: 'label saved-open', text: item.name, data: { saved: item.query } }),
+          el('button', { type: 'button', class: 'saved-del', title: 'remove', 'aria-label': 'Remove saved search ' + item.name }, ['✕'])
         ]));
       });
     }
 
-    var sections = [];
+    var sections = [el('button', { type: 'button', class: 'drawer-close hd-btn', 'aria-label': 'Close navigation', text: '✕ close' })];
     if (savedTree) {
       sections.push(el('div', { class: 'sidebar-section' }, [
         el('div', { class: 'sidebar-title', text: 'saved' }), savedTree
@@ -395,8 +412,12 @@
   function metricChip(value, label, opts) {
     opts = opts || {};
     var attrs = { class: 'metric-chip' + (opts.active ? ' active' : '') + (opts.click ? ' clickable' : '') };
-    if (opts.click) attrs.data = { action: opts.click };
-    return el('div', attrs, [
+    if (opts.click) {
+      attrs.data = { action: opts.click };
+      attrs.type = 'button';
+      attrs['aria-pressed'] = String(!!opts.active);
+    }
+    return el(opts.click ? 'button' : 'div', attrs, [
       el('span', { class: 'value', text: String(value) }),
       el('span', { class: 'label', text: label })
     ]);
@@ -418,9 +439,9 @@
   function viewInbox() {
     if (archiveFilter) return viewInboxArchived();
     var active = activeReports();
-    var items = active.filter(function (r) {
+    var items = sortInbox(active.filter(function (r) {
       return r.status === 'awaiting-review' || r.open_asks > 0;
-    });
+    }));
     var openAsks = active.reduce(function (s, r) { return s + (r.open_asks || 0); }, 0);
     var inFlight = active.filter(isLive).length;
     var today = active.filter(function (r) { return createdInLast24h(r.created); }).length;
@@ -434,18 +455,7 @@
       metricChip(archivedCount, 'archived', { click: 'toggle-archive' })
     ]);
 
-    /* apply inboxSort */
-    items = items.slice().sort(function (a, b) {
-      if (inboxSort === 'asks') {
-        var diff = (b.open_asks || 0) - (a.open_asks || 0);
-        if (diff !== 0) return diff;
-      } else if (inboxSort === 'project') {
-        var pc = (a.project || '').localeCompare(b.project || '');
-        if (pc !== 0) return pc;
-      }
-      return (b.created || '').localeCompare(a.created || '');
-    });
-    var sortToggle = el('span', { class: 'sort-toggle', text: 'sort: ' + inboxSort });
+    var sortToggle = el('button', { type: 'button', class: 'sort-toggle', text: 'sort: ' + inboxSort, 'aria-label': 'Sort inbox: ' + inboxSort });
     var body = items.length
       ? items.map(itemRow)
       : [emptyState([el('b', { text: 'nothing needs you.' }), el('br'),
@@ -485,7 +495,7 @@
      visibility checkbox. The whole row is draggable so users can grab
      anywhere; the handle glyph is the visual cue. */
   function projectToggleRow(d) {
-    var cb = el('input', { type: 'checkbox', class: 'proj-toggle', data: { name: d.name } });
+    var cb = el('input', { type: 'checkbox', class: 'proj-toggle', data: { name: d.name, focus: 'project-toggle-' + d.name } });
     cb.checked = d.enabled;
     return el('label', {
       class: 'proj-row',
@@ -528,7 +538,7 @@
     ]));
 
     /* collapsible "tracked projects" settings panel */
-    var head = el('div', { class: 'panel-head tracked-head' }, [
+    var head = el('button', { type: 'button', class: 'panel-head tracked-head', 'aria-expanded': String(trackedOpen), data: { focus: 'tracked-projects' } }, [
       el('span', { class: 'sigil', text: trackedOpen ? '▾' : '▸' }), ' ',
       el('span', { class: 'title-text', text: 'tracked projects' }),
       el('div', { class: 'right' }, [pill(onCount + ' / ' + discovered.length + ' tracked')])
@@ -559,9 +569,9 @@
       if (p.has_state) {
         var stateKey = p.project + '\x00current state';
         var stateCollapsed = !!collapsedSecs[stateKey];
-        body.push(el('div', {
-          class: 'proj-sec collapsible',
-          data: { proj: p.project, sec: 'current state' }
+        body.push(el('button', {
+          type: 'button', class: 'proj-sec collapsible', 'aria-expanded': String(!stateCollapsed),
+          data: { proj: p.project, sec: 'current state', focus: 'state-' + p.project }
         }, [
           el('span', { class: 'sec-sigil', text: stateCollapsed ? '▸ ' : '▾ ' }),
           'current state'
@@ -573,9 +583,9 @@
       if (p.has_roadmap) {
         var roadmapKey = p.project + '\x00roadmap';
         var roadmapCollapsed = !!collapsedSecs[roadmapKey];
-        body.push(el('div', {
-          class: 'proj-sec collapsible',
-          data: { proj: p.project, sec: 'roadmap' }
+        body.push(el('button', {
+          type: 'button', class: 'proj-sec collapsible', 'aria-expanded': String(!roadmapCollapsed),
+          data: { proj: p.project, sec: 'roadmap', focus: 'roadmap-' + p.project }
         }, [
           el('span', { class: 'sec-sigil', text: roadmapCollapsed ? '▸ ' : '▾ ' }),
           'roadmap'
@@ -596,7 +606,7 @@
           ? 'history — newest ' + hist.length + ' of ' + total
           : 'history';
         body.push(el('div', { class: 'proj-sec', text: label }));
-        body.push(el('div', { class: 'history' }, hist.map(historyRow)));
+        body.push(el('div', { class: 'history' }, hist.map(function (r) { return historyRow(p.project, r); })));
       }
       var n = (p.reports || []).length;
       var right = n ? pill(n + ' roadmap report' + (n === 1 ? '' : 's')) : null;
@@ -609,14 +619,15 @@
      (which is triage-focused: close button, link to report), this row is a
      retrospective surface: the answers the user recorded show inline so the
      project panel doubles as a record of what was decided. */
-  function historyRow(r) {
+  function historyRow(project, r) {
     var meta = [el('span', { class: 'hist-time', text: shortTime(r.created) })];
     if (r.kind) meta.push(el('span', { class: 'hist-kind', text: r.kind }));
     if (r.harness) meta.push(el('span', { class: 'hist-harness', text: r.harness }));
     if (r.archived) meta.push(el('span', { class: 'hist-flag archived', text: 'archived' }));
     if (r.open_asks > 0) meta.push(el('span', { class: 'hist-flag asks', text: r.open_asks + ' open' }));
 
-    var head = el('div', { class: 'hist-head', data: { url: reportURL(r) } }, [
+    var url = reportURL({ project: project, run: r.run });
+    var head = el('a', { class: 'hist-head', href: url, data: { url: url } }, [
       el('span', { class: 'dot ' + r.status }),
       el('div', { class: 'hist-title', text: r.title || r.run }),
       el('div', { class: 'hist-meta' }, meta)
@@ -648,26 +659,27 @@
 
      openSettingsOverlay creates the DOM lazily on first open so it
      never costs paint time for users who never trigger it. */
-  function openSettingsOverlay() {
+  function openSettingsOverlay(restore) {
     var existing = document.getElementById('settings-overlay');
     if (existing) {
-      existing.style.display = 'flex';
+      HDDialog.open(existing, { label: 'Settings', restore: restore, close: closeSettingsOverlay });
       return;
     }
     var body = el('div', { class: 'settings-modal-body' }, viewSettings());
     var modal = el('div', { class: 'settings-modal' }, [
       el('div', { class: 'settings-modal-head' }, [
         el('div', { class: 'settings-modal-title', text: 'settings' }),
-        el('button', { type: 'button', class: 'settings-modal-close', title: 'close (Esc)' }, ['✕'])
+        el('button', { type: 'button', class: 'settings-modal-close', title: 'close (Esc)', 'aria-label': 'Close settings' }, ['✕'])
       ]),
       body
     ]);
     var overlay = el('div', { id: 'settings-overlay', class: 'settings-overlay' }, [modal]);
     document.body.appendChild(overlay);
+    HDDialog.open(overlay, { label: 'Settings', restore: restore, close: closeSettingsOverlay });
   }
   function closeSettingsOverlay() {
     var o = document.getElementById('settings-overlay');
-    if (o) o.style.display = 'none';
+    if (o) HDDialog.close(o);
   }
   function toggleSettingsOverlay() {
     var o = document.getElementById('settings-overlay');
@@ -755,7 +767,7 @@
         kids.push(el('span', { class: 'st ' + (r.status || '') }));
         if (r.kind) kids.push(el('span', { class: 'act-kind', text: r.kind }));
         kids.push(el('span', { class: 'act-title', text: r.title || r.run }));
-        nodes.push(el('div', { class: 'activity-row', data: { url: reportURL(r) } }, kids));
+        nodes.push(el('a', { class: 'activity-row', href: reportURL(r), data: { url: reportURL(r) } }, kids));
       });
     });
     return nodes;
@@ -774,12 +786,12 @@
   var BUILDERS = { inbox: viewInbox, projects: viewProjects, activity: viewActivity, backlog: viewBacklog };
 
   function renderContent() {
-    var tabs = el('div', { class: 'view-tabs' }, VIEWS.map(function (v) {
-      return el('div', { class: 'view-tab', data: { view: v.id } }, [v.label]);
+    var tabs = el('nav', { class: 'view-tabs', 'aria-label': 'Dashboard views' }, VIEWS.map(function (v) {
+      return el('button', { type: 'button', class: 'view-tab', data: { view: v.id } }, [v.label]);
     }));
-    var nodes = [tabs];
+    var nodes = [el('h1', { class: 'sr-only', text: 'harness-deck dashboard' }), tabs];
     VIEWS.forEach(function (v) {
-      nodes.push(el('div', { class: 'view', id: 'view-' + v.id }, BUILDERS[v.id]()));
+      nodes.push(el('div', { class: 'view', id: 'view-' + v.id, role: 'region', 'aria-label': v.label }, BUILDERS[v.id]()));
     });
     var content = document.getElementById('content');
     content.replaceChildren.apply(content, nodes);
@@ -790,9 +802,11 @@
     currentView = id;
     document.querySelectorAll('.view').forEach(function (v) {
       v.classList.toggle('active', v.id === 'view-' + id);
+      v.hidden = v.id !== 'view-' + id;
     });
     document.querySelectorAll('.view-tab').forEach(function (t) {
       t.classList.toggle('active', t.dataset.view === id);
+      t.setAttribute('aria-pressed', String(t.dataset.view === id));
     });
     if (changed) {
       // Each view has its own remembered cursor position; reload it
@@ -825,6 +839,16 @@
   }
 
   function render() {
+    // SSE and filter updates replace these nodes. Restore a native keyboard
+    // focus target by stable identity rather than dropping it onto the body.
+    var active = document.activeElement;
+    var focusSelector = active && (active.id ? '#' + CSS.escape(active.id) :
+      active.dataset.focus ? '[data-focus="' + CSS.escape(active.dataset.focus) + '"]' :
+      active.matches('.view-tab') ? '.view-tab[data-view="' + active.dataset.view + '"]' :
+      active.matches('.sort-toggle') ? '#view-inbox .sort-toggle' :
+      active.matches('.metric-chip.clickable') ? '#view-inbox .metric-chip.clickable' : null);
+    var focusURL = active && active.closest('#tree, #content') && active.getAttribute('href');
+    var focusRegion = active && active.closest('#tree') ? '#tree' : '#content';
     renderTree();
     renderContent();
     showView(currentView);
@@ -839,6 +863,11 @@
     HDTree.paint();
     // Backlog cursor + open detail survive renders too.
     if (window.HDBacklog) HDBacklog.paint();
+    var replacement = focusSelector && document.querySelector(focusSelector);
+    if (focusURL) replacement = Array.from(document.querySelectorAll(focusRegion + ' a')).find(function (node) {
+      return node.getAttribute('href') === focusURL && !node.closest('[hidden]');
+    });
+    if (replacement && !replacement.closest('[hidden], [inert]')) replacement.focus({ preventScroll: true });
   }
 
   /* one delegated click handler for every navigable row */
@@ -900,7 +929,7 @@
     }
     if (e.target.closest('#titlebar-settings')) {
       e.stopPropagation();
-      openSettingsOverlay();
+      openSettingsOverlay(e.target.closest('#titlebar-settings'));
       return;
     }
     if (e.target.closest('.help-overlay .settings-modal-close') || e.target.classList.contains('help-overlay')) {
@@ -922,9 +951,23 @@
       return;
     }
     var sv = e.target.closest('[data-saved]');
-    if (sv) { if (window.HDSearch) HDSearch.open(sv.dataset.saved); return; }
+    if (sv) {
+      if (window.HDSearch) {
+        var query = sv.dataset.saved;
+        var opener = e.target.closest('button') || sv.querySelector('.saved-open');
+        HDSearch.open(query, function () {
+          if (opener && opener.isConnected) return opener;
+          return Array.prototype.find.call(document.querySelectorAll('#tree .saved-open'), function (button) {
+            return button.dataset.saved === query;
+          }) || null;
+        });
+      }
+      return;
+    }
     var row = e.target.closest('[data-url]');
-    if (row) { window.location.href = row.dataset.url; }
+    if (row && !e.target.closest('a, button') && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      window.location.href = row.dataset.url;
+    }
   });
 
   /* destination-form submit: POST then refresh + reset on success */
@@ -1077,7 +1120,22 @@
      leader and digit-to-tab routing; the g chord belongs to tabs.js. */
   document.addEventListener('keydown', function (e) {
     var t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    // A native focus/navigation key or IME composition cancels a pending
+    // leader without preventing the browser from handling that key.
+    if (pendingChord && (e.isComposing || e.key === 'Tab' || e.key.indexOf('Arrow') === 0)) {
+      setPendingChord('');
+      return;
+    }
+    // In dashboard NORMAL mode Space starts a leader chord, even on a
+    // focused link or button. Enter still activates native controls. Dialogs
+    // and editable controls keep their own Space behavior.
+    var controlLeader = e.key === ' ' && !HDDialog.isOpen() && t && t.closest &&
+      !t.isContentEditable && !t.closest('input, textarea, select, [role="dialog"]') &&
+      t.closest('button, a[href], summary');
+    if (e.isComposing || (HDDom.shortcutTarget(t, e.key) && !controlLeader)) {
+      if (pendingChord) setPendingChord('');
+      return;
+    }
     if (window.VimNav && VimNav.getMode && VimNav.getMode() !== 'NORMAL') return;
     // Modifier keys belong to the browser / OS — don't intercept.
     if (e.metaKey || e.ctrlKey || e.altKey) return;

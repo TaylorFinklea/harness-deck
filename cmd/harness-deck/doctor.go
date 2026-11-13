@@ -169,15 +169,13 @@ func scanRootsResult(cfg config.Config, discovered int) checkResult {
 }
 
 // isStaleUnit reports whether a service-unit filename is a hand-rolled
-// harness-deck unit from an older setup. Homebrew's own unit
-// (homebrew.mxcl.harness-deck.*) is the one legitimate service and is spared;
-// anything else naming harness-deck is a leftover that will start a second
-// server at login.
+// harness-deck unit from an older setup. Homebrew service namespaces are spared
+// because another formula's name may also contain harness-deck.
 func isStaleUnit(name string) bool {
 	if !strings.HasSuffix(name, ".plist") && !strings.HasSuffix(name, ".service") {
 		return false
 	}
-	if strings.HasPrefix(name, "homebrew.mxcl.") {
+	if strings.HasPrefix(name, "homebrew.mxcl.") || strings.HasPrefix(name, "sh.brew.") {
 		return false
 	}
 	lower := strings.ToLower(name)

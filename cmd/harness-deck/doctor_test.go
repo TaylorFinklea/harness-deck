@@ -264,13 +264,23 @@ func TestStaleUnitResult(t *testing.T) {
 
 func TestIsStaleUnit(t *testing.T) {
 	cases := map[string]bool{
-		"homebrew.mxcl.harness-deck.plist":   false, // Homebrew's own — leave alone
-		"com.tfinklea.harness-deck.plist":    true,  // the label that actually bit us
-		"com.harnessdeck.serve.plist":        true,  // the label Appendix A used
-		"harness-deck.service":               true,  // hand-rolled systemd unit
-		"homebrew.mxcl.harness-deck.service": false,
-		"com.apple.something.plist":          false, // unrelated
-		"my-harness-notes.txt":               false, // not a unit file
+		"homebrew.mxcl.harness-deck.plist":        false, // Homebrew's own — leave alone
+		"sh.brew.harness-deck.plist":              false, // current Homebrew service label
+		"sh.brew.harness-deck.service":            false, // Homebrew service label on Linux
+		"sh.brew.other-harness-deck.plist":        false, // another Homebrew formula
+		"sh.brew.other-harnessdeck.service":       false, // another Homebrew formula on Linux
+		"homebrew.mxcl.other-harness-deck.plist":  false, // preserve the legacy namespace
+		"homebrew.mxcl.other-harnessdeck.service": false,
+		"sh.brews.harness-deck.plist":             true, // not the Homebrew namespace
+		"sh.brew-harness-deck.service":            true, // missing namespace separator
+		"homebrew.mxclx.harness-deck.plist":       true, // not the legacy namespace
+		"xsh.brew.harness-deck.service":           true, // namespace must start the label
+		"com.tfinklea.harness-deck.plist":         true, // the label that actually bit us
+		"com.harnessdeck.serve.plist":             true, // the label Appendix A used
+		"harness-deck.service":                    true, // hand-rolled systemd unit
+		"homebrew.mxcl.harness-deck.service":      false,
+		"com.apple.something.plist":               false, // unrelated
+		"my-harness-notes.txt":                    false, // not a unit file
 	}
 	for name, want := range cases {
 		if got := isStaleUnit(name); got != want {

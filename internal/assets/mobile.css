@@ -7,17 +7,21 @@
    body.drawer-open to slide the sidebar in. */
 
 @media (max-width: 720px) {
-  /* Both elements get overflow-x:hidden because iOS Safari sometimes
-     scrolls the html root and sometimes the body, depending on whether
-     position:fixed is in play. */
+  /* Clip horizontal overflow without creating a second scroll container.
+     overflow-x:hidden on body breaks the sticky header while the root scrolls. */
   html, body {
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100vw;
   }
 
   .term-chrome { position: sticky; top: 0; z-index: 30; }
 
-  .titlebar { padding: 8px 10px; gap: 8px; }
+  .titlebar { min-height: 56px; height: auto; padding: 6px 10px; gap: 8px; }
+  .titlebar .title { font-size: 12px; }
+  .titlebar .clock { display: none; }
+  .title-search-btn { min-width: 36px; min-height: 36px; }
+  .title-search-btn.search-trigger { min-width: 36px; padding: 0; justify-content: center; }
+  .search-trigger span { display: none; }
   .titlebar .dots { display: none; }            /* macOS dots add noise on a phone */
   .titlebar .clock { font-size: 11px; }
 
@@ -66,12 +70,12 @@
   .inbox-item {
     display: block;
     position: relative;
-    padding: 10px 36px 10px 22px;
+    padding: 14px 44px 14px 26px;
   }
   .inbox-item .dot {
     position: absolute;
-    top: 14px;
-    left: 6px;
+    top: 22px;
+    left: 10px;
   }
   .inbox-item .main { min-width: 0; }
   .inbox-item .main .title {
@@ -86,8 +90,10 @@
   .inbox-item .aside .asks { margin-left: 8px; }
   .inbox-item .inbox-close {
     position: absolute;
-    top: 6px;
-    right: 4px;
+    top: 8px;
+    right: 0;
+    width: 40px;
+    height: 40px;
     opacity: 1; /* hover doesn't exist on touch; reveal by default */
   }
 
@@ -136,7 +142,8 @@
      and CSS gates its visibility. */
   .menu-button {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px;
+    width: 40px; height: 40px;
+    flex-shrink: 0;
     background: transparent;
     border: 1px solid var(--tn-bg-highlight);
     color: var(--tn-fg);
@@ -163,20 +170,23 @@
   }
   .sidebar {
     position: fixed;
-    top: 44px; left: 0; bottom: 28px;
+    top: 0; left: 0; bottom: 0;
     width: 80vw; max-width: 320px;
     height: auto;
-    z-index: 40;
+    z-index: 100;
     transform: translateX(-100%);
     transition: transform 180ms ease-out;
     box-shadow: 4px 0 12px rgba(0, 0, 0, 0.35);
   }
   body.drawer-open .sidebar { transform: translateX(0); }
+  .sidebar { flex-direction: column; }
+  .drawer-close { display: block; margin-bottom: 20px; flex-shrink: 0; }
+  .sidebar[role="dialog"] { outline: none; }
 
   .drawer-scrim {
     position: fixed; inset: 0;
     background: rgba(0, 0, 0, 0.45);
-    z-index: 35;
+    z-index: 90;
     opacity: 0;
     pointer-events: none;
     transition: opacity 180ms ease-out;
@@ -196,7 +206,26 @@
   .content { padding: 14px 14px; }
 
   /* Panels: less padding, ensure content scrolls instead of clipping. */
-  .panel { padding: 12px; margin-bottom: 14px; }
+  .panel { padding: 0; margin-bottom: 14px; }
+  .panel-head { flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+  .panel-body { padding: 10px; }
+  .metric-strip { gap: 12px 20px; padding: 12px; margin-bottom: 16px; }
+  .metric-chip .value { font-size: 14px; }
+  .metric-chip .label { font-size: 10px; }
+  .report-banner { flex-direction: column; align-items: flex-start; }
+  .report-banner .meta { text-align: left; }
+  .actionbar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 14px; }
+  .actionbar-title { white-space: normal; }
+  .report-actions { margin-left: 0; gap: 6px; }
+  .report-actions button { min-height: 44px; padding: 4px 8px; }
+  .report-actions .hd-hint { display: none; }
+  .hd-btn, .hd-input, .hd-note { min-height: 44px; }
+  .hd-input, .hd-note { font-size: 16px; min-width: 0; max-width: 100%; }
+  .ask-controls .hd-btn { flex-grow: 1; }
+  .ask-controls .hd-note { flex-basis: 100%; }
+  .settings-overlay { padding: 12px; }
+  .settings-modal, .help-modal { max-height: calc(100dvh - 24px); }
+  .settings-modal-body, .help-body { padding: 14px; }
   .panel pre, .panel code {
     white-space: pre-wrap;
     word-break: break-word;

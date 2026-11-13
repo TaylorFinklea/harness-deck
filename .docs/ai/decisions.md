@@ -1251,3 +1251,64 @@ at Load so doctor's warning prints the *effective* set, and the new XDG tests
 made Windows-safe (t.TempDir instead of /tmp literals). Dispatch note: Terra
 at xhigh needs ~5min for a ~950-line diff review — the first attempt died on
 the default 120s Bash timeout; pass `timeout: 600000`.
+
+## 2026-11-13 — UI modernization keeps the keyboard-first architecture
+
+The overhaul keeps Go stdlib-only, the embedded vanilla frontend, Tokyo Night,
+JetBrains Mono, the report tree, status line, existing views, and storage keys.
+No framework migration or manifest/API changes. A shared `ui.css` layer defines
+readable chrome, consistent controls, spacing and focus treatment; mobile.css
+still comes last. Both themes now use readable secondary text. Reduced-motion
+and forced-colors preferences are respected.
+
+Native links/buttons supplement the Vim workflow. Native Enter/Space/Tab take
+precedence on focused controls; the existing letter shortcuts still work in
+NORMAL mode. A shared modal lifecycle in hd-dom.js owns focus, inert background,
+Escape dismissal and focus restoration for settings/help/search/the drawer.
+The helper loads before consumers without changing the bundle order. IME and
+form controls are exempt from global shortcuts. SSE rerenders preserve focus
+by stable identity, and tree mode now focuses the active link.
+
+Correctness fixes uncovered during the overhaul: rendering and cursor movement
+share inbox sorting; report action shortcuts defer to pending g chords; section
+jumps use the measured sticky-header height and ignore hidden sections; project
+history supplies its parent project when building report URLs; search cancels
+superseded/closed queries and never retries failures in an unbounded loop.
+Mobile uses overflow-x:clip so the body does not break the sticky header.
+
+Chromium browser regressions run in a separate CI job using Python Playwright
+(test-only, pinned in tests/requirements.txt). The shipping application has no
+new dependencies and no build step. Tests build isolated servers with validated
+manifests, temporary config/data, and fresh browser state. Browser testing covers
+real keyboard events, response writes, search failures/races, modal isolation,
+live updates and responsive behavior. Local macOS/Safari testing remains a
+useful follow-up to Linux Chromium verification.
+
+## 2026-11-13 — Dashboard Space chords and Safari dialog launchers
+
+Local PR QA found that native link focus prevented `Space e` from leaving the
+tree, and native button activation consumed `Space s/t`. The owner chose Space
+as the dashboard's NORMAL-mode shortcut prefix, including on focused links and
+buttons; Enter activates those controls. Native Tab/arrows, form controls,
+contenteditable, IME composition, and modal Space behavior retain their existing
+handling. Report-page triage is unchanged. This replaces the earlier dashboard
+Space precedence above without delaying button activation to distinguish chords.
+
+Safari pointer clicks do not reliably focus native buttons. Dialog callers now
+pass their actual pointer launcher explicitly; keyboard calls retain the prior
+focused control. Saved searches resolve the current launcher by its exact query
+when a live update rebuilds the sidebar. If the launcher has been removed or
+hidden, closing restores focus to the current dialog or visible content instead
+of a hidden modal.
+Behavioral regressions cover both cases, including a non-focusing click in
+Chromium and the same suite on WebKit. Browser selection remains test-only.
+
+## 2026-11-13 — Doctor preserves current and legacy Homebrew namespaces
+
+The installed Homebrew service uses `sh.brew.harness-deck`; the old stale-unit
+check recognized only `homebrew.mxcl.*` and suggested removing the active
+service. Preserve both Homebrew namespaces, including other legitimate formula
+names, rather than narrowing the existing exemption to one exact recipe.
+Historical hand-rolled units and non-Homebrew lookalikes remain detectable.
+Setup instructions now require confirming ownership before removal. Regression
+tests cover both namespace generations and both service-file formats.

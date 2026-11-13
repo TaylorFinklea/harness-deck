@@ -58,9 +58,10 @@ Rules for doing this well:
   version, this is an upgrade: use `brew upgrade harness-deck`. A host set up
   before v0.2.14 also has a **hand-rolled LaunchAgent/systemd unit that must be
   removed**, or it will start a second server at login and fight the Homebrew
-  service for the port (the loser crash-loops). Homebrew's own unit is
-  `homebrew.mxcl.harness-deck`; anything else matching `harness` in
-  `~/Library/LaunchAgents` or `~/.config/systemd/user` is stale. Removal
+  service for the port (the loser crash-loops). Homebrew uses `sh.brew.*` (or
+  `homebrew.mxcl.*` on older Homebrew); preserve those units. Check `brew
+  services info harness-deck` and remove only confirmed obsolete hand-rolled
+  units in `~/Library/LaunchAgents` or `~/.config/systemd/user`. Removal
   commands: [SETUP.md step 4](docs/SETUP.md). Use `rm -f` — a bare `rm` can hit
   an interactive prompt, silently no-op, and leave the landmine in place.
 - **`brew services` is the persistence path on both OSes.** Do not hand-write a
