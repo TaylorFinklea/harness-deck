@@ -153,6 +153,12 @@ One line each; detail in decisions.md + git log.
   Browser-verified create→claim→close + 403-when-read-only. decisions.md "Beads
   actions"; spec/plan `phases/beads-actions-{spec,plan}.md`.
 
+- **v0.2.17 release** _(2026-11-13)_ — PR #1 terminal UI modernization,
+  dashboard Space chords and Safari launcher focus fixes, plus current
+  Homebrew service recognition in doctor. Go/browser CI pass; both macOS
+  architectures signed and notarized, tap updated, local Homebrew upgrade and
+  doctor verified. Validation: current-state.md; rationale: decisions.md.
+
 ## Now (sequenced 2026-06-10 — product review w/ audit)
 
 Full audit: `.harness/20260610-bug-bash-audit/report.json` (30 verified
@@ -277,15 +283,6 @@ The 2026-06-10 batch above is fully shipped, and so is the next item:
      decisions.md "Fork-friendliness wave". **Release as v0.2.16 when ready.**
 
 ## Next
-
-- **UI modernization review (2026-11-13, `codex/modernize-ui`, unreleased).**
-  Preserve the terminal/Vim identity; refresh spacing, typography, contrast,
-  native controls and modal focus. Fix cursor sorting, report chord precedence,
-  history links, search request handling, mobile sticky chrome and live-update
-  focus. Add isolated Chromium keyboard/responsive regressions to CI.
-  Local macOS/Safari QA and keyboard fixes completed; current-state.md records
-  validation and decisions.md has the implementation rationale.
-
 
 **Feature assessment 2026-06-16** (7-agent sweep; verdict: core loop
 feature-complete). The whole assessment backlog is **shipped as Waves 1–10**

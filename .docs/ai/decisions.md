@@ -1312,3 +1312,15 @@ names, rather than narrowing the existing exemption to one exact recipe.
 Historical hand-rolled units and non-Homebrew lookalikes remain detectable.
 Setup instructions now require confirming ownership before removal. Regression
 tests cover both namespace generations and both service-file formats.
+
+## 2026-11-13 — Release notary credentials and artifact verification
+
+The v0.2.17 release initially failed Apple authentication. The owner approved
+using an existing active team API key for the three repository notary secrets;
+no new key was created. GoReleaser's `notarize.macos[].notarize.key` accepts a
+file path or base64-encoded `.p8` contents, not raw PEM text. Secret updates use
+stdin, an explicit github.com repository target, and no credential logging.
+
+Release verification checks both downloaded macOS binaries against published
+checksums, the Homebrew formula and accepted Apple ticket CDHashes. A standalone
+Mach-O executable's `spctl` result is not sufficient notarization evidence.
