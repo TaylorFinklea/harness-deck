@@ -1,5 +1,25 @@
 # harness-deck — current state
 
+## 2026-11-19 — security hardening + public-face refresh (branch `security-and-polish`, uncommitted)
+
+- Request guard (`internal/server/guard.go`): trusted networks (default
+  Tailscale ranges), Host allowlist (DNS rebinding), stdlib
+  `CrossOriginProtection`, 1 MiB bodies. `ReadHeaderTimeout` added; notify runs
+  async. Answers validated via `manifest.CheckAnswer`. Report pages carry a
+  nonce CSP; inline `onclick` removed. ADR: decisions.md 2026-11-19.
+- Breaking for LAN-only (non-Tailscale) phone setups: add the range to
+  `trusted_networks`. Call this out in the next release notes.
+- go.mod pins `toolchain go1.27.4`; CI + release run govulncheck.
+- Markdown links keep balanced parens; `redactURL` uses net/url.
+- New screenshots (demo dataset), root images moved to `docs/brand` +
+  `docs/design`, landing page in `site/` with `.github/workflows/pages.yml`
+  (needs Settings → Pages → Source: GitHub Actions before first deploy).
+- Verified: build, vet, gofmt, `go test -race`; Chromium browser suite 30/30
+  (run hung at browser teardown with a substituted Chrome-for-Testing build;
+  CI is the authority). Live probes: cross-site answer 403, rebound Host 421,
+  html-block script + onerror blocked, real approve/archive clicks work.
+- Not done: social preview upload (web UI only), Pages enablement, release tag.
+
 _Loop state only. Shipped-work history → roadmap.md; rationale → decisions.md._
 
 - Branch: `main`, tracking `origin/main`. PR #1 merged as `ac3915a`;

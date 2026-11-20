@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>harness-deck — a pane of glass for agent output</title>
+<meta name="description" content="A local dashboard where every AI coding harness — Claude Code, Codex, OpenCode, Pi — publishes reports, mockups, approvals and decisions, and your answers flow back to the agent as a file." />
+<meta name="theme-color" content="#0d0e16" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="harness-deck — a pane of glass for agent output" />
+<meta property="og:description" content="One live, local dashboard for every AI coding harness. Agents publish JSON; you answer; the answer goes back as a file." />
+<meta property="og:url" content="https://taylorfinklea.github.io/harness-deck/" />
+<meta property="og:image" content="https://taylorfinklea.github.io/harness-deck/brand/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="https://taylorfinklea.github.io/harness-deck/brand/og.png" />
+<link rel="icon" href="brand/hd.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d0e16;
+    --bg-2: #12131d;
+    --panel: #161723;
+    --panel-2: #1a1b26;
+    --rule: #262838;
+    --rule-2: #33364b;
+    --fg: #e6e8f5;
+    --fg-2: #a9b1d6;
+    --muted: #737a9e;
+    --blue: #7aa2f7;
+    --cyan: #7dcfff;
+    --purple: #bb9af7;
+    --green: #9ece6a;
+    --amber: #e0af68;
+    --red: #f7768e;
+    --grad: linear-gradient(90deg, var(--blue), var(--cyan) 55%, var(--purple));
+    --radius: 10px;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg-2);
+    font: 15px/1.7 var(--mono); -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  img { max-width: 100%; height: auto; display: block; }
+  code { font-family: var(--mono); font-size: .88em; color: var(--fg); background: var(--panel-2);
+         border: 1px solid var(--rule); border-radius: 5px; padding: 1px 6px; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+  .skip { position: absolute; left: -999px; }
+  .skip:focus { left: 16px; top: 12px; z-index: 10; background: var(--panel); padding: 6px 10px; }
+  :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
+
+  /* nav */
+  .nav { position: sticky; top: 0; z-index: 5; background: rgba(13,14,22,.82);
+         backdrop-filter: blur(10px); border-bottom: 1px solid var(--rule); }
+  .nav .wrap { display: flex; align-items: center; gap: 16px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font-weight: 700; }
+  .brand:hover { text-decoration: none; }
+  .brand img { width: 26px; height: 26px; }
+  .chip { font-size: 11px; color: var(--muted); border: 1px solid var(--rule-2); border-radius: 5px; padding: 1px 7px; }
+  .nav nav { margin-left: auto; display: flex; gap: 22px; align-items: center; font-size: 13px; }
+  .nav nav a { color: var(--fg-2); }
+  .nav nav a.gh { border: 1px solid var(--rule-2); border-radius: 7px; padding: 4px 12px; color: var(--fg); }
+  @media (max-width: 760px) { .nav nav a:not(.gh) { display: none; } }
+
+  /* hero */
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--rule);
+          background:
+            radial-gradient(900px 420px at 85% -10%, rgba(187,154,247,.16), transparent 60%),
+            radial-gradient(700px 380px at 10% 0%, rgba(122,162,247,.10), transparent 60%),
+            linear-gradient(var(--rule) 1px, transparent 1px) 0 0 / 40px 40px,
+            linear-gradient(90deg, var(--rule) 1px, transparent 1px) 0 0 / 40px 40px,
+            var(--bg); }
+  .hero::after { content: ""; position: absolute; inset: 0;
+                 background: linear-gradient(180deg, rgba(13,14,22,.55), var(--bg) 92%); pointer-events: none; }
+  .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+                gap: 48px; align-items: center; padding-top: 72px; padding-bottom: 88px; }
+  @media (max-width: 960px) { .hero .wrap { grid-template-columns: minmax(0, 1fr); padding-top: 48px; } }
+  .badge { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .badge img { width: 48px; height: 48px; border-radius: 11px; border: 1px solid var(--rule-2); }
+  .badge b { display: block; color: var(--fg); font-size: 14px; }
+  .badge span { font-size: 11px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+  h1 { margin: 0 0 22px; color: var(--fg); font-size: clamp(38px, 5.4vw, 60px); line-height: 1.04; letter-spacing: -.02em; font-weight: 800; }
+  h1 .g { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { margin: 0 0 26px; max-width: 34em; }
+  .lede strong { color: var(--fg); font-weight: 600; }
+  .label { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .install { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--rule-2);
+             border-radius: 9px; padding: 10px 10px 10px 14px; color: var(--fg); font-size: 14px; }
+  .install code { all: unset; flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .install code::-webkit-scrollbar { display: none; }
+  .install .p { color: var(--cyan); }
+  .copy { flex: none; font: 12px var(--mono); color: var(--fg-2); background: var(--panel-2); border: 1px solid var(--rule-2);
+          border-radius: 6px; padding: 3px 10px; cursor: pointer; }
+  .copy:hover { color: var(--fg); border-color: var(--blue); }
+  .alt { font-size: 12.5px; color: var(--muted); margin: 10px 0 26px; overflow-wrap: anywhere; }
+  .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn { display: inline-block; font: 600 13px var(--mono); padding: 10px 18px; border-radius: 8px;
+         border: 1px solid var(--rule-2); color: var(--fg); background: var(--panel); }
+  .btn:hover { text-decoration: none; border-color: var(--blue); }
+  .btn.primary { background: var(--grad); color: #0d0e16; border-color: transparent; }
+
+  .window { background: var(--panel); border: 1px solid var(--rule-2); border-radius: 12px; overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(122,162,247,.06); }
+
+  /* sections */
+  section { padding: 96px 0; }
+  .eyebrow { display: flex; align-items: center; gap: 12px; font-size: 11px; letter-spacing: .2em;
+             text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .eyebrow::before { content: ""; width: 28px; height: 2px; background: var(--grad); }
+  h2 { margin: 0 0 14px; color: var(--fg); font-size: clamp(26px, 3.4vw, 36px); line-height: 1.18; letter-spacing: -.01em; }
+  .sub { max-width: 40em; margin: 0 0 40px; color: var(--muted); }
+  .grid { display: grid; gap: 16px; }
+  .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 900px) { .g4, .g3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .g4, .g3, .g2 { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 20px 22px; }
+  .card .n { font-size: 11px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+  .card h3 { margin: 6px 0 8px; color: var(--fg); font-size: 16px; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .harness h3 { margin-bottom: 12px; }
+  .harness .rule { width: 28px; height: 2px; background: var(--blue); }
+
+  .showcase { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 28px; align-items: start; }
+  @media (max-width: 900px) { .showcase { grid-template-columns: minmax(0, 1fr); } .phone { max-width: 300px; margin: 0 auto; } }
+  .phone { border: 1px solid var(--rule-2); border-radius: 34px; padding: 10px; background: #08090f;
+           box-shadow: 0 30px 70px rgba(0,0,0,.5); }
+  .phone img { border-radius: 25px; }
+  figcaption { font-size: 12.5px; color: var(--muted); margin-top: 12px; text-align: center; }
+
+  .flow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: stretch; }
+  .flow .arrow { align-self: center; color: var(--cyan); }
+  @media (max-width: 900px) { .flow { grid-template-columns: minmax(0, 1fr); } .flow .arrow { transform: rotate(90deg); justify-self: center; } }
+  .flow .card.mid { border-color: rgba(122,162,247,.55); background: linear-gradient(180deg, rgba(122,162,247,.08), var(--panel)); }
+  .flow h3 { font-size: 15px; }
+  .flow pre { margin: 14px 0 0; background: var(--bg-2); border: 1px solid var(--rule); border-radius: 7px;
+              padding: 10px 12px; font-size: 12px; color: var(--fg-2); overflow-x: auto; }
+  .k { color: var(--cyan); } .s { color: var(--green); }
+  .note { text-align: center; color: var(--muted); font-size: 13px; margin-top: 22px; }
+  .note b { color: var(--cyan); }
+
+  .sec { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 40px; align-items: start; }
+  @media (max-width: 900px) { .sec { grid-template-columns: minmax(0, 1fr); } }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .checks li { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); padding: 14px 18px 14px 44px;
+               position: relative; font-size: 13.5px; color: var(--muted); }
+  .checks li::before { content: "✓"; position: absolute; left: 17px; top: 13px; color: var(--green); font-weight: 700; }
+  .checks b { color: var(--fg); display: block; font-size: 14px; margin-bottom: 2px; }
+
+  .start { border: 1px solid var(--rule-2); border-radius: 16px; padding: 44px;
+           background: radial-gradient(600px 300px at 80% 0%, rgba(187,154,247,.12), transparent 60%), var(--panel); }
+  .start .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
+  @media (max-width: 900px) { .start { padding: 28px 22px; } .start .cols { grid-template-columns: minmax(0, 1fr); } }
+  .steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; gap: 16px; font-size: 13.5px; }
+  .steps li { counter-increment: s; position: relative; padding-left: 38px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 24px; height: 24px; border-radius: 6px;
+                      background: rgba(122,162,247,.18); color: var(--blue); font-weight: 700; font-size: 12px;
+                      display: grid; place-items: center; }
+  .steps b { color: var(--fg); }
+
+  footer { border-top: 1px solid var(--rule); padding: 36px 0 48px; font-size: 12.5px; color: var(--muted); }
+  footer .top { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 18px; }
+  footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="brand/hd.svg" alt="" />harness-deck</a>
+    <span class="chip">report@1</span>
+    <nav aria-label="Primary">
+      <a href="#what">What it is</a>
+      <a href="#round-trip">Round-trip</a>
+      <a href="#security">Security</a>
+      <a href="#install">Install</a>
+      <a class="gh" href="https://github.com/TaylorFinklea/harness-deck">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="hero" id="top">
+    <div class="wrap">
+      <div>
+        <div class="badge">
+          <img src="brand/hd.png" alt="" />
+          <div><b>harness-deck</b><span>Local agent dashboard</span></div>
+        </div>
+        <h1>A <span class="g">pane of glass</span> for agent output.</h1>
+        <p class="lede">Chat is where you <strong>talk</strong> to the agent. harness-deck is where the agent
+          <strong>shows</strong> you things: reports, mockups, comparisons, approvals and decisions that
+          survive a context clear. One local dashboard, every harness, every project.</p>
+        <div class="label">Install · Homebrew</div>
+        <div class="install">
+          <span class="p" aria-hidden="true">$</span>
+          <code>brew install taylorfinklea/tap/harness-deck</code>
+          <button class="copy" type="button" data-copy="brew install taylorfinklea/tap/harness-deck">copy</button>
+        </div>
+        <p class="alt">or <code>go install github.com/TaylorFinklea/harness-deck/cmd/harness-deck@latest</code></p>
+        <div class="ctas">
+          <a class="btn primary" href="#install">Get started</a>
+          <a class="btn" href="https://github.com/TaylorFinklea/harness-deck">View source</a>
+        </div>
+      </div>
+      <figure class="window" style="margin:0">
+                <img src="screenshots/dashboard.png" width="2880" height="1720"
+             alt="The harness-deck inbox: reports from Codex, Claude Code, OpenCode and Pi across three projects, with open asks waiting for review." />
+      </figure>
+    </div>
+  </div>
+
+  <section id="what">
+    <div class="wrap">
+      <div class="eyebrow">What it is</div>
+      <h2>One local dashboard for every AI coding harness,<br />and every project they touch.</h2>
+      <p class="sub">Agents write a structured JSON manifest. harness-deck renders it into a consistent,
+        terminal-styled page and aggregates every report into one live view. It speaks one contract,
+        so it doesn't care which tool produced the work.</p>
+      <div class="grid g4">
+        <div class="card harness"><div class="n">01</div><h3>Claude Code</h3><div class="rule"></div></div>
+        <div class="card harness"><div class="n">02</div><h3>Codex</h3><div class="rule"></div></div>
+        <div class="card harness"><div class="n">03</div><h3>OpenCode</h3><div class="rule"></div></div>
+        <div class="card harness"><div class="n">04</div><h3>Pi</h3><div class="rule"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap showcase">
+      <figure style="margin:0">
+        <div class="window">
+          <img src="screenshots/report.png" width="2880" height="2360" loading="lazy"
+               alt="A rendered audit report: executive summary, key metrics with sparklines, and a risk register." />
+        </div>
+        <figcaption>Every report renders the same way: typed blocks, not hand-written HTML.</figcaption>
+      </figure>
+      <figure style="margin:0">
+        <div class="phone">
+          <img src="screenshots/mobile-approval.png" width="1170" height="2532" loading="lazy"
+               alt="Approving a rollout from the phone: metrics, then approve or request changes." />
+        </div>
+        <figcaption>Installable PWA with lock-screen push over Tailscale.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="round-trip" style="background:var(--bg-2); border-top:1px solid var(--rule); border-bottom:1px solid var(--rule)">
+    <div class="wrap">
+      <div class="eyebrow">The round-trip</div>
+      <h2>A one-way pipeline with a file-based answer loop.</h2>
+      <p class="sub">Any harness writes a manifest. harness-deck renders and aggregates it. Your answers
+        to interactive blocks go straight back to the agent as a file, with no socket to keep alive.</p>
+      <div class="flow">
+        <div class="card">
+          <div class="n">harness writes</div>
+          <h3>report.json</h3>
+          <p>A structured manifest: reports, mockups, comparisons, or an interactive ask, decision or approval.</p>
+<pre>{ <span class="k">"type"</span>: <span class="s">"approval"</span>,
+  <span class="k">"id"</span>: <span class="s">"stage2"</span>,
+  <span class="k">"prompt"</span>: <span class="s">"Widen to 50%?"</span> }</pre>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="card mid">
+          <div class="n">harness-deck renders</div>
+          <h3>one live dashboard</h3>
+          <p>Consistent pages, aggregated across every project, pushed to open browsers over SSE.
+            You read, react and answer in place.</p>
+          <pre>scan → render → serve</pre>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="card">
+          <div class="n">answers flow back</div>
+          <h3>responses.json</h3>
+          <p>Your answer lands beside the report and a notification fires. The agent picks it up and continues.</p>
+<pre>{ <span class="k">"value"</span>: <span class="s">"approved"</span>,
+  <span class="k">"note"</span>: <span class="s">"ship it"</span> }</pre>
+        </div>
+      </div>
+      <p class="note"><b>↺ two-way</b>: the dashboard isn't just a viewer; it's how you reply to the agent.</p>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="eyebrow">Why it's built this way</div>
+      <h2>Six decisions that define harness-deck.</h2>
+      <p class="sub">Each one is recorded, with what was rejected, in the repo's decision log.</p>
+      <div class="grid g3">
+        <div class="card"><div class="n">01 · Data, not markup</div><h3>The renderer owns every byte</h3>
+          <p>Agents write typed blocks. Every report looks the same, and old reports restyle when the renderer improves.</p></div>
+        <div class="card"><div class="n">02 · Interactive</div><h3>Two-way by design</h3>
+          <p>Answer an <code>ask</code>, <code>decision</code> or <code>approval</code>; your reply goes back as <code>responses.json</code> plus a notification.</p></div>
+        <div class="card"><div class="n">03 · Private</div><h3>Local and single-user</h3>
+          <p>A Go server on your machine. No cloud, no accounts, no telemetry. Nothing leaves it unless you add a Slack or webhook destination.</p></div>
+        <div class="card"><div class="n">04 · Lean</div><h3>Zero dependencies</h3>
+          <p>A stdlib-only Go binary. No npm, no build step. The Markdown renderer, Web Push and watcher are in-house.</p></div>
+        <div class="card"><div class="n">05 · Live</div><h3>Live and on your phone</h3>
+          <p>A two-second watcher, server-sent events, and Web Push to an installable PWA the moment an agent needs you.</p></div>
+        <div class="card"><div class="n">06 · Durable</div><h3>Versioned contract</h3>
+          <p><code>report@1</code> ships inside the binary (<code>hdeck contract</code>, MCP, or HTTP). A stale binary degrades gracefully instead of breaking.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="security" style="padding-top:0">
+    <div class="wrap sec">
+      <div>
+        <div class="eyebrow">Security</div>
+        <h2>Safe even when an agent isn't.</h2>
+        <p class="sub" style="margin-bottom:0">Agents read untrusted code, issues and web pages, so a report can be written by a
+          prompt-injected agent. harness-deck has no login, so it enforces a boundary instead:
+          nothing a report contains, and nothing a web page you visit sends, can answer an
+          approval for you.</p>
+      </div>
+      <ul class="checks">
+        <li><b>Reports can't run code</b>Report pages carry a nonce-based Content-Security-Policy. Raw HTML blocks render layout and SVG; their scripts and handlers never execute.</li>
+        <li><b>Other sites can't act as you</b>State-changing requests from another origin are refused, and a Host check defeats DNS rebinding.</li>
+        <li><b>Only your tailnet can connect</b>Beyond loopback, clients must come from trusted networks: Tailscale by default, never the café Wi-Fi.</li>
+        <li><b>Answers are exactly what was offered</b>An approval is <code>approved</code> or <code>changes-requested</code>, nothing else, so agents can act on it without guesswork.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="install" style="padding-top:0">
+    <div class="wrap">
+      <div class="start">
+        <div class="cols">
+          <div>
+            <div class="eyebrow">Get started</div>
+            <h2>Running in under a minute.</h2>
+            <div class="install" style="margin-top:22px">
+              <span class="p" aria-hidden="true">$</span>
+              <code>brew install taylorfinklea/tap/harness-deck</code>
+              <button class="copy" type="button" data-copy="brew install taylorfinklea/tap/harness-deck">copy</button>
+            </div>
+            <p class="alt" style="margin-bottom:0">macOS binaries are signed and notarized. Linux works the same way through Homebrew.</p>
+          </div>
+          <ol class="steps">
+            <li><b>Install</b> with Homebrew or <code>go install</code>: one binary, no setup.</li>
+            <li><b>Start it</b> with <code>brew services start harness-deck</code>, then check with <code>hdeck doctor</code>; every failure prints its fix.</li>
+            <li><b>Point it at your code</b> with <code>"scan_roots": ["~/git"]</code>. Agents publish <code>report.json</code> and the dashboard lights up live.</li>
+            <li><b>Or let your agent do it</b>: point it at the repo and say <code>set up harness-deck</code>. The runbook is written for agents.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="#top"><img src="brand/hd.svg" alt="" />harness-deck</a>
+      <nav aria-label="Footer">
+        <a href="https://github.com/TaylorFinklea/harness-deck">GitHub</a>
+        <a href="https://github.com/TaylorFinklea/harness-deck/blob/main/CONTRACT.md">Contract</a>
+        <a href="https://github.com/TaylorFinklea/harness-deck/releases">Releases</a>
+        <a href="https://taylor.finklea.dev/work/harness-deck/">Case study</a>
+      </nav>
+    </div>
+    <p>Built by Taylor Finklea. MIT licensed. The contract ships in the binary: run <code>hdeck contract</code> or
+      read it over MCP, and any agent has <code>report@1</code> without cloning the repo.</p>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.getAttribute('data-copy');
+      var done = function () { btn.textContent = 'copied'; setTimeout(function () { btn.textContent = 'copy'; }, 1600); };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+  });
+</script>
+</body>
+</html>
