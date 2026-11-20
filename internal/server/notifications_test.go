@@ -46,3 +46,18 @@ func TestNotificationsAddRefusesCorruptConfig(t *testing.T) {
 		t.Errorf("corrupt config was clobbered:\n%s", data)
 	}
 }
+
+func TestRedactURL(t *testing.T) {
+	cases := map[string]string{
+		"https://hooks.slack.com/services/T0/B0/secret":  "https://hooks.slack.com",
+		"https://user:pass@n8n.example.com/hook?token=x": "https://n8n.example.com",
+		"http://10.0.0.5:5678/webhook":                   "http://10.0.0.5:5678",
+		"":                                               "",
+		"not a url":                                      "(unparseable URL)",
+	}
+	for in, want := range cases {
+		if got := redactURL(in); got != want {
+			t.Errorf("redactURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
