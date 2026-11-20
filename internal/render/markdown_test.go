@@ -101,3 +101,16 @@ func TestInlineEmphasisDoesNotCorruptSpans(t *testing.T) {
 		})
 	}
 }
+
+func TestMarkdownLinkWithParens(t *testing.T) {
+	got := string(Markdown("see [Foo](https://en.wikipedia.org/wiki/Foo_(bar)) and [x](https://x.test) (aside)"))
+	if !strings.Contains(got, `href="https://en.wikipedia.org/wiki/Foo_%28bar%29"`) && !strings.Contains(got, `href="https://en.wikipedia.org/wiki/Foo_(bar)"`) {
+		t.Errorf("balanced parens in URL were cut: %s", got)
+	}
+	if !strings.Contains(got, `href="https://x.test"`) || !strings.Contains(got, "(aside)") {
+		t.Errorf("trailing parenthetical swallowed into the link: %s", got)
+	}
+	if bad := string(Markdown("[a](javascript:alert(1))")); strings.Contains(bad, "<a ") {
+		t.Errorf("javascript: URL with parens became a link: %s", bad)
+	}
+}

@@ -946,3 +946,49 @@ func writeFakeVAPID(path string) error {
 	}
 	return keys.Save(path)
 }
+
+// TestRespondEndToEndGuarded drives the production handler (guard + routes):
+// an off-menu answer is refused with 400, a cross-site POST is refused with
+// 403 before it reaches the handler, and neither touches responses.json.
+func TestRespondEndToEndGuarded(t *testing.T) {
+	isolateState(t)
+	central := t.TempDir()
+	dir := filepath.Join(central, "acme", "0x1")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "report.json"), []byte(askReport), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := New(config.Config{CentralDir: central})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	h := s.GuardedHandler()
+	post := func(body string, hdr map[string]string) int {
+		req := httptest.NewRequest(http.MethodPost, "/r/acme/0x1/respond", strings.NewReader(body))
+		req.RemoteAddr = "127.0.0.1:5555"
+		req.Host = "127.0.0.1:7420"
+		for k, v := range hdr {
+			req.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if code := post(`{"block":"q1","value":"not-an-option"}`, nil); code != http.StatusBadRequest {
+		t.Errorf("off-menu answer = %d, want 400", code)
+	}
+	if code := post(`{"block":"nope","value":"semantic"}`, nil); code != http.StatusBadRequest {
+		t.Errorf("unknown block = %d, want 400", code)
+	}
+	if code := post(`{"block":"q1","value":"semantic"}`, map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://evil.example"}); code != http.StatusForbidden {
+		t.Errorf("cross-site answer = %d, want 403", code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "responses.json")); !os.IsNotExist(err) {
+		t.Fatalf("a refused answer wrote responses.json (stat err %v)", err)
+	}
+	if code := post(`{"block":"q1","value":"semantic"}`, map[string]string{"Sec-Fetch-Site": "same-origin", "Origin": "http://127.0.0.1:7420"}); code != http.StatusOK {
+		t.Errorf("same-origin answer = %d, want 200", code)
+	}
+}

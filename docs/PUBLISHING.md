@@ -225,7 +225,9 @@ When the user answers, harness-deck writes a sibling file to your report:
 
 The `responses` map is keyed by your interactive block's `id`. Read it at
 the start of your next run (or as a session-start hook) to pick up answers
-the user gave between invocations.
+the user gave between invocations. The server only records answers your
+report offered (an approval is exactly `approved` or `changes-requested`, a
+choice is one of your `options`), so you can match on the value directly.
 
 If `responses.json` doesn't exist, the user hasn't answered yet — no error,
 just an empty answer set.

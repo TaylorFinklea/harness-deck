@@ -215,7 +215,9 @@ starting point:
   directories searched for project roots; `project_markers` (default
   `[".docs/ai"]`) is what marks a child as a project. `bind` (default
   `127.0.0.1`) controls the listen interface — set it to a Tailscale IP or
-  `0.0.0.0` to reach the dashboard from a phone. `tls.cert` + `tls.key`
+  `0.0.0.0` to reach the dashboard from a phone. `trusted_networks` (default:
+  the Tailscale ranges) and `allowed_hosts` feed the server's request guard.
+  `tls.cert` + `tls.key`
   enable HTTPS (required for iOS push); issue them with `hdeck cert`.
   `push_subject` sets the VAPID contact for forks/self-hosters (validated at
   load: `https://` or `mailto:`).
@@ -251,8 +253,27 @@ starting point:
   types, missing `responses.json`, and absent config files all resolve to a
   sensible fallback rather than an error. This extends to writes — `hdeck cert`
   patches `config.json` as a raw map so fields it doesn't know survive.
-- Trust boundary: harness-deck is a local single-user tool, so the `html`
-  block and `safeHTML` template func intentionally bypass HTML escaping.
+- **Trust boundary is enforced, not assumed.** There is no login, so
+  `internal/server/guard.go` filters every request: client address (loopback,
+  this machine, `trusted_networks`), `Host` header (DNS-rebinding defense),
+  cross-origin state changes (`http.CrossOriginProtection`), and body size.
+  `Server.Handler()` is the bare mux for tests; `Serve` uses
+  `GuardedHandler()`. Answers are checked against the report
+  (`manifest.CheckAnswer`) before `responses.json` is written.
+- The `html` block and `safeHTML` template func intentionally bypass HTML
+  escaping, which is safe only because report pages carry a nonce-based
+  Content-Security-Policy (`page.tmpl`): author HTML can style and lay out but
+  never run script. Every renderer `<script>` must carry `nonce="{{.Nonce}}"`,
+  and renderer markup must not use inline `on*=` handlers — wire listeners in
+  script instead. `TestReportPageCSP` enforces both.
+
+## Landing page
+
+`site/index.html` is the static landing page (hand-written HTML/CSS, no build
+step). `.github/workflows/pages.yml` assembles it with `docs/screenshots/` and
+`docs/brand/` and deploys to GitHub Pages on pushes to `main` that touch them.
+README screenshots come from an isolated demo dataset; keep them in sync with
+UI changes.
 
 ## Release
 

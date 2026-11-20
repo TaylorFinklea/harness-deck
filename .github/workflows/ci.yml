@@ -35,6 +35,12 @@ jobs:
       - name: go test
         run: go test -race ./...
 
+      # Tooling only — `go run pkg@version` never touches go.mod, so the
+      # zero-dependency rule holds. Fails on any reachable known vulnerability
+      # in the standard library (i.e. a stale toolchain in go.mod).
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
   browser:
     runs-on: ubuntu-latest
     steps:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/TaylorFinklea/harness-deck/internal/config"
@@ -199,46 +200,17 @@ func saveNotifications(dests []notify.Destination) error {
 }
 
 // redactURL returns "<scheme>://<host>" so the settings UI shows what
-// destination the user is dealing with without echoing webhook tokens.
-// Falls back to the full URL when parsing fails (defensive: don't drop
-// the field entirely).
+// destination the user is dealing with without echoing webhook tokens in the
+// path or query, or credentials in the userinfo.
 func redactURL(raw string) string {
 	if raw == "" {
 		return ""
 	}
-	// Tiny manual split — avoids importing net/url for a one-line
-	// purpose; the URL was already validated at config load.
-	scheme := ""
-	rest := raw
-	if i := indexOfStr(raw, "://"); i >= 0 {
-		scheme = raw[:i] + "://"
-		rest = raw[i+3:]
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		// Unparseable (shouldn't happen: Validate ran at load). Show nothing
+		// secret rather than the raw value.
+		return "(unparseable URL)"
 	}
-	if i := indexOfByte(rest, '/'); i >= 0 {
-		rest = rest[:i]
-	}
-	return scheme + rest
-}
-
-// Tiny helpers used by redactURL — pulled out so the function reads as
-// a single intent rather than mixing index math with the return value.
-func indexOfStr(s, sub string) int {
-	if sub == "" {
-		return 0
-	}
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfByte(s string, b byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == b {
-			return i
-		}
-	}
-	return -1
+	return u.Scheme + "://" + u.Host
 }
