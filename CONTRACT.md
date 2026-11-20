@@ -157,9 +157,11 @@ Because the block is isolated:
 - **Your `<style>` and selectors stay inside the block** — they can't leak out
   and restyle the dashboard, and the page's CSS won't bleed into your markup.
   Style freely with bare selectors (`div { … }`) or inline `style="…"`.
-- **`<script>` does not execute** — html blocks are for layout/visuals, not
-  interactive JS widgets. (Need interactivity? That's a feature request for a
-  typed block.)
+- **No JavaScript runs** — not `<script>` tags, not inline `on*=` handlers,
+  not `javascript:` URLs, and forms can't submit. Report pages carry a
+  Content-Security-Policy that only admits the renderer's own scripts, so html
+  blocks are for layout/visuals, not interactive widgets. (Need interactivity?
+  That's a feature request for a typed block.)
 - **The Tokyo Night theme variables are available** (CSS custom properties
   inherit through the shadow boundary), so use them for colors that adapt to
   light/dark and restyle with the theme instead of hardcoding hex:
@@ -189,6 +191,12 @@ needs a unique `id` within the report.
 - **`decision`** — `{id, prompt, a, b}` — same A/B shape as `compare`; records
   the chosen side's `tag`.
 - **`approval`** — `{id, prompt}` — records `approved` or `changes-requested`.
+
+The server records an answer only if the report offered it: a `choice` or
+`multi` answer must come from `options`, `yesno` is `yes` or `no`, a
+`decision` is one of its two `tag`s, an approval is exactly `approved` or
+`changes-requested`, and a `text` answer is non-empty. Anything else is refused
+with `400`, so a harness can match on these values without defensive parsing.
 
 ## Versioning
 

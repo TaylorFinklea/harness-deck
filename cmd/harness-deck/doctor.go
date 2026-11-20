@@ -79,6 +79,9 @@ func cmdDoctor(args []string) {
 	add(checkVAPID(cfg))
 	add(staleUnitResult(findStaleUnits(), runtime.GOOS))
 	add(checkPort(cfg))
+	if needsFirewallProbe(cfg) {
+		add(checkExposure(cfg))
+	}
 	if r, applicable := checkTailscale(cfg); applicable {
 		add(r)
 	}
@@ -524,4 +527,31 @@ func nonLoopbackIP() string {
 		return ipn.IP.String()
 	}
 	return ""
+}
+
+// checkExposure grades who can reach a server bound beyond loopback. The
+// server refuses clients outside loopback, this machine's own addresses and
+// trusted_networks (default: the Tailscale ranges), so this reports that
+// boundary and warns when it has been opened to everyone.
+func checkExposure(cfg config.Config) checkResult {
+	nets, err := cfg.TrustedNets()
+	if err != nil {
+		return checkResult{Name: "exposure", Status: statusFail, Detail: err.Error(),
+			Fix: `fix trusted_networks in config.json (CIDRs like "100.64.0.0/10")`}
+	}
+	names := make([]string, len(nets))
+	for i, p := range nets {
+		if p.Bits() == 0 {
+			return checkResult{Name: "exposure", Status: statusWarn,
+				Detail: fmt.Sprintf("trusted_networks includes %s: anyone who can reach this machine can read reports and answer approvals", p),
+				Fix:    `narrow trusted_networks to your tailnet ("100.64.0.0/10") or LAN range`}
+		}
+		names[i] = p.String()
+	}
+	src := "default (Tailscale)"
+	if len(cfg.TrustedNetworks) > 0 {
+		src = "trusted_networks"
+	}
+	return checkResult{Name: "exposure", Status: statusOK,
+		Detail: fmt.Sprintf("bind %s; clients allowed from loopback, this machine, and %s: %s", cfg.Bind, src, strings.Join(names, ", "))}
 }

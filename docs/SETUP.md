@@ -78,6 +78,22 @@ Dashboard reachable over Tailscale, without push notifications:
 }
 ```
 
+Binding `0.0.0.0` does not expose the dashboard to every network the machine
+joins: the server refuses clients outside loopback, this machine's own
+addresses, and `trusted_networks` (default: the Tailscale ranges
+`100.64.0.0/10` and `fd7a:115c:a1e0::/48`). To use it from a LAN without
+Tailscale, opt that range in explicitly:
+
+```json
+{ "bind": "0.0.0.0", "trusted_networks": ["100.64.0.0/10", "fd7a:115c:a1e0::/48", "192.168.1.0/24"] }
+```
+
+The `Host` header must also name this machine — IP literals, `localhost`,
+`*.ts.net` names, the hostname, `public_url`'s host and the TLS cert's names
+pass. If you reach it through another DNS name, add it to `allowed_hosts`;
+otherwise requests get `421 Misdirected Request`, which is the DNS-rebinding
+defense working. `hdeck doctor` prints the effective boundary.
+
 Use `scan_roots` for parent directories like `~/git`. harness-deck discovers
 depth-1 children that contain `.docs/ai/` — override the marker with
 `project_markers` if your repos follow a different convention (any listed
