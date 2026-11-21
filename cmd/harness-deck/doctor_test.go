@@ -288,3 +288,19 @@ func TestIsStaleUnit(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckExposure(t *testing.T) {
+	cfg := config.Default()
+	cfg.Bind = "0.0.0.0"
+	if r := checkExposure(cfg); r.Status != statusOK || !strings.Contains(r.Detail, "100.64.0.0/10") {
+		t.Errorf("default: %+v", r)
+	}
+	cfg.TrustedNetworks = []string{"0.0.0.0/0"}
+	if r := checkExposure(cfg); r.Status != statusWarn {
+		t.Errorf("open to everyone: %+v, want warn", r)
+	}
+	cfg.TrustedNetworks = []string{"bogus"}
+	if r := checkExposure(cfg); r.Status != statusFail {
+		t.Errorf("bad CIDR: %+v, want fail", r)
+	}
+}

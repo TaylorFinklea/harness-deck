@@ -1,6 +1,7 @@
 package render
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -383,5 +384,36 @@ func TestNoTagsChipsWhenAbsent(t *testing.T) {
 	}`)
 	if strings.Contains(html, `class="report-tags"`) {
 		t.Error("report without tags should not render .report-tags div")
+	}
+}
+
+// TestReportPageCSP pins the report page's script lockdown: a CSP meta tag
+// with a fresh nonce, the nonce on every renderer-owned <script>, no inline
+// on* handlers in renderer markup, and a different nonce per render. Author
+// HTML (html blocks) can't learn the nonce, so its scripts and handlers are
+// inert in the browser.
+func TestReportPageCSP(t *testing.T) {
+	src := `{"schema":"harness-deck/report@1","id":"r","title":"t","project":"p","harness":"h","created":"2026-01-01T00:00:00Z","status":"awaiting-review","blocks":[{"type":"approval","id":"ok"}]}`
+	page := renderJSON(t, src)
+	m := regexp.MustCompile(`<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-([^']+)';[^"]*form-action 'none'"`).FindStringSubmatch(page)
+	if m == nil {
+		t.Fatal("report page has no script-src nonce CSP meta tag")
+	}
+	nonce := m[1]
+	// Drop the bodies of nonce-carrying scripts (their JS mentions tags in
+	// comments and strings); any <script> left over is a tag without it.
+	owned := regexp.MustCompile(`(?s)<script nonce="` + regexp.QuoteMeta(nonce) + `">.*?</script>`)
+	if n := len(owned.FindAllString(page, -1)); n == 0 {
+		t.Fatal("no nonce-carrying scripts found")
+	}
+	markup := owned.ReplaceAllString(page, "")
+	if s := regexp.MustCompile(`<script[^>]*>`).FindString(markup); s != "" {
+		t.Errorf("script tag without the page nonce: %s", s)
+	}
+	if h := regexp.MustCompile(`\son[a-z]+="`).FindString(markup); h != "" {
+		t.Errorf("renderer markup contains an inline event handler (%q); CSP blocks it — use addEventListener", h)
+	}
+	if again := renderJSON(t, src); strings.Contains(again, "nonce-"+nonce) {
+		t.Error("nonce reused across renders")
 	}
 }

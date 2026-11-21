@@ -6,7 +6,9 @@ package render
 
 import (
 	"bytes"
+	"crypto/rand"
 	"embed"
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"math"
@@ -47,6 +49,7 @@ func New() (*Renderer, error) {
 func (r *Renderer) Report(rep *manifest.Report, responses map[string]respond.Response, sig string) ([]byte, error) {
 	pv := r.buildPage(rep, responses)
 	pv.Sig = sig
+	pv.Nonce = newNonce()
 	var buf bytes.Buffer
 	if err := r.tmpl.ExecuteTemplate(&buf, "page", pv); err != nil {
 		return nil, fmt.Errorf("render report: %w", err)
@@ -78,6 +81,18 @@ type pageView struct {
 	CSS     template.CSS
 	JS      template.JS
 	Favicon template.URL
+	// Nonce is this render's Content-Security-Policy script nonce. Every
+	// renderer-owned <script> carries it; author HTML can't know it.
+	Nonce string
+}
+
+// newNonce returns 128 random bits, base64-encoded, for the page's CSP.
+func newNonce() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic("harness-deck: crypto/rand failed: " + err.Error()) // never happens on supported platforms
+	}
+	return base64.StdEncoding.EncodeToString(b[:])
 }
 
 // relatedView is one entry in the "related" panel on a report page.

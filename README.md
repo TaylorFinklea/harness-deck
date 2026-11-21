@@ -1,11 +1,12 @@
 <p align="center">
-  <img src="harness-deck.png" alt="harness-deck" width="128" />
+  <img src="docs/brand/hd.png" alt="harness-deck" width="128" />
 </p>
 
 # harness-deck
 
-A unified dashboard for AI coding work across multiple harnesses (Claude Code,
-Pi Mono, OpenCode, …) and across many projects.
+A local dashboard for AI coding work across every harness (Claude Code, Codex,
+OpenCode, Pi, …) and every project on your machine. One Go binary, zero
+dependencies, installs with Homebrew.
 
 Any harness writes a structured **report manifest** (`report.json`); harness-deck
 renders it into a consistent, terminal-styled HTML report and aggregates every
@@ -178,7 +179,9 @@ go build ./...               # build from source
 harness-deck is also a PWA. Open it on your phone over Tailscale, tap _Add to
 Home Screen_, and it installs as a standalone app. iOS lock-screen push
 notifications work too — the requirements are tailnet reachability and HTTPS.
-Set `"bind": "0.0.0.0"` (or your Tailscale IP) in the config, then:
+Set `"bind": "0.0.0.0"` (or your Tailscale IP) in the config — the server
+still only answers loopback, this machine, and your tailnet (see
+[Security model](#security-model)) — then:
 
 ```sh
 hdeck cert        # Tailscale HTTPS cert, written + wired into config.json
@@ -186,6 +189,10 @@ hdeck vapid       # one-time push identity
 brew services restart harness-deck
 hdeck doctor      # verifies TLS, push, and the phone path end to end
 ```
+
+<p align="center">
+  <img src="docs/screenshots/mobile-approval.png" alt="Approving a rollout from the phone PWA" width="300" />
+</p>
 
 Open the dashboard on your phone, visit the **settings** view, and tap
 _Enable notifications on this browser_. New asks land on the lock screen and
@@ -196,6 +203,33 @@ doctor` — the macOS Application Firewall silently drops inbound connections
 to unsigned binaries, and doctor prints the exact fix. Details, cert renewal
 (`hdeck cert --renew` in cron), and manual steps for older binaries:
 [`docs/SETUP.md`](docs/SETUP.md#6-optional-tailscale-https-pwa-and-push).
+
+## Security model
+
+harness-deck has no login, so it enforces a network boundary instead. Every
+request passes a guard before any handler runs:
+
+- **Who can connect.** Loopback and this machine always; beyond that only
+  `trusted_networks` (default: the Tailscale ranges `100.64.0.0/10` and
+  `fd7a:115c:a1e0::/48`). `"bind": "0.0.0.0"` reaches your tailnet, not the
+  café Wi-Fi. Add a range such as `"192.168.1.0/24"` to opt a LAN in.
+- **Which Host.** The `Host` header must name this machine (IP literals,
+  `localhost`, `*.ts.net`, the hostname, `public_url`, the TLS cert's names, or
+  `allowed_hosts`). That defeats DNS rebinding: a web page can't point its own
+  domain at `127.0.0.1` and read your reports.
+- **Which origin.** State-changing requests from another origin are refused
+  (Go's `http.CrossOriginProtection`), so a page you visit can't answer an
+  approval or add a webhook. Harness scripts and `curl` are unaffected.
+- **Which answers.** An answer is recorded only if the report offered it: an
+  approval is exactly `approved` or `changes-requested`, a choice is one of its
+  options.
+- **What a report can run.** Report pages carry a Content-Security-Policy
+  whose script nonce only the renderer knows. Raw `html` blocks render
+  styles, layout and SVG, but their `<script>` tags and `on*=` handlers never
+  run, so a report written by a prompt-injected agent can't act as you.
+
+`hdeck doctor` reports the effective boundary and warns if it has been opened
+to everyone.
 
 ## Notification fan-out
 

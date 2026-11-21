@@ -3,13 +3,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+{{/* Only the renderer's own scripts (carrying this page's nonce) may run.
+     Raw html blocks are author content: an injected <script>, an inline
+     on* handler, or a </template> breakout all lack the nonce and are
+     blocked, so a report can't act as the user (answer its own approval,
+     add a webhook). form-action 'none' stops a block from posting a form
+     to this origin. Styles stay unrestricted: html blocks rely on them. */}}
+<meta http-equiv="Content-Security-Policy" content="script-src 'nonce-{{.Nonce}}'; object-src 'none'; base-uri 'none'; form-action 'none'" />
 <title>harness-deck · {{.Report.Title}}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#161723" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="harness-deck" />
-<script>
+<script nonce="{{.Nonce}}">
   // Apply the saved theme preference before the page renders so we don't
   // flash dark/light incorrectly. "system" (or absent) defers to the
   // prefers-color-scheme media query in tokyo-night.css.
@@ -43,16 +50,16 @@
     <div class="report-actions vim-no-search">
       <button id="hd-pin-btn" type="button" title="pin to sidebar (p)" data-pinned="false">📌 pin<span class="hd-hint">p</span></button>
       {{if eq .Report.Status "done"}}
-        <button onclick="hdReopen()" title="reopen (back to inbox)">↺ reopen<span class="hd-hint">r</span></button>
+        <button type="button" data-report-action="reopen" title="reopen (back to inbox)">↺ reopen<span class="hd-hint">r</span></button>
       {{else}}
-        <button onclick="hdClose()" title="close (mark done)">✕ close<span class="hd-hint">x</span></button>
+        <button type="button" data-report-action="close" title="close (mark done)">✕ close<span class="hd-hint">x</span></button>
       {{end}}
       {{if .Report.Archived}}
-        <button onclick="hdUnarchive()" title="restore from archive">↺ unarchive<span class="hd-hint">a</span></button>
+        <button type="button" data-report-action="unarchive" title="restore from archive">↺ unarchive<span class="hd-hint">a</span></button>
       {{else}}
-        <button onclick="hdArchive()" title="hide from default views (recoverable)">📦 archive<span class="hd-hint">a</span></button>
+        <button type="button" data-report-action="archive" title="hide from default views (recoverable)">📦 archive<span class="hd-hint">a</span></button>
       {{end}}
-      <button onclick="hdDelete()" class="danger" title="delete the report file (permanent)">⌦ delete<span class="hd-hint">dd</span></button>
+      <button type="button" data-report-action="delete" class="danger" title="delete the report file (permanent)">⌦ delete<span class="hd-hint">dd</span></button>
     </div>
   </div>
   <div class="keyhints vim-no-search">
@@ -147,8 +154,8 @@
   <span class="seg pos">ln <span id="ln">1</span>:<span id="col">1</span></span>
 </div>
 
-<script>window.HD_REPORT = { project: {{.Report.Project}}, run: {{.Report.ID}}, title: {{.Report.Title}}, sig: {{.Sig}} };</script>
-<script>
+<script nonce="{{.Nonce}}">window.HD_REPORT = { project: {{.Report.Project}}, run: {{.Report.ID}}, title: {{.Report.Title}}, sig: {{.Sig}} };</script>
+<script nonce="{{.Nonce}}">
   /* close / reopen / delete — POST then bounce to the dashboard. */
   function hdAction(action, method) {
     var base = '/r/' + encodeURIComponent(HD_REPORT.project) + '/' + encodeURIComponent(HD_REPORT.run);
@@ -168,6 +175,15 @@
     if (!confirm('Permanently delete this report? This removes the run directory from disk. Archive instead if you might want it back.')) return;
     hdAction('', 'DELETE');
   }
+  /* Action buttons are wired here rather than with inline onclick
+     attributes, which the page's Content-Security-Policy blocks. */
+  (function () {
+    var actions = { close: hdClose, reopen: hdReopen, archive: hdArchive, unarchive: hdUnarchive, 'delete': hdDelete };
+    document.querySelectorAll('[data-report-action]').forEach(function (btn) {
+      var fn = actions[btn.dataset.reportAction];
+      if (fn) btn.addEventListener('click', fn);
+    });
+  })();
 
   /* Keyboard bindings for the report-level action buttons. Mirror the
      inbox row actions (x close, a archive, dd delete) so muscle memory
@@ -210,8 +226,8 @@
     });
   })();
 </script>
-<script>{{.JS}}</script>
-<script>
+<script nonce="{{.Nonce}}">{{.JS}}</script>
+<script nonce="{{.Nonce}}">
   setInterval(() => {
     const d = new Date(), p = (n) => String(n).padStart(2, '0');
     document.getElementById('clock').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());

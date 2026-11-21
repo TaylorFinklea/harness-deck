@@ -1324,3 +1324,37 @@ stdin, an explicit github.com repository target, and no credential logging.
 Release verification checks both downloaded macOS binaries against published
 checksums, the Homebrew formula and accepted Apple ticket CDHashes. A standalone
 Mach-O executable's `spctl` result is not sufficient notarization evidence.
+
+## 2026-11-19 — Enforce the trust boundary in code (request guard + CSP)
+
+A review reproduced two exploitable gaps. (1) No request checked its origin or
+client: a foreign-Origin, rebound-Host, `text/plain` POST approved an approval
+gate, and the same hole could add a notification webhook to exfiltrate every
+future ask. The docs also recommended `"bind": "0.0.0.0"`, which exposed the
+unauthenticated server to every network the laptop joined, contradicting
+"the tailnet is the auth" (2026-05 decisions above). (2) A raw `html` block could
+run script: an inline `onerror` handler fired inside the shadow root, and a
+`</template>` breakout ran a real `<script>` in the dashboard origin. Together
+they let a prompt-injected agent publish a report that approves its own gate.
+
+Decision: keep "no login" and enforce the boundary in `internal/server/guard.go`
+in front of every route: client address must be loopback, this machine, or
+`trusted_networks` (default Tailscale `100.64.0.0/10` + `fd7a:115c:a1e0::/48`);
+`Host` must name this machine (IP literal, localhost, `*.ts.net`, hostname,
+`public_url`, cert SANs, `allowed_hosts`) to defeat DNS rebinding; unsafe
+methods pass stdlib `http.CrossOriginProtection`; bodies are capped at 1 MiB.
+Non-browser clients send no Origin/Sec-Fetch-Site and are unaffected. Answers
+are validated against the report (`manifest.CheckAnswer`) so harnesses can
+trust approval values. Report pages carry a nonce CSP (`script-src
+'nonce-…'; object-src 'none'; base-uri 'none'; form-action 'none'`); renderer
+inline `onclick` handlers moved to listeners. Styles stay unrestricted because
+html blocks depend on them.
+
+Rejected: a bearer token/pairing flow (adds login UX to a local tool; the
+network boundary plus origin checks covers the threat), and escaping
+`</template>` (insufficient alone — handlers still fire in the shadow root).
+Compatibility: a LAN-only (non-Tailscale) phone setup now gets 403 until its
+range is added to `trusted_networks`; the error message and doctor say so.
+Also: `ReadHeaderTimeout` added (no whole-request `ReadTimeout`, which would
+cancel SSE), notify command runs off the request path, go.mod pins `toolchain
+go1.27.4` (v0.2.17 shipped on go1.26.3), and CI/release run govulncheck.

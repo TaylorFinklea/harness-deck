@@ -22,6 +22,7 @@ import (
 	"github.com/TaylorFinklea/harness-deck/internal/assets"
 	"github.com/TaylorFinklea/harness-deck/internal/beads"
 	"github.com/TaylorFinklea/harness-deck/internal/config"
+	"github.com/TaylorFinklea/harness-deck/internal/manifest"
 	"github.com/TaylorFinklea/harness-deck/internal/notify"
 	"github.com/TaylorFinklea/harness-deck/internal/projects"
 	"github.com/TaylorFinklea/harness-deck/internal/push"
@@ -46,6 +47,9 @@ type Server struct {
 	shell    *template.Template
 	hub      *hub
 	mux      *http.ServeMux
+	// handler is mux behind the request guard (network, Host, cross-origin
+	// and body-size checks). Serve uses it; Handler exposes the bare mux.
+	handler http.Handler
 	// Push state. pushKeys is nil until the user runs `harness-deck vapid`;
 	// when nil the push endpoints return 503 and the watcher skips notifying.
 	pushKeys *push.Keys
@@ -181,6 +185,7 @@ func New(cfg config.Config) (*Server, error) {
 	mux.HandleFunc("GET /icon-512.png", s.handleIconPNG(assets.IconPNG512))
 	mux.HandleFunc("GET /icon-1024.png", s.handleIconPNG(assets.IconPNG1024))
 	s.mux = mux
+	s.handler = newGuard(cfg, mux)
 	return s, nil
 }
 
@@ -201,8 +206,27 @@ func (s *Server) changeFingerprint() string {
 	return s.store.Signature() + "|" + s.projects.Fingerprint()
 }
 
-// Handler exposes the routes (used by tests).
+// Handler exposes the bare routes, without the request guard. Tests use it to
+// drive handlers directly; GuardedHandler is what Serve listens with.
 func (s *Server) Handler() http.Handler { return s.mux }
+
+// GuardedHandler is the production handler: the routes behind the request
+// guard (see guard.go).
+func (s *Server) GuardedHandler() http.Handler { return s.handler }
+
+// newHTTPServer builds the listener with timeouts. ReadHeaderTimeout stops a
+// client from holding a connection open by trickling headers. There is no
+// ReadTimeout or WriteTimeout: /events is a long-lived SSE stream, and a
+// whole-request read deadline would cancel its context after it expires.
+// Body size is bounded by the guard's MaxBytesReader instead.
+func (s *Server) newHTTPServer(addr string) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           s.handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+}
 
 // Serve starts the change watcher and the HTTP server. When the config has
 // both a TLS cert and key, it serves HTTPS — required for iOS web push.
@@ -240,12 +264,9 @@ func (s *Server) Serve() error {
 				}
 			}
 		}()
-		return http.ListenAndServeTLS(addr,
-			certPath,
-			config.Expand(s.cfg.TLS.Key),
-			s.mux)
+		return s.newHTTPServer(addr).ListenAndServeTLS(certPath, config.Expand(s.cfg.TLS.Key))
 	}
-	return http.ListenAndServe(addr, s.mux)
+	return s.newHTTPServer(addr).ListenAndServe()
 }
 
 // certExpiryWarning reads the PEM file at certPath, parses the first
@@ -412,7 +433,7 @@ type respondRequest struct {
 // run's responses.json, fires the notify command, and refreshes the dashboard.
 func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 	project, run := r.PathValue("project"), r.PathValue("run")
-	_, entry, err := s.store.Get(project, run)
+	rep, entry, err := s.store.Get(project, run)
 	if err != nil {
 		http.Error(w, "report not found: "+err.Error(), http.StatusNotFound)
 		return
@@ -434,6 +455,13 @@ func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 		value = strings.Join(req.Values, ", ")
 		values = req.Values
 	}
+	// Only answers the report actually offered are recorded, so a harness
+	// reading responses.json can trust an approval is exactly "approved" or
+	// "changes-requested" rather than whatever a client chose to send.
+	if err := manifest.CheckAnswer(rep, req.Block, value, values); err != nil {
+		http.Error(w, "invalid answer: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 	if _, err := respond.Record(entry.Dir, project, run, respond.Response{
 		Block: req.Block, Value: value, Values: values, Note: req.Note,
 	}); err != nil {
@@ -453,11 +481,13 @@ func (s *Server) handleRespond(w http.ResponseWriter, r *http.Request) {
 	}); jerr == nil {
 		s.hub.broadcastEvent("response", string(evtData))
 	}
-	// Fire the notify command after the broadcast so a slow (but
-	// timeout-bounded) command can't delay the user-visible refresh.
-	if err := notify.Run(s.cfg.NotifyCommand, entry.Dir, project, run, req.Block, value, req.Note); err != nil {
-		log.Printf("harness-deck: notify command failed: %v", err)
-	}
+	// Fire the notify command in the background so a slow (but
+	// timeout-bounded) command can't delay the answer's HTTP response.
+	go func(command, dir, block, note string) {
+		if err := notify.Run(command, dir, project, run, block, value, note); err != nil {
+			log.Printf("harness-deck: notify command failed: %v", err)
+		}
+	}(s.cfg.NotifyCommand, entry.Dir, req.Block, req.Note)
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"ok":true}`))

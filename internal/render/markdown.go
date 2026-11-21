@@ -27,8 +27,10 @@ var (
 	// `[ ] `. Group 1 captures the inside ("x", "X", or " ").
 	reTask = regexp.MustCompile(`^\[([ xX])\]\s+`)
 	// reLink matches `[text](url)` after HTML escape, so brackets in text are
-	// preserved literally. Text is non-greedy, URL stops at `)`.
-	reLink = regexp.MustCompile(`\[([^\]]+)\]\(([^)\s]+)\)`)
+	// preserved literally. Text stops at the first `]`.
+	// The URL may contain one level of balanced parentheses, so
+	// Wikipedia-style targets like .../Foo_(bar) aren't cut short.
+	reLink = regexp.MustCompile(`\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)`)
 	// reAutolink matches `<https://…>` once it has been HTML-escaped to
 	// `&lt;https://…&gt;` by inlineMarkdown. We use the escaped form so the
 	// regex runs after the escape pass (otherwise `<` would have a meaning).

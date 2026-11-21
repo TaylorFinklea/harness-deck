@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -64,6 +65,18 @@ type Config struct {
 	// misconfig surfaces immediately rather than silently dropping
 	// notifications later.
 	Notifications []notify.Destination `json:"notifications,omitempty"`
+	// TrustedNetworks lists the CIDR ranges whose clients may use the
+	// dashboard when it is bound beyond loopback. Loopback and this
+	// machine's own addresses are always trusted. Empty means
+	// DefaultTrustedNetworks (the Tailscale ranges) — so "bind": "0.0.0.0"
+	// exposes the dashboard to the tailnet, not to the café Wi-Fi. Add a LAN
+	// range (e.g. "192.168.1.0/24") to opt that network in.
+	TrustedNetworks []string `json:"trusted_networks,omitempty"`
+	// AllowedHosts lists extra Host header names that refer to this machine
+	// (e.g. a custom DNS name). IP literals, localhost, *.ts.net names, the
+	// machine's hostname and public_url's host are always allowed; any other
+	// name is refused as a DNS-rebinding defense.
+	AllowedHosts []string `json:"allowed_hosts,omitempty"`
 	// Usage configures the footer usage monitors (CodexBar-style). Opt-in:
 	// nothing reads credentials or hits the network unless a provider is
 	// listed in Usage.Providers.
@@ -207,6 +220,9 @@ func Load() (Config, error) {
 			return c, fmt.Errorf("notifications[%d] (%q): %w", i, d.Name, err)
 		}
 	}
+	if _, err := c.TrustedNets(); err != nil {
+		return c, err
+	}
 	if c.PushSubject != "" {
 		if err := validatePushSubject(c.PushSubject); err != nil {
 			return c, fmt.Errorf("push_subject %q: %w", c.PushSubject, err)
@@ -280,4 +296,34 @@ func (c Config) BaseURL() string {
 		host = "127.0.0.1"
 	}
 	return fmt.Sprintf("%s://%s:%d", scheme, host, c.Port)
+}
+
+// DefaultTrustedNetworks are the Tailscale address ranges (CGNAT IPv4 and the
+// Tailscale ULA IPv6 prefix). They are the trusted networks when the config
+// names none, which matches the documented trust boundary: the tailnet is the
+// auth.
+var DefaultTrustedNetworks = []string{"100.64.0.0/10", "fd7a:115c:a1e0::/48"}
+
+// TrustedNets parses TrustedNetworks (or DefaultTrustedNetworks when empty)
+// into prefixes. An entry may be a CIDR or a bare IP (treated as /32 or
+// /128).
+func (c Config) TrustedNets() ([]netip.Prefix, error) {
+	src := c.TrustedNetworks
+	if len(src) == 0 {
+		src = DefaultTrustedNetworks
+	}
+	out := make([]netip.Prefix, 0, len(src))
+	for _, s := range src {
+		s = strings.TrimSpace(s)
+		if p, err := netip.ParsePrefix(s); err == nil {
+			out = append(out, p.Masked())
+			continue
+		}
+		if a, err := netip.ParseAddr(s); err == nil {
+			out = append(out, netip.PrefixFrom(a.Unmap(), a.Unmap().BitLen()))
+			continue
+		}
+		return nil, fmt.Errorf("trusted_networks: %q is not a CIDR range or IP address", s)
+	}
+	return out, nil
 }
